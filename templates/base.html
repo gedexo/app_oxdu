@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-nav-layout="vertical" data-theme-mode="light" data-header-styles="light" data-menu-styles="dark" data-toggled="close">
+
+<head>
+  {% load static compress %}
+  <!-- Meta Data -->
+  <meta charset="UTF-8">
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title> {% block title %}{{app_settings.site_title}}{% endblock %} </title>
+  <meta content="{% block description %}{{app_settings.site_title}}{% endblock %}" name="description">
+  <meta content="{{author}}" name="author">
+  <meta name="keywords" content="" />
+
+  <meta name="msapplication-TileColor" content="#ffffff">
+  <meta name="msapplication-config" content="{% static 'static/app/images/favicons/browserconfig.xml' %}?v=1.8">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="{{app_settings.favicon}}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{app_settings.favicon}}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{app_settings.favicon}}">
+  <link rel="manifest" href="{% static 'app/images/favicon/site.webmanifest' %}">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{% static 'app/assets/images/brand-logos/favicon.ico' %}" type="image/x-icon">
+
+    <!-- Main Theme Js -->
+    <script src="{% static 'app/assets/js/authentication-main.js' %}"></script>
+    
+    <!-- Bootstrap Css -->
+    <link id="style" href="{% static 'app/assets/libs/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" >
+
+    <!-- Style Css -->
+    <link href="{% static 'app/assets/css/styles.min.css' %}" rel="stylesheet" >
+
+    <!-- Custom Css -->
+    <link href="{% static 'app/css/custom.css' %}" rel="stylesheet" >
+
+    <!-- Icons Css -->
+    <link href="{% static 'app/assets/css/icons.css' %}" rel="stylesheet" >
+
+    {% block css %} {% endblock css %}
+
+</head>
+
+<body class="error-1">
+
+    {% block body %}
+    
+    {% endblock body %}
+
+    <!-- Bootstrap JS -->
+    <script src="{% static 'app/assets/libs/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- Show Password JS -->
+    <script src="{% static 'app/assets/js/show-password.js' %}"></script>
+
+</body>
+{% block javascript %}
+
+{% endblock %}
+</html>

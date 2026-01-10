@@ -1,0 +1,827 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{ object }}: {{ app_settings.site_title }}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+      <h1 class="page-title text-truncate">{{ title|title }}</h1>
+      <div class="btn-group" style="gap: 0.25rem;">
+        <a class="btn btn-icon p-0 border-0 bg-transparent shadow-none minimal-action-btn"
+           href="{% url 'masters:request_submission_pdf_download' object.pk %}"
+           target="_blank"
+           title="Print (PDF)">
+          <i class="fe fe-printer fs-20"></i>
+        </a>
+        
+        {% if request.user.usertype != "branch_staff" and latest_next_usertype == request.user.usertype and request.user.id not in latest_submitted_user_ids or request.user == object.creator and latest_next_usertype == "hr" %}
+              <a class="btn btn-icon p-0 border-0 bg-transparent shadow-none minimal-action-btn" href="{{ object.get_update_url }}" title="Edit">
+                  <i class="fe fe-edit fs-20"></i>
+              </a>
+          {% endif %}
+        
+        {% if request.user.is_superuser or request.user.usertype == "coo" or request.user.usertype == "hr"  %}
+          <a class="btn btn-icon p-0 border-0 bg-transparent shadow-none text-danger minimal-action-btn" href="{{ object.get_delete_url }}" title="Delete">
+            <i class="fe fe-trash-2 fs-20"></i>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Status Card Section -->
+    {% if is_branch_staff_user_of_creator or request.user == object.creator or is_usertype_shared %}
+      <div class="status-section mb-5">
+        <div class="status-container">
+          <div class="status-icon">
+            <div id="statusAnimation" class="animation-container"></div>
+          </div>
+          <div class="status-content">
+            <h2 class="status-title">
+                {% if object.status == 'approved' %}
+                    {% if latest_next_usertype == request.user.usertype and latest_next_usertype == object.creator.usertype or is_usertype_shared %}
+                        Request Completed
+                    {% else %}
+                        Request Under Review
+                    {% endif %}
+                {% elif object.status == 'rejected' %}
+                    {% if latest_next_usertype == request.user.usertype and latest_next_usertype == object.creator.usertype or is_usertype_shared %}
+                        Request Rejected
+                    {% else %}
+                        Request Under Review
+                    {% endif %}
+                {% else %}
+                    Request Under Review
+                {% endif %}
+            </h2>
+
+            <p class="status-subtitle">
+              {% if object.status == 'approved' %}
+                  {% if latest_next_usertype == request.user.usertype and latest_next_usertype == object.creator.usertype or is_usertype_shared %}
+                      The submission has been Completed.
+                  {% else %}
+                      The submission is currently under review and being processed.
+                  {% endif %}
+              {% elif object.status == 'rejected' %}
+                  {% if latest_next_usertype == request.user.usertype and latest_next_usertype == object.creator.usertype or is_usertype_shared %}
+                      The submission has been rejected.
+                  {% else %}
+                      The submission is currently under review and being processed.
+                  {% endif %}
+              {% else %}
+                  The submission is currently under review and being processed.
+              {% endif %}
+            </p>
+
+            {% if object.status == 'approved' or object.status == 'rejected' %}
+              {% if latest_next_usertype == request.user.usertype and latest_next_usertype == object.creator.usertype or is_usertype_shared %}
+                <div class="status-actions">
+                  <a href="{% url 'masters:request_submission_pdf' object.pk %}" target="_blank" class="pdf-view-btn">
+                    <i class="fe fe-file-text"></i>
+                    <span>View PDF</span>
+                  </a>
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Content Card Section -->
+    <div class="card content-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="detail-item mb-3">
+              <label class="detail-label">Title</label>
+              <div class="detail-value">{{ object.title }}</div>
+            </div>
+            <div class="detail-item mb-3">
+              <label class="detail-label">Submitted By</label>
+              <div class="detail-value">{{ object.branch_staff.get_full_name|default:object.branch_staff }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="detail-item mb-3">
+              <label class="detail-label">Created At</label>
+              <div class="detail-value">{{ object.created|date:"d M Y, h:i A" }}</div>
+            </div>
+            <div class="detail-item mb-3">
+              <label class="detail-label">Attachment</label>
+              <div class="detail-value">
+                {% if object.attachment %}
+                  <a href="{{ object.attachment.url }}" target="_blank" class="text-primary">Download File</a>
+                {% else %}
+                  <span class="text-muted">No attachment</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="detail-item">
+              <div class="d-flex justify-content-between w-100">
+                <label class="detail-label">Description</label>
+                {% if request.user.usertype == "director" or request.user.usertype == "OE" or request.user.is_superuser %}
+                <div class="detail-button btn btn-primary btn-sm view-description-btn" data-bs-toggle="modal" data-bs-target="#descriptionModal" data-remark-id="description-{{ object.id }}">View Request</div>
+                {% endif %}
+              </div>
+              
+              <div class="detail-value border-top pt-3 mt-2">
+              {% if request.user.usertype == "branch_staff" %}
+                  {% if object.description %}
+                    {{ object.description|safe }}
+                  {% else %}
+                    --
+                  {% endif %}
+              {% elif request.user.usertype == "hr" and object.creator.usertype == request.user.usertype %}
+                    {% if object.description %}
+                      {{ object.description|safe }}
+                    {% else %}
+                       --
+                    {% endif %}
+              {% else %}
+                {% if object.alternative_description %}
+                  {{ object.alternative_description|safe }}
+                {% else %}
+                  --
+                {% endif %}
+              {% endif %}
+              </div>
+              <script type="text/html" id="description-{{ object.id }}">
+                {{ object.description|safe }}
+              </script>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+    <!-- Status History Table Section -->
+    {% if request.user.usertype != "branch_staff" %}
+      <div class="card table-card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-bottom">
+          <h5 class="mb-0">Status History</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="bg-light">
+                <tr>
+                  <th>Date</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Remark</th>
+                  <th>Assigned To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for history in status_history %}
+                <tr>
+                  <td>{{ history.date|date:"d M Y, h:i A" }}</td>
+                  <td>{{ history.user|default:"-" }}</td>
+                  <td>{{ history.usertype }}</td>
+                  <td>
+                    {% if history.status == 'approved' %}
+                      <span class="badge bg-success-light">Completed</span>
+                    {% elif history.status == 'rejected' %}
+                      <span class="badge bg-danger-light">Rejected</span>
+                    {% elif history.status == 'forwarded' %}
+                      <span class="badge bg-info-light">Forwarded</span>
+                    {% elif history.status == 'pending' %}
+                      <span class="badge bg-warning-light text-white">Pending</span>
+                    {% elif history.status == 're_assign' %}
+                      <span class="badge bg-dark bg-gradient">Re Assign</span>
+                    {% else %}
+                      <span class="badge bg-secondary-light">{{ history.status }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                        {% if history.remark %}
+                            <button type="button"
+                                    class="btn btn-primary btn-sm view-remark-btn"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#remarkModal"
+                                    data-remark-id="remark-{{ forloop.counter }}">
+                                View Remark
+                            </button>
+                            <script type="text/html" id="remark-{{ forloop.counter }}">
+                              {{ history.remark|safe }}
+                            </script>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                  <td>{{ history.next_usertype|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">No history available</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+
+<!--Remark Modal -->
+<div class="modal fade" id="remarkModal" tabindex="-1" aria-labelledby="remarkModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="remarkModalLabel">Remark</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="remarkModalBody">
+        <!-- Remark content will appear here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--Detail Modal -->
+<div class="modal fade" id="descriptionModal" tabindex="-1" aria-labelledby="descriptionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="descriptionModalLabel">Request Description</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="descriptionModalBody">
+        <!-- Description content will appear here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
+{% block javascript %}
+<script src="https://unpkg.com/lottie-web@5.12.2/build/player/lottie.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById('statusAnimation');
+
+    const userType = "{{ request.user.usertype|escapejs }}";
+    const userId = "{{ request.user.id }}";
+    const creatorId = "{{ object.created_by.id }}";
+    const status = "{{ object.status|escapejs }}";
+    const currentUsertype = "{{ object.current_usertype|escapejs }}";
+    const latestNextUsertype = "{{ latest_next_usertype|escapejs }}";
+    const SharedUsertypes = {{ is_usertype_shared|yesno:"true,false" }};
+
+    const isbranch_staff = userType === "branch_staff";
+    const isCreator = userId === creatorId;
+    const isAuthorizedViewer = true;
+
+    if (container && isAuthorizedViewer) {
+      let animationPath = "";
+
+      if (status === "approved" && latestNextUsertype === userType || SharedUsertypes) {
+        animationPath = "{% static 'app/assets/animation/success.json' %}";
+      } else if (status === "rejected" && latestNextUsertype === userType || SharedUsertypes) {
+        animationPath = "{% static 'app/assets/animation/rejection.json' %}";
+      } else {
+        animationPath = "{% static 'app/assets/animation/timing.json' %}";
+      }
+
+      const animation = lottie.loadAnimation({
+        container: container,
+        renderer: "svg",
+        loop: !(status === "approved" || status === "rejected"),
+        autoplay: true,
+        path: animationPath
+      });
+
+      container.style.width = "100%";
+      container.style.height = "100%";
+
+      animation.addEventListener("data_failed", function () {
+        if (status === "approved") {
+          container.innerHTML = '<i class="fe fe-check-circle animation-fallback"></i>';
+        } else if (status === "rejected") {
+          container.innerHTML = '<i class="fe fe-x-circle animation-fallback"></i>';
+        } else {
+          container.innerHTML = '<i class="fe fe-clock animation-fallback"></i>';
+        }
+      });
+    }
+
+    // === Bootstrap Modal (Remarks) ===
+    document.querySelectorAll(".view-remark-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const remarkId = btn.getAttribute("data-remark-id");
+        const scriptTag = document.getElementById(remarkId);
+        if (scriptTag) {
+          document.getElementById("remarkModalBody").innerHTML = scriptTag.textContent;
+          new bootstrap.Modal(document.getElementById("remarkModal")).show();
+        }
+      });
+    });
+
+    // === Description Modal ===
+    document.querySelectorAll(".view-description-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const descriptionId = btn.getAttribute("data-remark-id");
+        const scriptTag = document.getElementById(descriptionId);
+        if (scriptTag) {
+          document.getElementById("descriptionModalBody").innerHTML = scriptTag.textContent;
+          new bootstrap.Modal(document.getElementById("descriptionModal")).show();
+        }
+      });
+    });
+
+    // Remove leftover backdrops when any modal is hidden
+    document.querySelectorAll('.modal').forEach(function (modalEl) {
+      modalEl.addEventListener('hidden.bs.modal', function () {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+      });
+    });
+  });
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const $select = $('#id_next_usertype');
+    const usertype = $select.data('user-usertype');
+
+    if (!usertype) return;
+
+    $select.select2();
+
+    $select.on('select2:open', function () {
+      setTimeout(() => {
+        $('#select2-id_next_usertype-results li').each(function () {
+          const $li = $(this);
+          const text = $li.text().trim();
+
+          if (text.startsWith(usertype) || text.includes(`${usertype} (Assigned)`)) {
+            $li
+              .attr('aria-disabled', 'true')
+              .addClass('select2-results__option--disabled');
+          }
+        });
+      }, 50);
+    });
+
+    $select.on('select2:selecting', function (e) {
+      if (e.params.args.data.text.startsWith(usertype)) {
+        e.preventDefault();
+      }
+    });
+  });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+
+  #remarkModal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #remarkModal .modal-backdrop {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1;
+  }
+  #remarkModal .modal-dialog {
+    position: relative;
+    z-index: 2;
+    margin: 2rem auto;
+  }
+  #remarkModal .modal-content {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    padding: 1.5rem;
+    position: relative;
+  }
+  #remarkModal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 1rem;
+  }
+  #remarkModal .modal-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  #remarkModal .close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #888;
+    cursor: pointer;
+  }
+  #remarkModal .modal-body {
+    font-size: 0.95rem;
+    color: #333;
+    word-break: break-word;
+  }
+
+  
+  /* Base Styles */
+  .page-header {
+    padding: 1rem 0;
+    border-bottom: none;
+  }
+  
+  .page-title {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 1.5rem;
+  }
+  
+  .btn-icon {
+    background: transparent;
+    border: none;
+    color: #718096;
+    padding: 0.375rem;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .btn-icon:hover {
+    background: #f7fafc;
+    color: #4a5568;
+  }
+
+  /* Status Section */
+  .status-section {
+    background: linear-gradient(135deg,
+        {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+            #f0fdf4
+        {% elif object.status == "approved" and is_usertype_shared %}
+            #f0fdf4
+        {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+            #fef2f2
+        {% elif object.status == "rejected" and is_usertype_shared %}
+            #fef2f2
+        {% else %}
+            #eff6ff
+        {% endif %} 0%,
+        {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+            #ecfdf5
+        {% elif object.status == "approved" and is_usertype_shared %}
+            #ecfdf5
+        {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+            #fef7f7
+        {% elif object.status == "rejected" and is_usertype_shared %}
+            #fef7f7
+        {% else %}
+            #dbeafe
+        {% endif %} 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid
+        {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+            #dcfce7
+        {% elif object.status == "approved" and is_usertype_shared %}
+            #dcfce7
+        {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+            #fecaca
+        {% elif object.status == "rejected" and is_usertype_shared %}
+            #fecaca
+        {% else %}
+            #bfdbfe
+        {% endif %};
+}
+  
+  .status-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+  
+  .status-icon {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background:
+        {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+            #10b981
+        {% elif object.status == "approved" and is_usertype_shared %}
+            #10b981
+        {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+            #ef4444
+        {% elif object.status == "rejected" and is_usertype_shared %}
+            #ef4444
+        {% else %}
+            #3b82f6
+        {% endif %};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px
+        {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+            rgba(16, 185, 129, 0.25)
+        {% elif object.status == "approved" and is_usertype_shared %}
+            rgba(16, 185, 129, 0.25)
+        {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+            rgba(239, 68, 68, 0.25)
+        {% elif object.status == "rejected" and is_usertype_shared %}
+            rgba(239, 68, 68, 0.25)
+        {% else %}
+            rgba(59, 130, 246, 0.25)
+        {% endif %};
+}
+  
+  .animation-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .animation-fallback {
+    font-size: 28px;
+    color: white;
+  }
+  
+  .status-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .status-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+              #065f46
+           {% elif object.status == "approved" and is_usertype_shared %}
+              #065f46
+           {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+              #991b1b
+           {% elif object.status == "rejected" and is_usertype_shared %}
+              #991b1b
+           {% else %}
+              #1e40af
+           {% endif %};
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+}
+
+.status-subtitle {
+    font-size: 0.875rem;
+    color: {% if object.status == "approved" and object.current_usertype == request.user.usertype %}
+              #065f46
+           {% elif object.status == "approved" and is_usertype_shared %}
+              #065f46
+           {% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}
+              #991b1b
+           {% elif object.status == "rejected" and is_usertype_shared %}
+              #991b1b
+           {% else %}
+              #1e40af
+           {% endif %};
+    margin: 0;
+    line-height: 1.5;
+}
+
+  
+  .status-remark {
+    background: white;
+    border: 1px solid {% if object.status == "approved" and object.current_usertype == request.user.usertype or is_shared_requests %}#bbf7d0{% elif object.status == "rejected" and object.current_usertype == request.user.usertype %}#fca5a5{% else %}#93c5fd{% endif %};
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.875rem;
+    color: {% if object.status == "approved" and object.current_usertype == request.user.usertype or is_shared_requests %}#065f46{% elif object.status == "rejected" and object.current_usertype == request.user.usertype or is_shared_requests %}#991b1b{% else %}#1e40af{% endif %};
+    line-height: 1.5;
+  }
+  
+  /* Status Actions */
+  .status-actions {
+    margin-top: 1rem;
+  }
+  
+  .pdf-view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: white;
+    border: 1px solid {% if object.status == "approved" or is_shared_requests %}#10b981{% elif object.status == "rejected" or is_shared_requests %}#ef4444{% else %}#3b82f6{% endif %};
+    border-radius: 8px;
+    color: {% if object.status == "approved" or is_shared_requests %}#10b981{% elif object.status == "rejected" or is_shared_requests %}#ef4444{% else %}#3b82f6{% endif %};
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .pdf-view-btn:hover {
+    background: {% if object.status == "approved" or is_shared_requests %}#10b981{% elif object.status == "rejected" or is_shared_requests %}#ef4444{% else %}#3b82f6{% endif %};
+    color: white;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px {% if object.status == "approved" or is_shared_requests %}rgba(16, 185, 129, 0.3){% elif object.status == "rejected" or is_shared_requests %}rgba(239, 68, 68, 0.3){% else %}rgba(59, 130, 246, 0.3){% endif %};
+  }
+  
+  .pdf-view-btn i {
+    font-size: 1rem;
+  }
+
+  /* Content Card */
+  .detail-item {
+    margin-bottom: 1.25rem;
+  }
+  
+  .detail-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+  }
+  
+  .detail-value {
+    font-size: 0.9375rem;
+    color: #1e293b;
+    line-height: 1.5;
+  }
+
+  /* Table Card */
+  .table-card {
+    margin-top: 2rem;
+  }
+  
+  table {
+    font-size: 0.875rem;
+  }
+  
+  table thead th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: #64748b;
+  }
+  
+  .badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+  }
+
+  /* Minimalistic Table */
+  .card.custom-card.mt-4 {
+      border-radius: 1.2rem;
+      border: 1.5px solid #e5e7eb;
+      box-shadow: none;
+      overflow: hidden;
+      background: #fff;
+  }
+  .table-responsive {
+      border-radius: 1.2rem;
+      overflow: scroll !important;
+  }
+  .table-bordered {
+      border: none;
+      background: #fff;
+  }
+  .table-bordered th,
+  .table-bordered td {
+      border: none !important;
+      border-bottom: 1px solid #f3f3f3 !important;
+      padding: 0.7rem 0.8rem;
+      font-size: 1.01rem;
+  }
+  .table-hover tbody tr:hover {
+      background: #f8fafc;
+  }
+  .table thead th {
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+      border-bottom: 2px solid #ececec !important;
+      font-size: 1.05rem;
+  }
+  .table tbody td {
+      color: #222;
+  }
+
+  .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem 2rem;
+      background: #fff;
+      border-radius: 1.2rem;
+      border: 1.5px solid #e5e7eb;
+      padding: 1.2rem 0.7rem;
+  }
+  .lottie-status {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 10px auto;
+      display: block;
+  }
+  .detail-item {
+      background: transparent;
+      border-radius: 0.7rem;
+      border: 1.5px solid #e5e7eb;
+      padding: 0.7rem 0.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      transition: border-color 0.2s, background 0.2s;
+  }
+  .detail-item:hover {
+      border-color: #dbeafe;
+      background: #f8fafc;
+  }
+  .detail-label {
+      color: #6b7280;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      letter-spacing: 0.01em;
+  }
+  .detail-value {
+      font-size: 0.90rem;
+      color: #222;
+      font-weight: 400;
+      word-break: break-word;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .status-section {
+      padding: 1.5rem;
+    }
+    
+    .status-container {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+    }
+    
+    .status-icon {
+      width: 56px;
+      height: 56px;
+    }
+    
+    .animation-fallback {
+      font-size: 24px;
+    }
+    
+    .status-title {
+      font-size: 1.25rem;
+    }
+    
+    .pdf-view-btn {
+      padding: 0.5rem 0.875rem;
+      font-size: 0.8125rem;
+    }
+    
+    .pdf-view-btn i {
+      font-size: 0.875rem;
+    }
+    
+    .content-card .row > div {
+      width: 100%;
+    }
+  }
+
+  .minimal-action-btn i {
+        transition: color 0.2s, transform 0.2s;
+      }
+      .minimal-action-btn:hover i {
+        color: #0d6efd;
+        transform: scale(1.15);
+      }
+      .minimal-action-btn.text-danger:hover i {
+        color: #dc3545;
+      }
+
+</style>
+
+{% endblock %}

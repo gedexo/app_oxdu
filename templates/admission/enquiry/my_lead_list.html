@@ -1,0 +1,280 @@
+{% extends 'app/base.html' %}
+{% load static i18n django_tables2 %}
+
+{% block content %}
+<style>
+    /* Gradient Palette */
+    :root { 
+        --primary-gradient: linear-gradient(90deg, #ee4c24, #eb135e);
+        --primary-soft: linear-gradient(90deg, rgba(238, 76, 36, 0.1), rgba(235, 19, 94, 0.1));
+        --primary-solid: #ee4c24; 
+        --primary-pink: #eb135e;
+    }
+
+    @media (min-width: 1200px) {
+      .col-xl-5th {
+        flex: 0 0 20%;
+        max-width: 20%;
+      }
+    }
+
+
+    .main-content { background-color: #f8fafc; min-height: 100vh; }
+    
+    /* Global Widget Styling (Shared by Stats and Filters) */
+    .custom-card-widget {
+        background: white; 
+        border: 1px solid var(--primary-solid) !important; /* Force the custom border */
+        border-radius: 12px;
+        transition: all 0.2s ease;
+    }
+
+    /* Icon Box - Large (for Main Stats) */
+    .stat-icon-box {
+        background: var(--primary-gradient);
+        color: white; border-radius: 50%; width: 48px; height: 48px;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Icon Box - Mini (for Filter Headers) */
+    .filter-icon-box {
+        background: var(--primary-gradient);
+        color: white; border-radius: 50%; width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    /* Stats Card Specifics */
+    .stat-widget { padding: 1.25rem; }
+    .stat-widget.border-start-custom {
+        border-left: 5px solid var(--primary-pink) !important; /* Different color for variety */
+    }
+
+    /* Filter Card Specifics */
+    .filter-section-card {
+        height: 100%; display: flex; flex-direction: column;
+    }
+    .filter-header {
+        padding: 12px 16px; 
+        border-bottom: 1px solid #f1f5f9;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .filter-list {
+        padding: 8px; overflow-y: auto; max-height: 220px;
+    }
+    
+    /* Filter Item Styling */
+    .filter-link {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 8px 12px; border-radius: 8px; margin-bottom: 2px;
+        color: #475569; text-decoration: none; font-size: 0.85rem; transition: 0.2s;
+    }
+    .filter-link:hover { background: #f1f5f9; color: var(--primary-solid); }
+    
+    .filter-link.active {
+        background: var(--primary-soft) !important;
+        color: var(--primary-solid); 
+        font-weight: 700;
+    }
+    
+    .count-badge {
+        background: #f1f5f9; color: #64748b; padding: 2px 8px;
+        border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    }
+    .active .count-badge { 
+        background: var(--primary-gradient); 
+        color: white; 
+    }
+
+    /* Buttons */
+    .btn-primary {
+        background: var(--primary-gradient) !important;
+        border: none !important;
+        box-shadow: 0 4px 12px rgba(238, 76, 36, 0.2);
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* Scrollbar */
+    .filter-list::-webkit-scrollbar { width: 4px; }
+    .filter-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+</style>
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{title|title}}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if request.GET.urlencode %}
+          <a href="?" class="btn btn-warning" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+              class="fe fe-refresh-cw me-1"></i>Clear Filters </a>
+          {% endif %}
+          {% if can_add and new_link %}
+          <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+              class="fe fe-plus"></i>New </a>
+          {% endif %}
+          {% if table.paginated_rows %}
+          <a href="{% export_url 'xlsx' %}" class="btn btn-light3" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Export"> <i class="fe fe-download"></i> </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button"
+            aria-controls="offcanvasFilter" title="Filter Data"> <i class="fe fe-filter"></i> </a>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Dashboard Row -->
+    <div class="row g-3 mb-4">
+        <!-- Main Counter (Reference Card) -->
+        <div class="col-xl-5th">
+            <div class="custom-card-widget stat-widget shadow-sm d-flex align-items-center">
+                <div class="stat-icon-box me-3">
+                    <i class="fe fe-users fs-4"></i>
+                </div>
+                <div>
+                    <p class="text-muted small mb-0 uppercase fw-bold">Filtered Leads</p>
+                    <h2 class="fw-bold mb-0 fs-5">{{ total_count }}</h2>
+                </div>
+            </div>
+        </div>
+        {% for item in status_summary|slice:":4" %}
+        <div class="col-xl-5th">
+            <div class="custom-card-widget stat-widget shadow-sm d-flex align-items-center">
+                <div class="stat-icon-box me-3">
+                    <i class="fe fe-users fs-4"></i>
+                </div>
+                <div>
+                    <p class="text-muted small mb-0 uppercase fw-bold">{{ item.label }}</p>
+                    <h2 class="fw-bold mb-0 fs-5">{{ item.count }}</h2>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div> 
+
+    <!-- Advanced Filter Grid (Now identical styling) -->
+    <div class="row g-3 mb-4">
+      <!-- Status -->
+      <div class="col-lg-3 col-md-6">
+        <div class="custom-card-widget filter-section-card shadow-sm">
+          <div class="filter-header">
+            <div class="filter-icon-box"><i class="bi bi-funnel"></i></div>
+            <span class="fw-bold small text-uppercase text-muted">Status</span>
+          </div>
+          <div class="filter-list">
+            {% for item in status_summary %}
+            <a href="{% if request.GET.status == item.key %}{% querystring 'status'='' %}{% else %}{% querystring 'status'=item.key %}{% endif %}" 
+               class="filter-link {% if request.GET.status == item.key %}active{% endif %}">
+              <span>{{ item.label }}</span>
+              <span class="count-badge">{{ item.count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Branch -->
+      <div class="col-lg-3 col-md-6">
+        <div class="custom-card-widget filter-section-card shadow-sm">
+          <div class="filter-header">
+            <div class="filter-icon-box"><i class="bi bi-geo-alt"></i></div>
+            <span class="fw-bold small text-uppercase text-muted">Branch</span>
+          </div>
+          <div class="filter-list">
+            {% for item in branch_summary %}
+            <a href="{% if request.GET.branch == item.id|stringformat:'s' %}{% querystring 'branch'='' %}{% else %}{% querystring 'branch'=item.id %}{% endif %}" 
+               class="filter-link {% if request.GET.branch == item.id|stringformat:'s' %}active{% endif %}">
+              <span class="text-truncate" style="max-width: 150px;">{{ item.name }}</span>
+              <span class="count-badge">{{ item.count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Course -->
+      <div class="col-lg-3 col-md-6">
+        <div class="custom-card-widget filter-section-card shadow-sm">
+          <div class="filter-header">
+            <div class="filter-icon-box"><i class="bi bi-journal-bookmark"></i></div>
+            <span class="fw-bold small text-uppercase text-muted">Course</span>
+          </div>
+          <div class="filter-list">
+            {% for item in course_summary %}
+            <a href="{% if request.GET.course == item.id|stringformat:'s' %}{% querystring 'course'='' %}{% else %}{% querystring 'course'=item.id %}{% endif %}" 
+               class="filter-link {% if request.GET.course == item.id|stringformat:'s' %}active{% endif %}">
+              <span class="text-truncate" style="max-width: 150px;">{{ item.name }}</span>
+              <span class="count-badge">{{ item.count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Type -->
+      <div class="col-lg-3 col-md-6">
+        <div class="custom-card-widget filter-section-card shadow-sm">
+          <div class="filter-header">
+            <div class="filter-icon-box"><i class="bi bi-tag"></i></div>
+            <span class="fw-bold small text-uppercase text-muted">Type</span>
+          </div>
+          <div class="filter-list">
+            {% for item in type_summary %}
+            <a href="{% if request.GET.enquiry_type == item.key %}{% querystring 'enquiry_type'='' %}{% else %}{% querystring 'enquiry_type'=item.key %}{% endif %}" 
+               class="filter-link {% if request.GET.enquiry_type == item.key %}active{% endif %}">
+              <span>{{ item.label }}</span>
+              <span class="count-badge">{{ item.count }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <form action="" method="get" class="d-flex align-items-center">
+                        {% for key, value in request.GET.items %}{% if key != 'q' %}<input type="hidden" name="{{key}}" value="{{value}}">{% endif %}{% endfor %}
+                        <div class="input-group" style="max-width: 400px;">
+                            <span class="input-group-text bg-light border-end-0"><i class="fe fe-search text-muted"></i></span>
+                            <input type="text" name="q" class="form-control bg-light border-start-0" placeholder="Search..." value="{{request.GET.q}}">
+                            <button class="btn btn-primary px-4">Search</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                    <form action="" method="get" class="d-inline-block">
+                        {% for key, value in request.GET.items %}{% if key != 'table_pagination' %}<input type="hidden" name="{{key}}" value="{{value}}">{% endif %}{% endfor %}
+                        <div class="d-flex align-items-center">
+                            <span class="small text-muted me-2">Show</span>
+                            <select name="table_pagination" class="form-select form-select-sm" onchange="this.form.submit()" style="width: 80px;">
+                                <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                                <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                                <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            {% render_table table %}
+        </div>
+    </div>
+
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,318 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <div class="row mt-5">
+            {% comment %} {% include 'masters/partials/sidebar.html' %} {% endcomment %}
+            
+            <!-- Main Content Column -->
+            <div class="col-lg-12 col-xl-12">
+                {% include 'app/partials/messages.html' %}
+
+                <div class="card custom-card">
+                    <div class="card-header border-bottom-0 d-flex justify-content-between">
+                        <div class="card-title">{{ title|title }}</div>
+                        {% if not form %}
+                            <div class="btn-list">
+                                {% if can_add and new_link %}
+                                <a href="{{ new_link }}" class="btn btn-sm btn-outline-info" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> 
+                                    <i class="fe fe-plus"></i>New {{ verbose_name|title }} 
+                                </a>
+                                {% endif %}
+                                {% if table.paginated_rows %}
+                                <a href="{% export_url 'xlsx' %}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="Export"> <i class="fe fe-download"></i> </a>
+                                {% endif %}
+                                <a class="btn btn-sm btn-outline-info" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+                    
+                                <a class="btn btn-sm btn-outline-info" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button"
+                                aria-controls="offcanvasFilter" title="Filter Data"> <i class="fe fe-filter"></i> </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                {% if form %}
+                                <form class="form-horizontal-fieldset" method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                    {% csrf_token %}
+                                    
+                                    {% if form.fieldsets %}
+                                        {% for fieldset in form.fieldsets %}
+                                        <div class="mb-4 border rounded p-3">
+                                            <div class="mb-3">
+                                                <h5 class="mb-0">{{ fieldset.0 }}</h5>
+                                            </div>
+                                            <div>
+                                                {% if fieldset.1.description %}
+                                                    <p class="text-muted mb-4">{{ fieldset.1.description }}</p>
+                                                {% endif %}
+                                        
+                                                <div class="row">
+                                                  
+                                                        {% for field in form.fields %}
+                                                            <div class="col-md-3 mb-3">
+                                                                <div class="form-group">
+                                                                    {{ field|as_crispy_field }}
+                                                                </div>
+                                                            </div>
+                                                        {% endfor %}
+                                                    
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="card mb-4">
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    {% for field in form %}
+                                                        <div class="col-md-6 mb-3">
+                                                            <div class="form-group">
+                                                                {{ field|as_crispy_field }}
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                            
+                                    <div class="row mt-3">
+                                        <div class="col text-end">
+                                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                                            <button type="submit" name="save_add_new" class="btn btn-primary"><i class="fe fe-save"></i> Save and Add Another</button>
+                                            <button type="button" onclick="history.back()" class="btn btn-outline-info"><i class="fa fa-arrow-left"></i> Cancel</button>
+                                            
+                                            {% if object and can_delete %}
+                                                <a href="{{ object.get_delete_url }}" class="btn btn-danger float-right" >
+                                                    <i class="fa fa-trash"></i> Delete
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </form>
+                                {% else %}
+                                    {% if table.paginated_rows %}
+                                        <div class="row justify-content-between">
+                                            <div class="col-lg-6">
+                                            <div class="d-flex align-items-center">
+                                                <span>Show</span>
+                                                <div class="d-flex ms-2 mx-2">
+                                                <div class="form-group mb-0">
+                                                    <select name="table_pagination" id="select-table_pagination" class="form-control wd-150">
+                                                    <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                                                    <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                                                    <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                                                    <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                                                </select>
+                            
+                                                </div>
+                                                </div>
+                                                <span>entries</span>
+                                            </div>
+                                            </div>
+                                            <div class="col col-auto">
+                                            <form action="" id="table-search">
+                                                <div class="form-group w-100">
+                                                    <div class="input-icon" >
+                                                    <span class="input-icon-addon">
+                                                        <i class="fe fe-search"></i>
+                                                    </span>
+                                                        <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                                                    </div>
+                                                </div>
+                                            </form>
+                                            
+                                        </div>
+                                        
+                                        </div>
+                                        {% render_table table  %}
+                                        <nav class="mt-4">
+                                            {% if table.page and table.paginator.num_pages > 1 %}
+                                            <ul class="pagination justify-content-end mb-0">
+                                              {% if table.page.has_previous %}
+                                              <li class="page-item">
+                                                <a class="page-link"
+                                                  href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                                              </li>
+                                              {% else %}
+                                              <li class="page-item disabled">
+                                                <a class="page-link" href="javascript:void(0);">Prev</a>
+                                              </li>
+                                              {% endif %}
+                              
+                                              {% for p in table.page|table_page_range:table.paginator %}
+                                              <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                                                {% if p == '...' %}
+                                                <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                                                {% else %}
+                                                <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                                                {% endif %}
+                                              </li>
+                                              {% endfor %}
+                              
+                                              {% if table.page.has_next %}
+                                              <li class="page-item">
+                                                <a class="page-link"
+                                                  href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                                              </li>
+                                              {% else %}
+                                              <li class="page-item disabled">
+                                                <a class="page-link" href="javascript:void(0);">Next</a>
+                                              </li>
+                                              {% endif %}
+                                            </ul>
+                                            {% endif %}
+                                        </nav>
+                                    {% else %}
+                                        {{title|title}} {% translate "list is empty." %}
+                                        {% if can_add %}<a href="{{new_link}}">{% translate "Add New One" %}</a>{% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% block master_content %}{% endblock %}
+                
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block javascript %}
+{% include 'app/common/autocomplete.html' %}
+<script>
+  $(document).ready(function() {
+    // Get tax rates from select field's data-options
+    const taxRates = $('#id_tax').data('options');
+    
+    // Function to calculate price including tax
+    function calculatePriceIncludingTax(priceExcludingTax, taxRate) {
+        return priceExcludingTax * (1 + taxRate / 100);
+    }
+    
+    // Function to calculate price excluding tax
+    function calculatePriceExcludingTax(priceIncludingTax, taxRate) {
+        return priceIncludingTax / (1 + taxRate / 100);
+    }
+    
+    // Function to format number to 2 decimal places
+    function formatDecimal(number) {
+        return parseFloat(number.toFixed(2));
+    }
+    
+    // When tax select changes
+    $('#id_tax').on('change', function() {
+        const selectedTaxId = $(this).val();
+        const priceExcTax = parseFloat($('#id_price_exc_tax').val());
+        const priceIncTax = parseFloat($('#id_price_inc_tax').val());
+        
+        if (selectedTaxId && taxRates[selectedTaxId] !== undefined) {
+            const taxRate = taxRates[selectedTaxId];
+            
+            // If both price fields have values, recalculate based on which one was last modified
+            if (!isNaN(priceExcTax) && !isNaN(priceIncTax)) {
+                // Default to recalculating excluding tax from including tax
+                const newPriceExcTax = calculatePriceExcludingTax(priceIncTax, taxRate);
+                $('#id_price_exc_tax').val(formatDecimal(newPriceExcTax));
+            }
+            // If only excluding tax has value, calculate including tax
+            else if (!isNaN(priceExcTax)) {
+                const newPriceIncTax = calculatePriceIncludingTax(priceExcTax, taxRate);
+                $('#id_price_inc_tax').val(formatDecimal(newPriceIncTax));
+            }
+            // If only including tax has value, calculate excluding tax
+            else if (!isNaN(priceIncTax)) {
+                const newPriceExcTax = calculatePriceExcludingTax(priceIncTax, taxRate);
+                $('#id_price_exc_tax').val(formatDecimal(newPriceExcTax));
+            }
+        }
+    });
+    
+    // When price excluding tax changes
+    $('#id_price_exc_tax').on('input', function() {
+        const selectedTaxId = $('#id_tax').val();
+        const priceExcTax = parseFloat($(this).val());
+        
+        if (selectedTaxId && taxRates[selectedTaxId] !== undefined && !isNaN(priceExcTax)) {
+            const taxRate = taxRates[selectedTaxId];
+            const priceIncTax = calculatePriceIncludingTax(priceExcTax, taxRate);
+            $('#id_price_inc_tax').val(formatDecimal(priceIncTax));
+        }
+    });
+    
+    // When price including tax changes
+    $('#id_price_inc_tax').on('input', function() {
+        const selectedTaxId = $('#id_tax').val();
+        const priceIncTax = parseFloat($(this).val());
+        
+        if (selectedTaxId && taxRates[selectedTaxId] !== undefined && !isNaN(priceIncTax)) {
+            const taxRate = taxRates[selectedTaxId];
+            const priceExcTax = calculatePriceExcludingTax(priceIncTax, taxRate);
+            $('#id_price_exc_tax').val(formatDecimal(priceExcTax));
+        }
+    });
+});
+</script>
+{% endblock javascript %}
+
+{% block extra_css %}
+<style>
+.settings-section {
+    margin-bottom: 1rem;
+}
+
+.section-header {
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    border-left: 3px solid #6c757d;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.text-teal {
+    color: #20c997 !important;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Sidebar specific styles */
+.position-sticky {
+    height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.file-manager {
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+    .position-sticky {
+        position: relative !important;
+        height: auto;
+    }
+}
+</style>
+{% endblock extra_css %}

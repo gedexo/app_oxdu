@@ -1,0 +1,967 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{object}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{ title|title }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" href="{{ object.get_update_url }}" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Edit"> <i class="fe fe-edit"></i> </a>
+
+          <a class="btn btn-light3" href="{{ object.get_delete_url }}" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- Start::row-1 -->
+    <div class="row">
+      <div class="col-xxl-3 col-md-12 col-lg-12">
+        <div class="card box-widget widget-user custom-card">
+          <div class="card-body text-center">
+            <div class="widget-user-image mx-auto text-center">
+              {% if object.photo %}
+                <img class="avatar avatar-xxl avatar-rounded rounded-circle" alt="img" src="{{ object.photo.url }}">
+              {% else %}
+                <img class="avatar avatar-xxl avatar-rounded rounded-circle" alt="img" src="https://ui-avatars.com/api/?name={{ object.fullname|default:'' }}+{{ object.last_name|default:'' }}&background=fdc010&color=fff&size=128">
+              {% endif %}
+            </div>
+            <div class="pro-user mt-3">
+              <h5 class="pro-user-username text-dark mb-1 fs-16">{{ object.first_name }} {{ object.last_name }}</h5>
+              <h6 class="pro-user-desc text-muted fs-12 mb-1">{{ object.designation|default:"Employee" }}</h6>
+            </div>
+          </div>
+          <div class="card-footer p-0">
+            <div class="row mx-0">
+              <!-- Quick Contact Details -->
+              <div class="col-12 p-3">
+                <div class="quick-contact-info">
+                  <!-- Contact Items in Grid -->
+                  <div class="row g-2">
+                    <!-- Mobile -->
+                    {% if object.mobile %}
+                    <div class="col-12">
+                      <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <div class="me-3 text-primary">
+                          <i class="fe fe-phone fs-14"></i>
+                        </div>
+                        <div class="flex-fill">
+                          <small class="text-muted d-block fs-11">Mobile</small>
+                          <span class="text-dark fs-13 fw-semibold">{{ object.mobile }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- WhatsApp -->
+                    {% if object.whatsapp %}
+                    <div class="col-12">
+                      <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <div class="me-3 text-success">
+                          <i class="fe fe-message-circle fs-14"></i>
+                        </div>
+                        <div class="flex-fill">
+                          <small class="text-muted d-block fs-11">WhatsApp</small>
+                          <span class="text-dark fs-13 fw-semibold">{{ object.whatsapp }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Email -->
+                    {% if object.personal_email or object.official_email %}
+                    <div class="col-12">
+                      <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <div class="me-3 text-danger">
+                          <i class="fe fe-mail fs-14"></i>
+                        </div>
+                        <div class="flex-fill">
+                          <small class="text-muted d-block fs-11">Email</small>
+                          <span class="text-dark fs-13 fw-semibold text-break">{{ object.personal_email|default:object.official_email }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Father's Mobile -->
+                    {% if object.father_mobile %}
+                    <div class="col-12">
+                      <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <div class="me-3 text-warning">
+                          <i class="fe fe-user fs-14"></i>
+                        </div>
+                        <div class="flex-fill">
+                          <small class="text-muted d-block fs-11">Father's Mobile</small>
+                          <span class="text-dark fs-13 fw-semibold">{{ object.father_mobile }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Guardian's Mobile -->
+                    {% if object.guardian_mobile %}
+                    <div class="col-12">
+                      <div class="d-flex align-items-center p-2 bg-light rounded">
+                        <div class="me-3 text-info">
+                          <i class="fe fe-users fs-14"></i>
+                        </div>
+                        <div class="flex-fill">
+                          <small class="text-muted d-block fs-11">Guardian's Mobile</small>
+                          <span class="text-dark fs-13 fw-semibold">{{ object.guardian_mobile }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-12 mt-2">
+                      <div class="d-flex gap-2">
+                        <!-- Open & Download Button -->
+                        <a href="{% url 'employees:employee_appointment' object.id %}" target="_blank" 
+                          class="btn btn-success-transparent flex-fill d-flex align-items-center justify-content-center border-success">
+                          <i class="fe fe-file-text me-2 fs-14"></i>
+                          Appointment Letter
+                        </a>
+
+                        {% if request.user.usertype == "hr" %}
+                          {% if not object.is_appointment_letter_sent %}
+                            <!-- Share Button -->
+                            <button type="button"
+                              data-employee-id="{{ object.id }}"
+                              data-employee-email="{{ object.personal_email|default:'' }}"
+                              data-employee-name="{{ object.get_full_name|default:'Employee' }}"
+                              class="btn btn-warning-transparent d-flex align-items-center justify-content-center border-warning share-appointment-btn" 
+                              style="width: 100px;">
+                              <i class="fe fe-share-2 fs-14 me-2"></i>
+                              Share
+                            </button>
+                          {% else %}
+                            <!-- Sent Badge -->
+                            <div class="btn btn-success-transparent d-flex align-items-center justify-content-center border-success" 
+                              style="width: 100px;">
+                              <i class="fe fe-check fs-14 me-2"></i>
+                              Sent
+                            </div>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status and Additional Info -->
+              <div class="col-12 px-3 pb-3">
+                <div class="border-top pt-3">
+                  <!-- Status -->
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted fs-12">Status</span>
+                    {% if object.status == 'active' %}
+                      <span class="badge bg-success-transparent text-success fs-11">{{ object.get_status_display }}</span>
+                    {% elif object.status == 'inactive' %}
+                      <span class="badge bg-secondary-transparent text-secondary fs-11">{{ object.get_status_display }}</span>
+                    {% elif object.status == 'suspended' %}
+                      <span class="badge bg-warning-transparent text-warning fs-11">{{ object.get_status_display }}</span>
+                    {% else %}
+                      <span class="badge bg-danger-transparent text-danger fs-11">{{ object.get_status_display }}</span>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Employee ID -->
+                  {% if object.employee_id %}
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted fs-12">Employee ID</span>
+                    <span class="text-dark fs-13 fw-semibold">{{ object.employee_id }}</span>
+                  </div>
+                  {% endif %}
+
+                  <!-- Department -->
+                  {% if object.department %}
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted fs-12">Department</span>
+                    <span class="text-dark fs-13">{{ object.department }}</span>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="col-xxl-9 col-md-12 col-lg-12">
+        <div class="tab-menu-heading hremp-tabs p-0 border-0">
+          <div class="tabs-menu1">
+            <!-- Tabs -->
+            <ul class="nav panel-tabs" role="tablist">
+              <li class="ms-md-4"><a href="#tab5" class="active" data-bs-toggle="tab" aria-selected="true" role="tab">Personal Details</a></li>
+              <li><a href="#tab6" data-bs-toggle="tab" aria-selected="false" tabindex="-1" role="tab">Official Details</a></li>
+              <li><a href="#tab7" data-bs-toggle="tab" aria-selected="false" tabindex="-1" role="tab">Bank Details</a></li>
+              <li><a href="#tab8" data-bs-toggle="tab" aria-selected="false" tabindex="-1" role="tab">Documents</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="panel-body tabs-menu-body hremp-tabs1 p-0 card custom-card">
+          <div class="tab-content">
+            <div class="tab-pane border-0 active" id="tab5" role="tabpanel">
+              <div class="p-4">
+                <h4 class="mb-4 fw-bold">Personal Information</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Full Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <div class="row">
+                        <div class="col-md-6">
+                          <input type="text" class="form-control mb-md-0 mb-5" placeholder="First Name" value="{{ object.first_name }}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                          <input type="text" class="form-control" placeholder="Last Name" value="{{ object.last_name }}" readonly>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Personal Email</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.personal_email|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Gender</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.get_gender_display|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Marital Status</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.get_marital_status_display|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Mobile</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.mobile|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">WhatsApp</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.whatsapp|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Date of Birth</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.date_of_birth|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Religion</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.religion|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Blood Group</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.blood_group|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Experience</label>
+                    </div>
+                    <div class="col-md-9">
+                      <textarea rows="3" class="form-control" readonly>{{ object.experience|default:'Not provided' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Qualifications</label>
+                    </div>
+                    <div class="col-md-9">
+                      <textarea rows="3" class="form-control" readonly>{{ object.qualifications|default:'Not provided' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                
+                <h4 class="mb-4 mt-5 fw-bold">Parent Information</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Father Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.father_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Father Mobile</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.father_mobile|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Mother Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.mother_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Guardian Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.guardian_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Guardian Mobile</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.guardian_mobile|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Relationship</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.relationship_with_employee|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                
+                <h4 class="mb-4 mt-5 fw-bold">Address Information</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Type of Residence</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.type_of_residence|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Residence Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.residence_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Residential Address</label>
+                    </div>
+                    <div class="col-md-9">
+                      <textarea rows="3" class="form-control" readonly>{{ object.residential_address|default:'Not provided' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Residence Contact</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.residence_contact|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Residential Zip Code</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.residential_zip_code|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Permanent Address</label>
+                    </div>
+                    <div class="col-md-9">
+                      <textarea rows="3" class="form-control" readonly>{{ object.permanent_address|default:'Not provided' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Permanent Zip Code</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.permanent_zip_code|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-pane border-0" id="tab6" role="tabpanel">
+              <div class="p-4">
+                <h4 class="mb-4 fw-bold">Official Information</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Employee ID</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.employee_id|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Branch</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.branch|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Department</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.department|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Designation</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.designation|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Course</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.course|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Official Email</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.official_email|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Date of Joining</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.date_of_joining|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Date of Confirmation</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.date_of_confirmation|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Employment Type</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.get_employment_type_display|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Status</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.get_status_display|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                {% if object.status != 'active' %}
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Resigned Date</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.resigned_date|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Notice Date</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.notice_date|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Termination Date</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.termination_date|date:'d M Y'|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Termination Reason</label>
+                    </div>
+                    <div class="col-md-9">
+                      <textarea rows="3" class="form-control" readonly>{{ object.termination_reason|default:'Not provided' }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="tab-pane border-0" id="tab7" role="tabpanel">
+              <div class="p-4">
+                <h4 class="mb-4 fw-bold">Financial Information</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Bank Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.bank_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Account Name</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.account_name|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Bank Branch</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.bank_branch|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Account Number</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.account_number|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">IFSC Code</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.ifsc_code|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">PAN Number</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.pan_number|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                
+                <h4 class="mb-4 mt-5 fw-bold">Salary Details</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Basic Salary</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.basic_salary|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">HRA</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.hra|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Transportation Allowance</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.transportation_allowance|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Other Allowance</label>
+                    </div>
+                    <div class="col-md-9">
+                      <input type="text" class="form-control" value="{{ object.other_allowance|default:'Not provided' }}" readonly>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-pane border-0" id="tab8" role="tabpanel">
+              <div class="p-4">
+                <h4 class="mb-4 fw-bold">Documents</h4>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Aadhar Card</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.aadhar %}
+                        <a href="{{ object.aadhar.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Aadhar</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">PAN Card</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.pancard %}
+                        <a href="{{ object.pancard.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View PAN Card</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Offer Letter</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.offer_letter %}
+                        <a href="{{ object.offer_letter.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Offer Letter</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Joining Letter</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.joining_letter %}
+                        <a href="{{ object.joining_letter.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Joining Letter</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Agreement Letter</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.agreement_letter %}
+                        <a href="{{ object.agreement_letter.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Agreement Letter</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Experience Letter</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.experience_letter %}
+                        <a href="{{ object.experience_letter.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Experience Letter</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label class="form-label mb-0 mt-2">Resigned Form</label>
+                    </div>
+                    <div class="col-md-9">
+                      {% if object.resigned_form %}
+                        <a href="{{ object.resigned_form.url }}" target="_blank" class="btn btn-sm btn-outline-primary">View Resigned Form</a>
+                      {% else %}
+                        <span class="text-muted">Not uploaded</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!--End::row-1 -->
+
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  // Initialize tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+  });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Handle Share Button Click
+    const shareButtons = document.querySelectorAll('.share-appointment-btn');
+    
+    shareButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent default action
+            
+            const employeeId = this.getAttribute('data-employee-id');
+            const employeeEmail = this.getAttribute('data-employee-email');
+            const employeeName = this.getAttribute('data-employee-name');
+            
+            // Check if email exists
+            if (!employeeEmail || employeeEmail === 'None' || employeeEmail === '') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No Email Found',
+                    text: 'Employee email not found! Please add an email address first.',
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            
+            // Confirmation Dialog
+            Swal.fire({
+                title: 'Send Appointment Letter?',
+                html: `
+                    <div style="text-align: left;">
+                        <p>Do you want to send the appointment letter to:</p>
+                        <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <strong>${employeeName}</strong><br>
+                            <small style="color: #666;">${employeeEmail}</small>
+                        </div>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Send it!',
+                cancelButtonText: 'Cancel',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    // Make POST request
+                    return fetch(`/employees/share/appointment/${employeeId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .catch(error => {
+                        Swal.showValidationMessage(
+                            `Request failed: ${error.message}`
+                        );
+                    });
+                },
+                allowOutsideClick: () => !Swal.isLoading()
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const data = result.value;
+                    
+                    if (data.success) {
+                        // Success Alert
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Sent Successfully!',
+                            html: data.message,
+                            confirmButtonColor: '#28a745',
+                            confirmButtonText: 'Great!',
+                            timer: 3000,
+                            timerProgressBar: true,
+                        }).then(() => {
+                            // Reload page to update button state
+                            location.reload();
+                        });
+                    } else {
+                        // Error Alert
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Failed to Send',
+                            html: data.message,
+                            confirmButtonColor: '#d33',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,572 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{ title|title }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add %}
+          <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New">
+            <i class="fe fe-plus"></i> New
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <div class="row">
+        {% include 'app/partials/messages.html' %}
+        <div class="col-md-12">
+            <div class="card custom-card">
+                <div class="card-body">
+                    {% if syllabus_masters %}
+                    <div class="accordion syllabusAccordion" id="syllabusAccordion">
+                        {% for master in syllabus_masters %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header d-flex justify-content-between align-items-center me-1" id="heading{{ master.id }}">
+                                <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" 
+                                        type="button" 
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#collapse{{ master.id }}" 
+                                        aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" 
+                                        aria-controls="collapse{{ master.id }}">
+                                    <span class="me-2 fw-bold">{{ master.order_id|default:"--" }}.</span>
+                                    {{ master.get_month_display }} {{ master.get_week_display }} - {{ master.title|default:"" }}
+                                    <span class="badge bg-primary ms-2">{{ master.active_syllabus|length }} topics</span>
+                                </button>
+
+                                {% if request.user.usertype != 'student' and request.user.usertype != "teacher" %}
+                                <div class="ms-2 d-flex">
+                                    <!-- Edit button -->
+                                    <a href="{{ master.get_update_url }}" 
+                                    class="btn btn-sm btn-outline-primary me-1" 
+                                    data-bs-toggle="tooltip" 
+                                    title="Edit Syllabus Master">
+                                        <i class="fe fe-edit"></i>
+                                    </a>
+
+                                    <!-- View Report button -->
+                                    <a href="{% url 'masters:syllabus_report' master.id %}" 
+                                        class="btn btn-sm btn-outline-success" 
+                                        data-bs-toggle="tooltip" 
+                                        title="View Report">
+                                            <i class="fe fe-file-text"></i>
+                                    </a>
+
+                                    <a href="{{ master.get_delete_url }}" 
+                                        class="btn btn-sm btn-outline-danger ms-1" 
+                                        data-bs-toggle="tooltip" 
+                                        title="Delete Syllabus Master">
+                                            <i class="fe fe-trash-2"></i>
+                                    </a>
+                                </div>
+                                {% endif %}
+
+                                {% if request.user.usertype == "teacher" %}
+                                    <a href="{% url 'masters:batch_syllabus_report' master.id %}" 
+                                        class="btn btn-sm btn-outline-success" 
+                                        data-bs-toggle="tooltip" 
+                                        title="View Report">
+                                            <i class="fe fe-file-text"></i>
+                                    </a>
+                                {% endif %}
+                            </h2>
+
+                            <div id="collapse{{ master.id }}" 
+                                class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                                aria-labelledby="heading{{ master.id }}">
+                                <div class="accordion-body">
+                                    {% if master.active_syllabus %}
+                                    <div class="table-container">
+                                        <table class="modern-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Title</th>
+                                                    <th>Description</th>
+                                                    <th>Attachment</th>
+                                                    {% if request.user.usertype == 'student' %}
+                                                        <th>Status</th>
+                                                    {% endif %}
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for syllabus in master.active_syllabus %}
+                                                <tr>
+                                                    <td class="serial-number">{{ forloop.counter }}</td>
+                                                    <td class="title-cell">
+                                                        <div class="title-content">{{ syllabus.title }}</div>
+                                                    </td>
+                                                    <td class="content-cell">
+                                                        {% if syllabus.description %}
+                                                            <div class="text-content">
+                                                                {{ syllabus.description|striptags|truncatewords:12 }}
+                                                                {% if syllabus.description|striptags|wordcount > 12 %}
+                                                                <a href="#" 
+                                                                class="read-more" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#contentModal" 
+                                                                data-title="Description" 
+                                                                data-content="{{ syllabus.description|escape }}">
+                                                                    Read More
+                                                                </a>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-muted">---</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    
+                                                    <td class="attachment-cell">
+                                                        {% if syllabus.attachment_url %}
+                                                            <a href="{{ syllabus.attachment_url }}" 
+                                                            target="_blank" 
+                                                            class="attachment-btn" 
+                                                            data-bs-toggle="tooltip"
+                                                            title="Download attachment">
+                                                                <i class="fe fe-download"></i>
+                                                            </a>
+                                                        {% else %}
+                                                            <span class="no-attachment">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    {% if request.user.usertype == 'student' %}
+                                                        <td class="status-cell">
+                                                            <span class="status-badge status-{{ syllabus.user_status|default:'pending' }}">
+                                                                {{ syllabus.user_status|default:"pending"|title }}
+                                                            </span>
+                                                        </td>
+                                                    {% endif %}
+                                                    <td class="actions-cell">
+                                                        {% if request.user.usertype != 'student' %}
+                                                        <div class="action-buttons">
+                                                            <a href="{{ syllabus.get_update_url }}" 
+                                                               class="btn-action btn-edit"
+                                                               data-bs-toggle="tooltip" 
+                                                               title="Edit Syllabus">
+                                                                <i class="fe fe-edit"></i>
+                                                            </a>
+                                                            {% if request.user.usertype != "teacher" %}
+                                                            <a href="{{ syllabus.get_delete_url }}" 
+                                                               class="btn-action btn-delete"
+                                                               data-bs-toggle="tooltip" 
+                                                               title="Delete Syllabus">
+                                                                <i class="fe fe-trash"></i>
+                                                            </a> 
+                                                            {% endif %}
+                                                        </div>
+                                                        {% else %}
+                                                        <!-- Green tick button for students and teachers -->
+                                                        <div class="action-buttons">
+                                                            {% if syllabus.user_status != 'completed' %}
+                                                            <button type="button" 
+                                                                    class="btn-action btn-complete" 
+                                                                    data-bs-toggle="modal" 
+                                                                    data-bs-target="#completeModal"
+                                                                    data-syllabus-id="{{ syllabus.id }}"
+                                                                    data-syllabus-title="{{ syllabus.title }}"
+                                                                    data-bs-toggle="tooltip" 
+                                                                    title="Mark as Completed">
+                                                                <i class="fe fe-check"></i>
+                                                            </button>
+                                                            {% else %}
+                                                            <span class="btn-action btn-completed" data-bs-toggle="tooltip" title="Completed">
+                                                                <i class="fe fe-check-circle"></i>
+                                                            </span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {% else %}
+                                    <div class="empty-state text-center">
+                                        <p class="empty-text">No active syllabus available for this week.</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state large">
+                        <div class="empty-icon">
+                            <i class="fe fe-book-open"></i>
+                        </div>
+                        <h4 class="empty-title">No syllabus available</h4>
+                        <p class="empty-text">Get started by creating your first syllabus master.</p>
+                        {% if request.user.usertype != 'student' %}
+                        <a href="{% url 'masters:syllabus_master_create' %}" class="btn btn-primary">
+                            <i class="fe fe-plus"></i> Create Syllabus Master
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<!-- Content Modal -->
+<div class="modal fade" id="contentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="contentModalLabel">Content</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="contentModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Complete Confirmation Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Completion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to mark "<span id="syllabusTitle"></span>" as completed?</p>
+        <p class="text-muted small">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="confirmComplete">Yes, Mark as Completed</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
+
+{% block javascript %}
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var contentModal = document.getElementById('contentModal');
+    var modalTitle = document.getElementById('contentModalLabel');
+    var modalBody = document.getElementById('contentModalBody');
+
+    contentModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var title = button.getAttribute('data-title');
+        var content = button.getAttribute('data-content');
+
+        modalTitle.textContent = title;
+        modalBody.innerHTML = content;
+    });
+
+    // Complete Modal Logic
+    var completeModal = document.getElementById('completeModal');
+    var syllabusTitle = document.getElementById('syllabusTitle');
+    var confirmCompleteBtn = document.getElementById('confirmComplete');
+    var currentSyllabusId = null;
+
+    completeModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        currentSyllabusId = button.getAttribute('data-syllabus-id');
+        var title = button.getAttribute('data-syllabus-title');
+        
+        syllabusTitle.textContent = title;
+    });
+
+    // Handle completion confirmation
+    confirmCompleteBtn.addEventListener('click', function() {
+        if (!currentSyllabusId) return;
+        
+        // Show loading state
+        confirmCompleteBtn.disabled = true;
+        confirmCompleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+        
+        // Send AJAX request
+        fetch("{% url 'masters:syllabus_status_update' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                syllabus_id: currentSyllabusId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close modal
+                var modal = bootstrap.Modal.getInstance(completeModal);
+                modal.hide();
+                
+                // Show success message
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Syllabus marked as completed successfully!',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    // Reload the page to reflect changes
+                    location.reload();
+                });
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to update status: ' + error.message
+            });
+        })
+        .finally(() => {
+            // Reset button state
+            confirmCompleteBtn.disabled = false;
+            confirmCompleteBtn.textContent = 'Yes, Mark as Completed';
+        });
+    });
+
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    // Expand / Collapse All Fix
+    const accordion = document.getElementById('syllabusAccordion');
+    if (accordion) {
+        const expandAllBtn = document.createElement('button');
+        expandAllBtn.className = 'btn btn-sm btn-outline-secondary mb-3 me-2';
+        expandAllBtn.innerHTML = '<i class="fe fe-chevron-down"></i> Expand All';
+        
+        const collapseAllBtn = document.createElement('button');
+        collapseAllBtn.className = 'btn btn-sm btn-outline-secondary mb-3';
+        collapseAllBtn.innerHTML = '<i class="fe fe-chevron-up"></i> Collapse All';
+        
+        const accordionParent = accordion.parentNode;
+        accordionParent.insertBefore(expandAllBtn, accordion);
+        accordionParent.insertBefore(collapseAllBtn, accordion);
+
+        expandAllBtn.addEventListener('click', function() {
+            accordion.querySelectorAll('.accordion-collapse').forEach(collapse => {
+                if (!collapse.classList.contains("show")) {
+                    bootstrap.Collapse.getOrCreateInstance(collapse).show();
+                }
+            });
+        });
+
+        collapseAllBtn.addEventListener('click', function() {
+            accordion.querySelectorAll('.accordion-collapse').forEach(collapse => {
+                if (collapse.classList.contains("show")) {
+                    bootstrap.Collapse.getOrCreateInstance(collapse).hide();
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Modern Table Styles */
+.table-container {
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+}
+
+/* Table header */
+.modern-table thead {
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important; /* muted slate blue/gray */
+    color: #fff;
+}
+
+.modern-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+}
+
+.modern-table th:first-child {
+    border-top-left-radius: 10px;
+}
+.modern-table th:last-child {
+    border-top-right-radius: 10px;
+}
+
+/* Table body */
+.modern-table td {
+    padding: 9px 12px;
+    vertical-align: top;
+    border-bottom: 1px solid #eceef2;
+    color: #444;
+}
+
+.modern-table tbody tr:hover {
+    background-color: #f7f9fb; /* light bluish hover */
+}
+
+/* Column specifics */
+.serial-number {
+    font-weight: 600;
+    color: #3a4a5a;
+    text-align: center;
+    width: 40px;
+}
+
+.title-cell {
+    font-weight: 600;
+    color: #2d3436;
+    min-width: 140px;
+}
+.title-content {
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+.content-cell {
+    max-width: 250px;
+    color: #555;
+    font-size: 0.85rem;
+}
+
+.status-cell {
+    text-align: center;
+    width: 100px;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-completed {
+    background-color: #d1f2eb;
+    color: #27ae60;
+    border: 1px solid #82e0aa;
+}
+
+/* Buttons inside table */
+.attachment-btn,
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+}
+
+.attachment-btn {
+    background-color: #f1f3f5;
+    color: #3a4a5a;
+}
+.attachment-btn:hover {
+    background-color: #3a4a5a;
+    color: #fff;
+}
+
+.btn-edit {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #2e8b57;
+}
+.btn-edit:hover {
+    background-color: #2e8b57;
+    color: #fff;
+}
+
+.btn-delete {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: #c0392b;
+}
+.btn-delete:hover {
+    background-color: #c0392b;
+    color: #fff;
+}
+
+/* Green tick button styles */
+.btn-complete {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 2px solid #27ae60;
+    cursor: pointer;
+}
+.btn-complete:hover {
+    background-color: #27ae60;
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.btn-completed {
+    background-color: #27ae60;
+    color: #fff;
+    border: 2px solid #27ae60;
+    cursor: default;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .modern-table {
+        display: block;
+        overflow-x: auto;
+    }
+    .title-content {
+        max-width: 150px;
+    }
+    .content-cell {
+        max-width: 180px;
+    }
+    .status-cell {
+        width: 80px;
+    }
+}
+</style>
+{% endblock %}

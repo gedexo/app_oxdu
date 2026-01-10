@@ -1,0 +1,249 @@
+{% load static humanize %}
+
+<!-- Start::row-1 -->
+<div class="row">
+    <div class="col-xxl-12 col-md-12 col-lg-12">
+        <div class="row">
+            
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start">
+                                    <span class="fs-14 fw-medium">Total Students</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{student_count|default:"0" }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-primary my-auto float-end card-icon">
+                                    <i class="fas fa-graduation-cap"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start">
+                                    <span class="fs-14 fw-medium">Total Credited</span>
+                                    <h3 class="mb-0 mt-1 text-success mb-2">₹{{total_credited|default:"0"|floatformat:2|intcomma  }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-secondary my-auto float-end card-icon">
+                                    <i class="fe fe-dollar-sign"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start">
+                                    <span class="fs-14 fw-medium">Total Balances</span>
+                                    <h3 class="mb-0 mt-1 text-danger mb-2">₹{{total_balance|default:"0"|floatformat:2|intcomma  }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-danger my-auto float-end card-icon">
+                                    <i class="fe fe-credit-card"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'admission:admission_enquiry' %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start">
+                                        <span class="fs-14 fw-medium">Demo Leads</span>
+                                        <h3 class="mb-0 mt-1 text-success mb-2">{{demo_leads|default:"0" }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-secondary my-auto float-end card-icon">
+                                        <i class="fe fe-dollar-sign"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'masters:my_request_submission_list' %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start">
+                                        <span class="fs-14 fw-medium">Submitted Requests</span>
+                                        <h3 class="mb-0 mt-1 text-success mb-2">{{my_request_count|default:"0" }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-primary my-auto float-end card-icon">
+                                        <i class="fe fe-file-text"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'masters:my_request_submission_list' %}?status=approved">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start">
+                                        <span class="fs-14 fw-medium">Approved Requests</span>
+                                        <h3 class="mb-0 mt-1 text-success mb-2">{{my_approved_request_count|default:"0" }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-success my-auto float-end card-icon">
+                                        <i class="fe fe-check-circle"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-5th col-md-6 col-lg-3 mb-4">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'masters:my_request_submission_list' %}?status=rejected">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start">
+                                        <span class="fs-14 fw-medium">Rejected Requests</span>
+                                        <h3 class="mb-0 mt-1 text-danger mb-2">{{my_rejected_request_count|default:"0" }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-danger my-auto float-end card-icon">
+                                        <i class="fe fe-x-circle"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!--End::row-1 -->
+
+<!-- Start::row-1 -->
+<div class="row">
+    <div class="col-xxl-12">
+        <div class="card custom-card">
+            <div class="card-header justify-content-between">
+                <div class="card-title">
+                    My Request Submissions
+                </div>
+                <div class="btn-section d-flex gap-2">
+                    <!-- Create New Request -->
+                    <div class="prism-toggle">
+                        <a href="{% url 'masters:request_submission_create' %}" class="btn btn-sm btn-success">
+                            <i class="fe fe-plus me-1"></i> Create New Request
+                        </a>
+                    </div>
+
+                    <!-- View All Request -->
+                    <div class="prism-toggle">
+                        <a href="{% url 'masters:request_submission_list' %}" class="btn btn-sm btn-info">
+                            <i class="fe fe-list me-1"></i> View All Requests
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered text-nowrap">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th scope="col">Request ID</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Created Date</th>
+                                <th scope="col">Current Status</th>
+                                <th scope="col">Completion Status</th>
+                                <th scope="col">Current Handler</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in assigned_requests %}
+                            <tr>
+                                <td>{{forloop.counter}}</td>
+                                <td>{{ request.request_id }}</td>
+                                <td>{{ request.title }}</td>
+                                <td>{{ request.created|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if request.status == 'approved' %}bg-success{% endif %}
+                                        {% if request.status == 'rejected' %}bg-danger{% endif %}
+                                        {% if request.status == 'forwarded' or request.status == 'pending' %}bg-warning{% endif %}
+                                    ">
+                                        {{ request.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if request.is_request_completed == 'true' %}bg-success{% else %}bg-warning{% endif %}">
+                                            {% if request.is_request_completed == 'true' %}Completed{% else %}In Progress{% endif %}
+                                    </span>
+                                </td>
+                                <td>{{ request.current_usertype|title }}</td>
+                                <td>
+                                    <a href="{% url 'masters:request_submission_detail' request.pk %}" 
+                                       class="btn btn-sm custom-btn">
+                                        <i class="fe fe-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No requests found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--End::row-1 -->
+
+{% block extra_css %}
+<style>
+    @media (min-width: 1200px) {
+        .col-xl-5th {
+            flex: 0 0 20%;
+            max-width: 20%;
+        }
+    }
+</style>
+{% endblock %}

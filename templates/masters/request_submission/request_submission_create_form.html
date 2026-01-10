@@ -1,0 +1,270 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                           <div class="col-12">
+                                <form method="post" id="request-form" enctype="multipart/form-data" autocomplete="off">
+                                    {% csrf_token %}
+                                    {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">
+                                        {{ form.non_field_errors }}
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="row">
+                                    {% if not object %}
+                                        <div class="mb-3 col-lg-3 col-sm-12 col-md-6">
+                                        {{ form.title|as_crispy_field }}
+                                        </div>
+
+                                        <div class="mb-3 col-lg-2 col-sm-12 col-md-6">
+                                        {{ form.attachment|as_crispy_field }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% if request.user.usertype == "hr" and not form.remark %}
+                                        <div class="mb-3 col-lg-6">
+                                            <label class="form-label mb-2">Usertype Flow</label>
+                                            <div class="usertype-flow-minimal d-flex align-items-center flex-wrap mb-2" style="gap: 0.5rem;">
+                                                <!-- Always show hr first -->
+                                                <span class="usertype-pill fixed">HR</span>
+
+                                                <!-- Intermediate usertypes will be rendered by JS -->
+
+                                                <!-- Always show COO last -->
+                                                <span class="usertype-pill fixed">COO</span>
+                                            </div>
+
+                                            <!-- Add intermediate usertype dropdown -->
+                                            <div class="input-group input-group-sm" style="max-width: 320px;">
+                                                <select id="usertype-add-select" class="form-select" style="min-width: 140px;">
+                                                    <option value="">Add usertype...</option>
+                                                    {% for key, label in available_flow_usertypes %}
+                                                        <option value="{{ key }}">{{ label }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <button type="button" id="add-usertype-btn" class="btn btn-outline-primary px-3">+</button>
+                                            </div>
+
+                                            <!-- Hidden inputs for form submission -->
+                                            <div id="user_flow_hidden_inputs">
+                                                {% for val in form.user_flow.value %}
+                                                    <input type="hidden" name="usertype_flow" value="{{ val }}">
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if not object %}
+                                        <div class="mb-3 col-lg-6 col-sm-12 col-md-6">
+                                        {{ form.description|as_crispy_field }}
+                                        </div>
+                                    {% endif %}
+
+                                    
+                                    </div>
+
+                                    <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col d-flex justify-content-end">
+                                        <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Forward</button>
+                                        <button type="button" onclick="history.back()" class="btn btn-outline-info ms-2"><i class="fa fa-cancel"></i> Cancel</button>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block javascript %}
+{{ form.media }}
+<style>
+.usertype-flow-minimal .usertype-pill {
+    display: inline-block;
+    padding: 0.25em 0.9em 0.25em 0.9em;
+    border-radius: 999px;
+    background: #f5f5f7;
+    color: #222;
+    font-size: 1em;
+    border: 1px solid #e0e0e0;
+    position: relative;
+    transition: background 0.2s;
+}
+.usertype-flow-minimal .usertype-pill.fixed {
+    background: #f0f0f0;
+    color: #444;
+    font-weight: 500;
+    border: 1px solid #e0e0e0;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle {
+    background: #e9f5ff;
+    color: #1976d2;
+    border: 1px solid #b6d7f7;
+}
+.usertype-flow-minimal .usertype-arrow {
+    color: #bdbdbd;
+    font-size: 1.2em;
+    user-select: none;
+}
+.usertype-flow-minimal .remove-middle-usertype {
+    display: none;
+    position: absolute;
+    top: 0.1em;
+    right: 0.3em;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.1em;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle:hover .remove-middle-usertype {
+    display: inline;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle:focus-within .remove-middle-usertype {
+    display: inline;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const flowDiv = document.querySelector('.usertype-flow-minimal');
+    const hiddenInputsContainer = document.getElementById('user_flow_hidden_inputs');
+    const usertypeSelect = document.getElementById('usertype-add-select');
+    const addBtn = document.getElementById('add-usertype-btn');
+
+    if (!flowDiv || !hiddenInputsContainer || !usertypeSelect || !addBtn) return;
+
+    // --- Initialize selected usertypes from hidden inputs ---
+    let selectedUsertypes = Array.from(hiddenInputsContainer.querySelectorAll('input[name="usertype_flow"]')).map(input => input.value);
+
+    function getLabel(val) {
+        const option = Array.from(usertypeSelect.options).find(o => o.value === val);
+        return option ? option.text : val;
+    }
+
+    function renderFlow() {
+        // Remove existing intermediate pills and arrows
+        flowDiv.querySelectorAll('.usertype-pill.usertype-middle, .usertype-arrow.middle-arrow').forEach(el => el.remove());
+
+        const directorPill = flowDiv.querySelector('.usertype-pill.fixed:last-child');
+        let insertBefore = directorPill;
+
+        selectedUsertypes.forEach((ut, index) => {
+            if (index > 0) {
+                const arrow = document.createElement('span');
+                arrow.className = 'usertype-arrow middle-arrow';
+                arrow.innerHTML = '&#8594;';
+                flowDiv.insertBefore(arrow, insertBefore);
+            }
+
+            const pill = document.createElement('span');
+            pill.className = 'usertype-pill usertype-middle position-relative';
+            pill.dataset.key = ut;
+            pill.innerHTML = `${getLabel(ut)} <button type="button" class="remove-middle-usertype" data-key="${ut}" tabindex="-1">&times;</button>`;
+
+            // Remove button event
+            pill.querySelector('.remove-middle-usertype').addEventListener('click', function () {
+                selectedUsertypes = selectedUsertypes.filter(k => k !== ut);
+                renderFlow();
+            });
+
+            flowDiv.insertBefore(pill, insertBefore);
+        });
+
+        // Optional arrow before Director
+        if (selectedUsertypes.length > 0) {
+            const arrow = document.createElement('span');
+            arrow.className = 'usertype-arrow middle-arrow';
+            arrow.innerHTML = '&#8594;';
+            flowDiv.insertBefore(arrow, directorPill);
+        }
+
+        // Update hidden inputs
+        hiddenInputsContainer.innerHTML = '';
+        selectedUsertypes.forEach(ut => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'usertype_flow';
+            input.value = ut;
+            hiddenInputsContainer.appendChild(input);
+        });
+
+        // Disable used options in dropdown
+        Array.from(usertypeSelect.options).forEach(opt => {
+            opt.disabled = selectedUsertypes.includes(opt.value) || opt.value === '';
+        });
+    }
+
+    // Add button click
+    addBtn.addEventListener('click', () => {
+        const val = usertypeSelect.value;
+        if (val && !selectedUsertypes.includes(val)) {
+            selectedUsertypes.push(val);
+            renderFlow();
+            usertypeSelect.value = '';
+        }
+    });
+
+    // Initial render
+    renderFlow();
+});
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector("form");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", function() {
+        // Disable the submit button
+        submitBtn.disabled = true;
+
+        // Change button content to loading spinner
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    });
+});
+</script>
+
+{% endblock %}

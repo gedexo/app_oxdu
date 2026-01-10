@@ -1,0 +1,51 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+{% block title %}Home: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<!-- Start::app-content -->
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        {% if request.user.usertype != "student" %}
+       <!-- Page Header -->
+       <div class="page-header d-lg-flex d-block">
+            <div class="page-leftheader">
+                <div class="page-title">Dashboard</div>
+            </div>
+
+        </div>
+        <!-- Page Header Close -->
+        {% endif %}
+    
+        <div class="row">
+            {% include 'app/partials/messages.html' %}
+        </div>
+   
+        {% if request.user.is_superuser %}
+            {% include "app/dashboard/superuser_dashboard.html" %}
+        {% elif request.user.usertype == "admin_staff" or request.user.usertype == "ceo" or request.user.usertype == "cfo" or request.user.usertype == "coo" or request.user.usertype == "hr" or request.user.usertype == "cmo" %}
+            {% include "app/dashboard/superuser_dashboard.html" %}
+        {% elif request.user.usertype == "partner" %}
+            {% include "app/dashboard/partner_dashboard.html" %}
+        {% elif request.user.usertype == "teacher" %}
+            {% include "app/dashboard/teacher_dashboard.html" %}
+        {% elif request.user.usertype == "mentor" %}
+            {% include "app/dashboard/mentor_dashboard.html" %}
+        {% elif request.user.usertype == "student" %}
+            {% include "app/dashboard/student_dashboard.html" %}
+        {% elif request.user.usertype == "branch_staff" %}
+            {% include "app/dashboard/branch_manager_dashboard.html" %}
+        {% elif request.user.usertype == "sales_head" %}
+            {% include "app/dashboard/sales_head_dashboard.html" %}
+        {% elif request.user.usertype == "tele_caller" %}
+            {% include "app/dashboard/tele_caller_dashboard.html" %}
+        {% endif %}
+
+   
+
+    </div>
+</div>
+<!-- End::app-content -->
+ {% endblock %}

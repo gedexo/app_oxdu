@@ -1,0 +1,767 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags extras %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    console.log('DOM loaded - initializing feedback form');
+    
+    const form = document.querySelector("form");
+    const submitBtn = document.querySelector('#final-submit-btn');
+    const saveNextBtns = document.querySelectorAll('.save-next-btn');
+
+    // Form submit handler for final submission
+    if (form && submitBtn) {
+        form.addEventListener("submit", function(e) {
+            console.log('Form submitted');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
+        });
+    }
+
+    // Save and Next button handlers
+    if (saveNextBtns.length > 0) {
+        saveNextBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Save and Next clicked');
+                const currentTab = this.closest('.feedback-tab-pane');
+                if (!currentTab) {
+                    console.error('Current tab not found');
+                    return;
+                }
+                
+                const currentTabId = currentTab.id;
+                const currentType = currentTabId.replace('-pane', '');
+                console.log('Current tab:', currentType);
+                
+                // Validate current tab
+                if (validateTab(currentTab)) {
+                    console.log('Validation passed, moving to next');
+                    // Move to next tab
+                    showNextTab(currentType);
+                } else {
+                    console.log('Validation failed');
+                }
+            });
+        });
+    }
+
+    // Tab functionality
+    const tabLinks = document.querySelectorAll('.feedback-tab');
+    const tabPanes = document.querySelectorAll('.feedback-tab-pane');
+    
+    if (tabLinks.length > 0) {
+        tabLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = this.getAttribute('data-bs-target');
+                console.log('Tab clicked:', target);
+                showTab(target);
+            });
+        });
+    }
+
+    function validateTab(tab) {
+        console.log('Validating tab:', tab.id);
+        let isValid = true;
+        
+        // Get all question rows in this tab
+        const questionRows = tab.querySelectorAll('tr[id^="question_"]');
+        console.log('Questions found:', questionRows.length);
+        
+        // Check each question in this tab
+        questionRows.forEach(row => {
+            const questionId = row.id.replace('question_', '');
+            const radioGroupName = `answer_${questionId}`;
+            const radioButtons = tab.querySelectorAll(`input[name="${radioGroupName}"]`);
+            const isAnswered = Array.from(radioButtons).some(radio => radio.checked);
+            
+            console.log(`Question ${questionId}: answered = ${isAnswered}`);
+            
+            if (!isAnswered) {
+                isValid = false;
+                row.style.backgroundColor = '#fff5f5';
+                // Add visual indicator
+                const questionText = row.querySelector('.question-column');
+                if (questionText && !questionText.querySelector('.text-danger')) {
+                    const errorSpan = document.createElement('span');
+                    errorSpan.className = 'text-danger small ms-2';
+                    errorSpan.innerHTML = '<i class="fe fe-alert-circle"></i> Please select an answer';
+                    questionText.appendChild(errorSpan);
+                }
+            } else {
+                row.style.backgroundColor = '';
+                // Remove error message if exists
+                const errorSpan = row.querySelector('.text-danger');
+                if (errorSpan) {
+                    errorSpan.remove();
+                }
+            }
+        });
+
+        if (!isValid) {
+            // Scroll to first error
+            const firstError = tab.querySelector('tr[style*="background-color: rgb(255, 245, 245)"]');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            alert('Please answer all questions in this section before proceeding.');
+        } else {
+            console.log('All questions answered in tab:', tab.id);
+        }
+        
+        return isValid;
+    }
+
+    function showTab(target) {
+        console.log('Showing tab:', target);
+        
+        if (!target) {
+            console.error('No target provided');
+            return;
+        }
+        
+        // Remove active class from all tabs and panes
+        const tabLinks = document.querySelectorAll('.feedback-tab');
+        const tabPanes = document.querySelectorAll('.feedback-tab-pane');
+        
+        tabLinks.forEach(tab => {
+            tab.classList.remove('active');
+            tab.setAttribute('aria-selected', 'false');
+        });
+        
+        tabPanes.forEach(pane => {
+            pane.classList.remove('show', 'active');
+        });
+        
+        // Add active class to current tab and pane
+        const tabLink = document.querySelector(`[data-bs-target="${target}"]`);
+        const tabPane = document.querySelector(target);
+        
+        if (tabLink && tabPane) {
+            tabLink.classList.add('active');
+            tabLink.setAttribute('aria-selected', 'true');
+            tabPane.classList.add('show', 'active');
+            
+            console.log('Successfully activated tab:', target);
+            
+            // Update progress badges
+            updateProgressBadges(target);
+            
+            // Check if all questions are answered when showing final tab
+            if (target === '#final-pane') {
+                checkAllQuestionsAnswered();
+            }
+        } else {
+            console.error('Tab elements not found for:', target);
+        }
+    }
+
+    function showNextTab(currentType) {
+        console.log('Showing next tab from:', currentType);
+        const tabTypes = ['faculty', 'fao', 'other'];
+        const currentIndex = tabTypes.indexOf(currentType);
+        
+        console.log('Current index:', currentIndex, 'Total tabs:', tabTypes.length);
+        
+        if (currentIndex < tabTypes.length - 1) {
+            // Show next tab
+            const nextType = tabTypes[currentIndex + 1];
+            const nextTab = `#${nextType}-pane`;
+            console.log('Moving to next tab:', nextTab);
+            showTab(nextTab);
+        } else {
+            // Show final submission section
+            console.log('Moving to final submission');
+            showTab('#final-pane');
+        }
+    }
+
+    function checkAllQuestionsAnswered() {
+        console.log('Checking if all questions are answered...');
+        let allAnswered = true;
+        const totalQuestions = document.querySelectorAll('tr[id^="question_"]').length;
+        let answeredCount = 0;
+        
+        // Check all questions across all tabs
+        document.querySelectorAll('tr[id^="question_"]').forEach(row => {
+            const questionId = row.id.replace('question_', '');
+            const radioGroupName = `answer_${questionId}`;
+            const radioButtons = document.querySelectorAll(`input[name="${radioGroupName}"]`);
+            const isAnswered = Array.from(radioButtons).some(radio => radio.checked);
+            
+            if (isAnswered) {
+                answeredCount++;
+            } else {
+                allAnswered = false;
+            }
+        });
+        
+        console.log(`Questions answered: ${answeredCount}/${totalQuestions}`);
+        
+        // Show/hide completion message
+        const completionCheck = document.querySelector('.completion-check');
+        if (completionCheck) {
+            if (allAnswered) {
+                completionCheck.style.display = 'block';
+                completionCheck.querySelector('span').textContent = `All ${totalQuestions} questions answered successfully!`;
+            } else {
+                completionCheck.style.display = 'none';
+            }
+        }
+        
+        return allAnswered;
+    }
+
+    function updateProgressBadges(activeTab) {
+        console.log('Updating progress badges for:', activeTab);
+        
+        // Reset all badges to light
+        document.querySelectorAll('.progress-badge').forEach(badge => {
+            badge.classList.remove('bg-primary', 'bg-success');
+            badge.classList.add('bg-light', 'text-dark');
+        });
+        
+        // Activate appropriate badges based on current tab
+        switch(activeTab) {
+            case '#faculty-pane':
+                document.getElementById('faculty-badge').classList.add('bg-primary');
+                document.getElementById('faculty-badge').classList.remove('bg-light', 'text-dark');
+                break;
+            case '#fao-pane':
+                document.getElementById('faculty-badge').classList.add('bg-success');
+                document.getElementById('fao-badge').classList.add('bg-primary');
+                document.getElementById('faculty-badge').classList.remove('bg-light', 'text-dark');
+                document.getElementById('fao-badge').classList.remove('bg-light', 'text-dark');
+                break;
+            case '#other-pane':
+                document.getElementById('faculty-badge').classList.add('bg-success');
+                document.getElementById('fao-badge').classList.add('bg-success');
+                document.getElementById('other-badge').classList.add('bg-primary');
+                document.querySelectorAll('.progress-badge').forEach(badge => {
+                    badge.classList.remove('bg-light', 'text-dark');
+                });
+                break;
+            case '#final-pane':
+                document.querySelectorAll('.progress-badge').forEach(badge => {
+                    badge.classList.add('bg-success');
+                    badge.classList.remove('bg-light', 'text-dark', 'bg-primary');
+                });
+                break;
+        }
+    }
+
+    // Initialize first tab
+    console.log('Initializing first tab');
+    showTab('#faculty-pane');
+    
+    // Add event listeners to all radio buttons to check completion status
+    document.querySelectorAll('.rating-option input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            // If we're on the final tab, check completion status
+            const activeTab = document.querySelector('.feedback-tab-pane.active');
+            if (activeTab && activeTab.id === 'final-pane') {
+                checkAllQuestionsAnswered();
+            }
+        });
+    });
+});
+
+function selectRadioButton(questionId, answerId, element) {
+    console.log('Selecting radio:', questionId, answerId);
+    
+    // Remove selected class from all options in this question row
+    const questionRow = document.getElementById(`question_${questionId}`);
+    if (!questionRow) {
+        console.error('Question row not found:', `question_${questionId}`);
+        return;
+    }
+    
+    const radioOptions = questionRow.querySelectorAll('.rating-option');
+    radioOptions.forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
+    // Add selected class to the clicked option
+    element.classList.add('selected');
+    
+    // Check the radio button
+    const radioInput = document.getElementById(`answer_${questionId}_${answerId}`);
+    if (radioInput) {
+        radioInput.checked = true;
+        console.log('Radio button checked:', radioInput.id);
+        
+        // Trigger change event to update completion status
+        radioInput.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        console.error('Radio input not found:', `answer_${questionId}_${answerId}`);
+    }
+    
+    // Remove validation error styling
+    questionRow.style.backgroundColor = '';
+    
+    // Remove error message if exists
+    const errorSpan = questionRow.querySelector('.text-danger');
+    if (errorSpan) {
+        errorSpan.remove();
+    }
+}
+
+// Global function for Edit Responses button
+function showTab(target) {
+    const tabLinks = document.querySelectorAll('.feedback-tab');
+    const tabPanes = document.querySelectorAll('.feedback-tab-pane');
+    
+    tabLinks.forEach(tab => {
+        tab.classList.remove('active');
+        tab.setAttribute('aria-selected', 'false');
+    });
+    
+    tabPanes.forEach(pane => {
+        pane.classList.remove('show', 'active');
+    });
+    
+    const tabLink = document.querySelector(`[data-bs-target="${target}"]`);
+    const tabPane = document.querySelector(target);
+    
+    if (tabLink && tabPane) {
+        tabLink.classList.add('active');
+        tabLink.setAttribute('aria-selected', 'true');
+        tabPane.classList.add('show', 'active');
+    }
+}
+
+// Initialize selected state for any pre-selected values on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.rating-option input[type="radio"]').forEach(radio => {
+        if (radio.checked) {
+            radio.closest('.rating-option').classList.add('selected');
+        }
+        
+        // Add click handler to the radio itself to maintain consistency
+        radio.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const questionId = this.name.replace('answer_', '');
+            const answerId = this.value;
+            selectRadioButton(questionId, answerId, this.closest('.rating-option'));
+        });
+    });
+});
+</script>
+
+<style>
+.feedback-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.feedback-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.feedback-table td {
+    padding: 1rem 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: top;
+}
+
+.question-column {
+    width: 50%;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.answer-column {
+    width: 50%;
+}
+
+.rating-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.rating-option {
+    display: flex;
+    align-items: center;
+    padding: 8px 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    background: white;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.rating-option:hover {
+    border-color: #ee4c24;
+    background: #f8f9fa;
+}
+
+.rating-option.selected {
+    border-color: #ee4c24;
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+    color: white;
+}
+
+.form-check-input:checked {
+    background-color: rgb(238 75 36) !important;
+    border-color: rgb(236 32 81) !important;
+} 
+
+.rating-option.selected .form-check-label {
+    color: white !important;
+}
+
+.rating-option .form-check-input {
+    margin-right: 8px;
+    margin-top: 0;
+}
+
+.form-check-label {
+    cursor: pointer;
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+
+.sr-number {
+    font-weight: 600;
+    color: #6c757d;
+    margin-right: 5px;
+}
+
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #e9ecef;
+}
+
+.progress-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.progress-section h5 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.final-submission {
+    background: #fff;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-top: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+.navigation-buttons {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.text-danger small {
+    font-weight: normal;
+}
+
+.progress-badge {
+    transition: all 0.3s ease;
+}
+
+.final-comment-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.completion-check {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: none; /* Hidden by default */
+}
+
+.completion-check i {
+    color: #4caf50;
+    font-size: 1.2rem;
+}
+
+.already-submitted-alert {
+    background: #f1f4fb;
+    border: 1px solid #d4d4d4;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.already-submitted-alert i {
+    color: #f39c12;
+    font-size: 1.5rem;
+}
+</style>
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                
+                                <!-- Check if user has already submitted feedback -->
+                                {% if user_has_submitted_feedback %}
+                                <div class="already-submitted-alert">
+                                    <div class="text-center">
+                                        <i class="mdi mdi-check-circle-outline mb-3"></i>
+                                        <h4 class="text-warning">Feedback Already Submitted</h4>
+                                        <p class="mb-3">You have already submitted your feedback. Thank you for your participation!</p>
+                                    </div>
+                                </div>
+                                {% else %}
+                                
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                    {% csrf_token %}
+                                    
+                                    <!-- Student Information Display (for students) -->
+                                    {% if request.user.usertype == 'student' and current_student %}
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Student</label>
+                                                <input type="text" class="form-control" value="{{ current_student }}" readonly>
+                                                <small class="form-text text-muted">Your feedback will be submitted automatically for your account.</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <!-- Student Selection (for admin/staff) -->
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            {{ form.student|as_crispy_field }}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Progress Section -->
+                                    <div class="progress-section">
+                                        <h5>Feedback Progress</h5>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="badge progress-badge bg-primary" id="faculty-badge">Faculty Feedback</span>
+                                                <span class="badge progress-badge bg-light text-dark mx-2" id="fao-badge">FAO Feedback</span>
+                                                <span class="badge progress-badge bg-light text-dark mx-2" id="other-badge">Other Feedback</span>
+                                                <span class="badge progress-badge bg-light text-dark mx-2" id="final-badge">Final Submission</span>
+                                            </div>
+                                            <div class="text-muted">
+                                                Complete each section to proceed
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Feedback Type Navigation Tabs -->
+                                    <ul class="nav nav-tabs mb-4" id="feedbackTabs" role="tablist">
+                                        {% for type_value, type_label in feedback_types %}
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link feedback-tab {% if forloop.first %}active{% endif %}" 
+                                                        id="{{ type_value }}-tab" 
+                                                        data-bs-toggle="tab" 
+                                                        data-bs-target="#{{ type_value }}-pane" 
+                                                        type="button" 
+                                                        role="tab" 
+                                                        aria-controls="{{ type_value }}-pane" 
+                                                        aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                                                    {{ type_label|title }}
+                                                </button>
+                                            </li>
+                                        {% endfor %}
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link feedback-tab" 
+                                                    id="final-tab" 
+                                                    data-bs-toggle="tab" 
+                                                    data-bs-target="#final-pane" 
+                                                    type="button" 
+                                                    role="tab" 
+                                                    aria-controls="final-pane" 
+                                                    aria-selected="false">
+                                                Final Submission
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    <!-- Feedback Questions Content -->
+                                    <div class="tab-content" id="feedbackTabsContent">
+                                        {% for type_value, type_label in feedback_types %}
+                                            <div class="tab-pane fade feedback-tab-pane {% if forloop.first %}show active{% endif %}" 
+                                                 id="{{ type_value }}-pane" 
+                                                 role="tabpanel" 
+                                                 aria-labelledby="{{ type_value }}-tab" 
+                                                 tabindex="0">
+                                                
+                                                {% if questions_by_type|get_item:type_value %}
+                                                    <div class="table-responsive">
+                                                        <table class="table feedback-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th class="question-column">Questions</th>
+                                                                    <th class="answer-column">Your Rating</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {% for question in questions_by_type|get_item:type_value %}
+                                                                    <tr id="question_{{ question.id }}">
+                                                                        <td class="question-column">
+                                                                            <span class="sr-number">{{ forloop.counter }}.</span>
+                                                                            <span class="required-field">{{ question.question }}</span>
+                                                                            <input type="hidden" name="question_{{ question.id }}" value="{{ question.id }}">
+                                                                        </td>
+                                                                        <td class="answer-column">
+                                                                            <div class="rating-options">
+                                                                                {% for answer in question.feedbackanswer_set.all %}
+                                                                                    {% if answer.is_active %}
+                                                                                        <div class="rating-option" onclick="selectRadioButton('{{ question.id }}', '{{ answer.id }}', this)">
+                                                                                            <input class="form-check-input" 
+                                                                                                   type="radio" 
+                                                                                                   name="answer_{{ question.id }}" 
+                                                                                                   id="answer_{{ question.id }}_{{ answer.id }}"
+                                                                                                   value="{{ answer.id }}" 
+                                                                                                   required>
+                                                                                            <label class="form-check-label" for="answer_{{ question.id }}_{{ answer.id }}">
+                                                                                                {{ answer.answer }}
+                                                                                            </label>
+                                                                                        </div>
+                                                                                    {% endif %}
+                                                                                {% endfor %}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-info">
+                                                        <i class="mdi mdi-information"></i>
+                                                        No questions available for {{ type_label }} feedback.
+                                                    </div>
+                                                {% endif %}
+
+                                                <!-- Save and Next Button -->
+                                                <div class="navigation-buttons">
+                                                    <div class="row">
+                                                        <div class="col">
+                                                            <button type="button" class="btn btn-success save-next-btn">
+                                                                <i class="fe fe-save"></i> 
+                                                                {% if forloop.last %}
+                                                                    Save and Review
+                                                                {% else %}
+                                                                    Save and Next
+                                                                {% endif %}
+                                                            </button>
+                                                            <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                                                <i class="fa fa-cancel"></i> Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+
+                                        <!-- Final Submission Section -->
+                                        <div class="tab-pane fade" id="final-pane" role="tabpanel" aria-labelledby="final-tab" tabindex="0">
+                                            <div class="final-submission">
+                                                <h4 class="mb-4">Complete Your Feedback</h4>
+                                                
+                                                <!-- Completion Check - Hidden by default, shown only when all questions are answered -->
+                                                <div class="completion-check">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="mdi mdi-check-circle me-2"></i>
+                                                        <span class="fw-semibold">All questions answered successfully!</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Comment Section -->
+                                                <div class="final-comment-section">
+                                                    <div class="form-group">
+                                                        <label for="id_comment" class="form-label h6">Additional Comments (Optional)</label>
+                                                        <textarea name="comment" id="id_comment" class="form-control" rows="4" 
+                                                                  placeholder="Share any additional comments or suggestions..."></textarea>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Final Submit Button -->
+                                                <div class="navigation-buttons">
+                                                    <div class="row">
+                                                        <div class="col">
+                                                            <button type="submit" class="btn btn-success" id="final-submit-btn">
+                                                                <i class="fe fe-send"></i> Submit Feedback
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-warning" onclick="showTab('#faculty-pane')">
+                                                                <i class="fe fe-edit"></i> Edit Responses
+                                                            </button>
+                                                            <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                                                <i class="fa fa-cancel"></i> Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                                {% endif %} <!-- End of user_has_submitted_feedback check -->
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+{% endblock content %}

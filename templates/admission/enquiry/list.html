@@ -1,0 +1,505 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+
+  <div class="container-fluid">
+
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{title|title}}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if request.user.is_superuser or request.user.usertype in "admin_staff,sales_head,ceo,cfo,coo,hr,cmo,mentor"|cut:"," %}
+            <!-- Button to trigger file input -->
+            <form id="importForm" method="post" action="{% url 'admission:import_enquiry' %}" enctype="multipart/form-data">
+              {% csrf_token %}
+              <input type="file" name="file" id="fileInput" accept=".csv" style="display: none;" />
+            </form>
+
+            <button type="button" class="btn btn-light3" onclick="document.getElementById('fileInput').click()" data-bs-toggle="tooltip" data-bs-placement="top" title="Import">
+              <i class="fe fe-upload"></i> Import
+            </button>
+            
+            <button id="delete-unassigned-btn" class="btn btn-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete Unassigned Leads">
+              <i class="fe fe-trash-2"></i> Delete Unassigned
+            </button>
+
+            <a href="{% static 'app/assets/images/lead.csv' %}" 
+                class="btn btn-light3" 
+                data-bs-toggle="tooltip" 
+                data-bs-placement="top" 
+                title="Download Format" 
+                download>
+                <i class="fe fe-download"></i> Download Format
+            </a>
+          {% endif %}
+
+          {% if request.user.usertype == "tele_caller" or request.user.employee.is_also_tele_caller == "Yes" %}
+            <button id="bulk-assign-me-btn" class="btn btn-primary" style="display: none;" data-bs-toggle="tooltip" data-bs-placement="top" title="Assign Selected Items">
+              <i class="fe fe-user-check"></i> Assign Selected Items
+            </button>
+          {% endif %}
+
+          {% if can_add and new_link %}
+          <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+              class="fe fe-plus"></i>New </a>
+          {% endif %}
+          {% if table.paginated_rows %}
+            <a href="{% export_url 'xlsx' %}" class="btn btn-light3" data-bs-toggle="tooltip" data-bs-placement="top"
+              title="Export"> <i class="fe fe-download"></i> </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button"
+            aria-controls="offcanvasFilter" title="Filter Data"> <i class="fe fe-filter"></i> </a>
+
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        <div class="card custom-card">
+          {% if table.paginated_rows %}
+          <div class="card-body">
+            <div class="row justify-content-between">
+              <div class="col-lg-6">
+                <div class="d-flex align-items-center">
+                  <span>Show</span>
+                  <div class="d-flex ms-2 mx-2">
+                    <div class="form-group mb-0">
+                      <select name="table_pagination" id="select-table_pagination" class="form-control wd-150" data-trigger>
+                        <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                        <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                        <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                        <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                    </select>
+
+                    </div>
+                  </div>
+                  <span>entries</span>
+                </div>
+              </div>
+              <div class="col col-auto">
+                <form action="" id="table-search">
+                  <div class="form-group w-100">
+                      <div class="input-icon" >
+                        <span class="input-icon-addon">
+                          <i class="fe fe-search"></i>
+                      </span>
+                          <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                      </div>
+                  </div>
+              </form>
+              
+            </div>
+             
+            </div>
+            {% render_table table %}
+            <nav class="mt-4">
+              {% if table.page and table.paginator.num_pages > 1 %}
+              <ul class="pagination justify-content-end mb-0">
+                {% if table.page.has_previous %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Prev</a>
+                </li>
+                {% endif %}
+
+                {% for p in table.page|table_page_range:table.paginator %}
+                <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                  {% if p == '...' %}
+                  <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                  {% else %}
+                  <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+
+                {% if table.page.has_next %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Next</a>
+                </li>
+                {% endif %}
+              </ul>
+              {% endif %}
+            </nav>
+
+
+          </div>
+          {% else %}
+          <div class="card-body">
+            {{title|title}} {% translate "list is empty." %}
+            {% if can_add %}<a href="{{new_link}}">{% translate "Add New One" %}</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="previewModalLabel">Preview File</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="filePreview" class="table-responsive">Loading preview...</div>
+        <div id="viewAllWrapper" class="text-center mt-3">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="viewAllRows()">View All</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitImport()">Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% for new_html in includes %}
+  {% include new_html %}
+{% endfor %}
+
+{% include 'app/partials/filter.html' %}
+{% include 'app/partials/help.html' %}
+
+{% endblock content %}
+
+{% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  function assignTeleCaller(enquiryId, teleCallerId) {
+      if (!teleCallerId) return;
+  
+      fetch(`/admission/assign-to/${enquiryId}/`, {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": "{{ csrf_token }}"
+          },
+          body: JSON.stringify({ tele_caller_id: teleCallerId })
+      })
+      .then(response => response.json())
+      .then(data => {
+          if (data.status === "success") {
+              Swal.fire({
+                  icon: 'success',
+                  title: 'Assigned!',
+                  text: 'Tele caller assigned successfully.',
+                  confirmButtonText: 'OK'
+              }).then(() => {
+                  location.reload();
+              });
+          } else {
+              Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: data.message || 'Assignment failed.',
+                  confirmButtonText: 'OK'
+              });
+          }
+      })
+      .catch(error => {
+          Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: 'Error assigning tele caller.',
+              confirmButtonText: 'OK'
+          });
+          console.error(error);
+      });
+  }
+  </script>
+  
+
+<script>
+  function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+              const cookie = cookies[i].trim();
+              if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                  break;
+              }
+          }
+      }
+      return cookieValue;
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  document.getElementById('delete-unassigned-btn').addEventListener('click', function () {
+      Swal.fire({
+          title: 'Are you sure?',
+          text: "This will permanently delete all unassigned leads.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, delete',
+          cancelButtonText: 'Cancel',
+          reverseButtons: true
+      }).then((result) => {
+          if (result.isConfirmed) {
+              // Show loading spinner
+              Swal.fire({
+                  title: 'Deleting...',
+                  text: 'Please wait while we process your request.',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  didOpen: () => {
+                      Swal.showLoading();
+                  }
+              });
+
+              fetch("{% url 'admission:delete_unassigned_leads' %}", {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': csrftoken,
+                      'X-Requested-With': 'XMLHttpRequest',
+                  }
+              })
+              .then(response => response.json())
+              .then(data => {
+                  Swal.fire('Deleted!', data.message, 'success')
+                      .then(() => location.reload());
+              })
+              .catch(error => {
+                  Swal.fire('Error', 'Something went wrong while deleting.', 'error');
+              });
+          }
+      });
+  });
+</script>
+
+<script>
+  let fullCSVLines = [];
+  
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+  
+      const reader = new FileReader();
+      reader.onload = function(event) {
+          const content = event.target.result;
+          fullCSVLines = content.split('\n').filter(line => line.trim() !== ''); // Save for full view
+          renderCSVPreview(fullCSVLines, false); // Preview only first 5
+  
+          // Show modal
+          new bootstrap.Modal(document.getElementById('previewModal')).show();
+      };
+  
+      reader.readAsText(file);
+  });
+  
+  function renderCSVPreview(lines, showAll = false) {
+      if (lines.length === 0) {
+          document.getElementById('filePreview').innerHTML = '<p>No content to preview.</p>';
+          document.getElementById('viewAllWrapper').style.display = 'none';
+          return;
+      }
+  
+      const headers = lines[0].split(',');
+      let html = '<table class="table table-bordered table-sm"><thead>';
+      html += '<tr>' + headers.map(h => `<th>${h.trim()}</th>`).join('') + '</tr></thead><tbody>';
+  
+      const rowsToShow = showAll ? lines.slice(1) : lines.slice(1, 6);
+      rowsToShow.forEach(line => {
+          const row = line.split(',');
+          html += '<tr>' + row.map(col => `<td>${col.trim()}</td>`).join('') + '</tr>';
+      });
+  
+      html += '</tbody></table>';
+      document.getElementById('filePreview').innerHTML = html;
+  
+      // Show or hide "View All" button
+      document.getElementById('viewAllWrapper').style.display = showAll || lines.length <= 6 ? 'none' : 'block';
+  }
+  
+  function viewAllRows() {
+      renderCSVPreview(fullCSVLines, true);
+  }
+  
+  function submitImport() {
+      document.getElementById('importForm').submit();
+  }
+  </script>
+
+
+  <script>
+    $(document).on('change', '.bulk-assign-tele-caller', function () {
+        const selectedTeleCallerId = $(this).val();
+        const selectedEnquiryIds = $('.select-checkbox:checked').map(function () {
+            return $(this).val();
+        }).get();
+
+        if (!selectedTeleCallerId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Oops...',
+                text: 'Please select a tele caller.'
+            });
+            return;
+        }
+
+        if (selectedEnquiryIds.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Oops...',
+                text: 'Please select at least one enquiry.'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "Assign selected enquiries to this tele caller?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, assign',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "{% url 'admission:bulk_assign_to' %}",
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        tele_caller_id: selectedTeleCallerId,
+                        enquiry_ids: selectedEnquiryIds
+                    }),
+                    success: function (response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Assigned!',
+                            text: response.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload(); // Refresh after success
+                        });
+                    },
+                    error: function (xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: 'Error assigning tele caller.'
+                        });
+                    }
+                });
+            }
+        });
+    });
+    </script>
+
+    <script>
+      // Toggle button visibility based on selection
+      function toggleBulkAssignButton() {
+          const selectedCount = $('.select-checkbox:checked').length;
+          const btn = document.getElementById('bulk-assign-me-btn');
+          if (btn) {
+              btn.style.display = selectedCount > 0 ? 'inline-block' : 'none';
+          }
+      }
+
+      // Listen for checkbox changes
+      $(document).on('change', '.select-checkbox', toggleBulkAssignButton);
+      
+      // Also check on page load (in case of browser back/forward caching)
+      $(document).ready(toggleBulkAssignButton);
+
+      document.getElementById('bulk-assign-me-btn')?.addEventListener('click', function() {
+          const selectedEnquiryIds = $('.select-checkbox:checked').map(function() {
+              return $(this).val();
+          }).get();
+  
+          if (selectedEnquiryIds.length === 0) {
+              Swal.fire({
+                  icon: 'warning',
+                  title: 'Oops...',
+                  text: 'Please select at least one enquiry.'
+              });
+              return;
+          }
+  
+          Swal.fire({
+              title: 'Are you sure?',
+              text: "Assign selected enquiries to yourself?",
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonText: 'Yes, assign to me',
+              cancelButtonText: 'Cancel'
+          }).then((result) => {
+              if (result.isConfirmed) {
+                  fetch("{% url 'admission:bulk_add_to_me' %}", {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'X-CSRFToken': '{{ csrf_token }}'
+                      },
+                      body: JSON.stringify({ enquiry_ids: selectedEnquiryIds })
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                      if (data.status === 'success') {
+                          Swal.fire({
+                              icon: 'success',
+                              title: 'Assigned!',
+                              text: data.message,
+                              timer: 2000,
+                              showConfirmButton: false
+                          }).then(() => {
+                              location.reload();
+                          });
+                      } else {
+                          Swal.fire({
+                              icon: data.status === 'warning' ? 'warning' : 'error',
+                              title: data.status === 'warning' ? 'Warning' : 'Error',
+                              text: data.message
+                          });
+                      }
+                  })
+                  .catch(error => {
+                      Swal.fire({
+                          icon: 'error',
+                          title: 'Error',
+                          text: 'Something went wrong.'
+                      });
+                  });
+              }
+          });
+      });
+      </script>
+
+{% endblock javascript %}

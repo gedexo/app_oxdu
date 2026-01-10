@@ -1,0 +1,1928 @@
+{% load static %}
+{% load extras %}
+
+{% block extra_css%}
+<style>
+    .custom-table tbody .attendance-th, .custom-table tbody .attendance-td, .custom-table thead .attendance-th, .custom-table thead .attendance-td {
+        padding: .75rem !important;
+        line-height: 0.462 !important;
+    }
+    /* Holiday specific styles */
+    .bg-holiday { 
+        background-color: rgba(255, 193, 7, 0.25) !important; 
+        border: 1px solid rgba(255, 193, 7, 0.4) !important;
+    }
+    .holiday-cell { cursor: default !important; }
+    .holiday-cell:hover { background-color: rgba(255, 193, 7, 0.35) !important; }
+    
+    /* Minimal Batch Selector Styling */
+    .batch-selector {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 400;
+        background: #ffffff;
+        color: #495057;
+        transition: all 0.2s ease;
+        box-shadow: none;
+        min-height: 42px;
+    }
+    .batch-selector:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.15rem rgba(0,123,255,0.15);
+        outline: none;
+    }
+    .batch-selector:hover { border-color: #007bff; }
+    /* Custom dropdown arrow */
+    .batch-selector {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+        padding-right: 2.5rem;
+    }
+    .batch-selector:focus {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23007bff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+    }
+    /* Tab content styling */
+    .tab-pane { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* Attendance cell styling */
+    .attendance-cell { cursor: pointer; transition: all 0.2s ease; }
+    /* Leave status colors */
+    .bg-approved { background-color: rgba(var(--bs-primary-rgb), 0.15) !important; color: var(--bs-primary) !important; }
+    .bg-pending { background-color: rgba(255, 193, 7, 0.15) !important; border: 1px solid rgba(255, 193, 7, 0.3); }
+    .bg-rejected { background-color: rgba(220, 53, 69, 0.15) !important; border: 1px solid rgba(220, 53, 69, 0.3); }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .batch-selector { font-size: 0.85rem; padding: 8px 10px; min-height: 38px; }
+    }
+    .btn-outline-warning { border-color: #ffc107; color: #ffc107; }
+    .btn-check:checked + .btn-outline-warning { background-color: #ffc107; border-color: #ffc107; color: #000; }
+    /* Month-Year Filter Styling */
+    .month-year-filter {
+        border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px; font-size: 0.9rem; font-weight: 400;
+        background: #ffffff; color: #495057; transition: all 0.2s ease; box-shadow: none; min-height: 42px;
+    }
+    .month-year-filter:focus {
+        border-color: #007bff; box-shadow: 0 0 0 0.15rem rgba(0,123,255,0.15); outline: none;
+    }
+    .filter-label { font-size: 0.85rem; font-weight: 600; color: #495057; margin-bottom: 6px; }
+    .status-item { margin-bottom: 5px; padding: 5px; border-radius: 3px; }
+    .status-item .fa-check-circle { color: #28a745; } .status-item .fa-times-circle { color: #dc3545; } .status-item .fa-question-circle { color: #6c757d; }
+    #notificationSetupModal .modal-content {
+      border-radius: 0.5rem;
+      overflow: hidden;
+      border: none;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    #notificationSetupModal .modal-header {
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      padding: 1rem 1.25rem;
+    }
+    
+    #notificationSetupModal .modal-header .modal-title {
+      color: #495057;
+      font-weight: 600;
+    }
+    
+    #notificationSetupModal .modal-body {
+      padding: 1.5rem;
+    }
+    
+    #notificationSetupModal .notification-card {
+      background-color: #fff;
+      border-radius: 0.375rem;
+      padding: 1.25rem;
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      border: 1px solid #e9ecef;
+    }
+    
+    #notificationSetupModal .notification-icon {
+      width: 40px;
+      height: 40px;
+      background-color: #e9f2ff;
+      border-radius: 0.375rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 0.75rem;
+    }
+    
+    #notificationSetupModal .notification-icon i {
+      color: #007bff;
+      font-size: 1.125rem;
+    }
+    
+    #notificationSetupModal .feature-item {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 0;
+    }
+    
+    #notificationSetupModal .feature-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    #notificationSetupModal .feature-text {
+      font-size: 0.95rem;
+      color: #495057;
+    }
+    
+    #notificationSetupModal .modal-footer {
+      border-top: 1px solid #e9ecef;
+      padding: 1rem 1.25rem;
+      background-color: #f8f9fa;
+    }
+    
+    #notificationSetupModal .btn-outline-primary {
+      border-color: #007bff;
+      color: #007bff;
+    }
+    
+    #notificationSetupModal .btn-outline-primary:hover {
+      background-color: #007bff;
+      color: #fff;
+    }
+    
+    #notificationSetupModal .btn-primary {
+      background-color: #007bff;
+      border-color: #007bff;
+      padding: 0.5rem 1.25rem;
+      font-weight: 500;
+    }
+    
+    #notificationSetupModal .btn-primary:hover {
+      background-color: #0069d9;
+      border-color: #0062cc;
+    }
+
+    /* Ensure modals sit above sticky/overflow containers */
+    .modal { z-index: 2000; }
+    .modal-backdrop { z-index: 1990; }
+
+    .btn-toggle-whatsapp {
+      background-color: #25D366 !important;
+      border-color: #25D366 !important;
+      color: white !important;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-toggle-whatsapp:hover {
+      background-color: #128C7E !important;
+      border-color: #128C7E !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(37, 211, 102, 0.3);
+    }
+
+    .btn-toggle-whatsapp:active {
+      transform: translateY(0);
+    }
+
+    .btn-toggle-whatsapp[data-state="off"] {
+      background-color: #6c757d !important;
+      border-color: #6c757d !important;
+    }
+
+    .btn-toggle-whatsapp[data-state="off"]:hover {
+      background-color: #5a6268 !important;
+      border-color: #5a6268 !important;
+      box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+    }
+
+    /* Switch Styling */
+    .form-check-input:checked {
+      background-color: #25D366;
+      border-color: #25D366;
+    }
+
+    .form-check-input:focus {
+      border-color: #25D366;
+      box-shadow: 0 0 0 0.25rem rgba(37, 211, 102, 0.25);
+    }
+
+    /* WhatsApp icon color */
+    .fa-whatsapp {
+      color: inherit;
+    }
+
+    /* Ripple effect for button */
+    .btn-toggle-whatsapp::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      border-radius: 100%;
+      transform: scale(1, 1) translate(-50%);
+      transform-origin: 50% 50%;
+    }
+
+    .btn-toggle-whatsapp:focus:not(:active)::after {
+      animation: ripple 1s ease-out;
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: scale(0, 0);
+        opacity: 0.5;
+      }
+      100% {
+        transform: scale(20, 20);
+        opacity: 0;
+      }
+    }
+
+    /* Sticky Column Definitions - Body Cells (Left Sticky) */
+    .sticky-col-index, .sticky-col-name, .sticky-col-batch {
+        position: sticky;
+        background-color: white;
+        z-index: 5; /* Above normal body cells (0) */
+        box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Right shadow */
+    }
+
+    /* Sticky Headers (Left AND Top Sticky) - Higher Z-Index */
+    thead th.sticky-col-index, 
+    thead th.sticky-col-name, 
+    thead th.sticky-col-batch {
+        z-index: 20 !important; /* Highest priority */
+        top: 0;
+    }
+
+    /* General Sticky Header */
+    .custom-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #fff;
+        z-index: 10;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+    }
+    
+    .attendance-table-container, .hr-attlist {
+        overflow: auto;
+        max-width: 100%;
+        max-height: 75vh;
+        position: relative;
+    }
+
+    /* Offsets */
+    .sticky-col-index { left: 0; width: 50px; min-width: 50px; }
+    .sticky-col-name { left: 50px; width: 200px; min-width: 200px; }
+    .sticky-col-batch { left: 250px; width: 150px; min-width: 150px; }
+
+    /* Inactive Student Row Generic Styles */
+    .student-row.inactive-student td {
+        background-color: #e9ecef !important;
+        color: #6c757d !important;
+        border: 1px solid rgb(255, 196, 196);
+    }
+
+    /* Sticky columns - Distinct Gray */
+    .student-row.inactive-student .sticky-col-index,
+    .student-row.inactive-student .sticky-col-name,
+    .student-row.inactive-student .sticky-col-batch {
+        background-color: #e9ecef !important;
+        color: #495057 !important;
+    }
+    
+    .student-row.inactive-student .sticky-col-name a {
+        color: #495057 !important;
+        text-decoration: line-through;
+    }
+    
+    /* Restore Status Colors in Inactive Rows */
+    .student-row.inactive-student td.bg-success-transparent { background-color: rgba(25, 135, 84, 0.15) !important; color: #198754 !important; }
+    .student-row.inactive-student td.bg-danger-transparent { background-color: rgba(220, 53, 69, 0.15) !important; color: #dc3545 !important; }
+    .student-row.inactive-student td.bg-holiday { background-color: rgba(255, 193, 7, 0.25) !important; }
+    .student-row.inactive-student td.bg-approved { background-color: rgba(25, 135, 84, 0.15) !important; color: #198754 !important; }
+    .student-row.inactive-student td.bg-pending { background-color: rgba(255, 193, 7, 0.15) !important; }
+    .student-row.inactive-student td.bg-rejected { background-color: rgba(220, 53, 69, 0.15) !important; }
+</style>
+{% endblock %}
+
+<!-- quick DOM anchor to reliably expose current user id/type for JS -->
+<div id="__current_user_anchor" data-user-id="{{ request.user.id }}" data-user-type="{{ request.user.usertype }}"></div>
+
+ <!-- Start::row-1 -->
+ <div class="row">
+    <div class="col-xxl-9 col-md-12 col-lg-12">
+        <div class="row">
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card">
+                <a href="{% url 'admission:admission_list' %}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Students</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{student_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-primary my-auto float-end card-icon" > <i class="fa fa-users "></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card" data-bs-toggle="modal" data-bs-target="#presentModal" style="cursor: pointer;">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Presents (Today)</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{today_present_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-success my-auto float-end card-icon" > <i class="fa fa-check-circle"></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card" data-bs-toggle="modal" data-bs-target="#absentModal" style="cursor: pointer;">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Absents (Today)</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{today_absent_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-danger my-auto float-end card-icon" > <i class="fa fa-times-circle"></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+   
+</div>
+<!--End::row-1 -->
+
+<!-- Start::row-1 -->
+<div class="row">
+    <div class="col-xl-12 col-md-12 col-lg-12">
+        <div class="card custom-card">
+            <div class="d-flex my-4 align-items-start justify-content-between ">
+                <div class="ms-2">
+                    <span class="badge bg-light me-2">
+                        <span id="current-date"></span>
+                    </span>
+                    <span class="badge bg-light me-2">
+                        <span id="current-time"></span>
+                    </span>
+                </div>
+                <h4 class="mb-0 text-center flex-grow-1">Attendance Table</h4>
+                <div class="d-flex flex-wrap gap-2 align-items-center me-3">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#attendanceEditModal">
+                        <i class="fe fe-edit me-1"></i> Edit Attendance
+                    </button>
+                    <span class="badge bg-success-transparent text-success"><i class="fe fe-check-circle me-1"></i> Present</span>
+                    <span class="badge bg-warning-transparent text-warning"><i class="fe fe-umbrella me-1"></i> Holiday</span>
+                    <span class="badge bg-primary-transparent text-primary"><i class="fe fe-x-circle me-1"></i> Approved Leave</span>
+                    <span class="badge bg-warning-transparent text-warning"><i class="fe fe-alert-circle me-1"></i> Pending / Rejected Leave</span>
+                    <span class="badge bg-danger-transparent text-danger"><i class="fe fe-x-circle me-1"></i> Absent without Leave</span>
+                </div>
+            </div>
+            
+            <!-- Filters Section -->
+            <div class="mb-4 px-3">
+                <div class="row g-3">
+                    <!-- Batch Selector -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="filter-label">
+                            <i class="fe fe-layers me-1"></i>Select Batch
+                        </div>
+                        <select class="form-select batch-selector" id="batchSelector">
+                            <option value="all-students" selected>📋 All Students</option>
+                            {% for batch_name, students in students_by_batch.items %}
+                                <option value="{% if students.0.batch %}{{ students.0.batch.id }}{% else %}no-batch{% endif %}">
+                                    👥 {{ batch_name }} ({{ students|length }} students)
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Month Selector -->
+                    <div class="col-md-3 col-lg-2">
+                        <div class="filter-label">
+                            <i class="fe fe-calendar me-1"></i>Month
+                        </div>
+                        <select class="form-select month-year-filter" id="monthSelector">
+                            {% for month_num, month_name in months_list %}
+                                <option value="{{ month_num }}" {% if month_num == current_month %}selected{% endif %}>
+                                    {{ month_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Year Selector -->
+                    <div class="col-md-3 col-lg-2">
+                        <div class="filter-label">
+                            <i class="fe fe-calendar me-1"></i>Year
+                        </div>
+                        <select class="form-select month-year-filter" id="yearSelector">
+                            {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Apply Filter Button -->
+                    <div class="col-md-6 col-lg-2 d-flex align-items-end mb-1">
+                        <button type="button" class="btn btn-primary w-100" onclick="applyFilters()">
+                            <i class="fe fe-filter me-1"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="batchTabContent">
+                <!-- All Students Tab -->
+                <div class="tab-pane fade show active" id="all-students" role="tabpanel">
+                    <div class="table-responsive hr-attlist">
+                        <table class="table mb-0 text-nowrap text-md-nowrap table-bordered border custom-table" id="hr-attendance-all">
+                            <thead>
+                                <tr>
+                                    <th class="sticky-col-index">#</th>
+                                    <th class="sticky-col-name">Student Name</th>
+                                    <th class="sticky-col-batch">Batch</th>
+                                    {% for day in days_in_month %}
+                                        <th class="attendance-th">{{ day }}</th>
+                                    {% endfor %}
+                                    <th>Presents</th>
+                                    <th>Absents</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for batch_name, students in students_by_batch.items %}
+                                    {% for student in students %}
+                                        <tr class="student-row {% if student.stage_status != 'active' %}inactive-student{% endif %}">
+                                            <td class="sticky-col-index">{{ forloop.parentloop.counter }}-{{ forloop.counter }}</td>
+                                            <td class="sticky-col-name fw-semibold">
+                                                <a href="{{ student.get_profile_url }}">{{ student.fullname }}</a>
+                                                {% if student.stage_status != 'active' %}<span class="badge bg-secondary ms-1" style="font-size: 0.6rem;">Inactive</span>{% endif %}
+                                            </td>
+                                            <td class="sticky-col-batch text-muted">{{ batch_name }}</td>
+                                            {% for day in days_in_month %}
+                                            <td 
+                                                class="attendance-td text-center
+                                                    {% for record in attendance_by_student|get_item:student.id|get_item:'records' %}
+                                                        {% if record.register.date.day|stringformat:'02d' == day %}
+                                                            {% if record.status == 'Present' %}
+                                                                bg-success-transparent attendance-cell
+                                                            {% elif record.status == 'Holiday' or record.is_holiday %}
+                                                                bg-holiday holiday-cell
+                                                            {% elif record.status == 'Absent' %}
+                                                                {% if record.leave_status %}
+                                                                    {% if record.leave_status == 'approved' %}
+                                                                        bg-approved leave-cell attendance-cell
+                                                                    {% elif record.leave_status == 'pending' %}
+                                                                        bg-pending leave-cell attendance-cell
+                                                                    {% elif record.leave_status == 'rejected' %}
+                                                                        bg-rejected leave-cell attendance-cell
+                                                                    {% else %}
+                                                                        bg-danger-transparent attendance-cell
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    bg-danger-transparent attendance-cell
+                                                                {% endif %}
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                "
+                                                {% for record in attendance_by_student|get_item:student.id|get_item:'records' %}
+                                                    {% if record.register.date.day|stringformat:'02d' == day and record.status == 'Absent' and record.leave_status %}
+                                                        data-subject="{{ record.leave_subject|default_if_none:''|escape }}"
+                                                        data-reason="{{ record.leave_reason|default_if_none:''|escape }}"
+                                                        data-student="{{ student.fullname|escape }}"
+                                                        data-date="{{ record.register.date|date:'d/m/Y' }}"
+                                                        data-leave-status="{{ record.leave_status }}"
+                                                    {% endif %}
+                                                {% endfor %}
+                                            >
+                                                {% for record in attendance_by_student|get_item:student.id|get_item:"records" %}
+                                                    {% if record.register.date.day|stringformat:"02d" == day %}
+                                                        {% if record.status == "Present" %}
+                                                            <span class="fe fe-check-circle text-success"></span>
+                                                        {% elif record.status == "Holiday" or record.is_holiday %}
+                                                            <span class="fe fe-umbrella text-warning" 
+                                                                  {% if record.holiday_name %}title="{% if record.is_auto_holiday %}🏖️ Auto: {% endif %}{{ record.holiday_name }}"{% endif %}>
+                                                            </span>
+                                                        {% elif record.status == "Absent" %}
+                                                            {% if record.leave_status %}
+                                                                <span class="fe fe-x-circle
+                                                                    {% if record.leave_status == 'approved' %}text-success
+                                                                    {% elif record.leave_status == 'pending' %}text-warning
+                                                                    {% elif record.leave_status == 'rejected' %}text-danger
+                                                                    {% endif %}">
+                                                                </span>
+                                                            {% else %}
+                                                                <span class="fe fe-x-circle text-danger"></span>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                          {% endfor %}
+
+                                            <td class="text-success fw-bold text-center">{{ attendance_by_student|get_item:student.id|get_item:"total_present"|default:"0" }}</td>
+                                            <td class="text-danger fw-bold text-center">{{ attendance_by_student|get_item:student.id|get_item:"total_absent"|default:"0" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                    
+                    <!-- Individual Batch Tabs -->
+                    {% for batch_name, students in students_by_batch.items %}
+                        <div class="tab-pane fade" id="batch-{{ forloop.counter }}" role="tabpanel">
+                            <div class="table-responsive hr-attlist">
+                                <table class="table mb-0 text-nowrap text-md-nowrap table-bordered border custom-table" id="hr-attendance-{{ forloop.counter }}">
+                                    <thead>
+                                        <tr>
+                                            <th class="sticky-col-index">#</th>
+                                            <th class="sticky-col-name">Student Name</th>
+                                            {% for day in days_in_month %}
+                                                <th class="attendance-th">{{ day }}</th>
+                                            {% endfor %}
+                                            <th>Presents</th>
+                                            <th>Absents</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in students %}
+                                            <tr class="student-row {% if student.stage_status != 'active' %}inactive-student{% endif %}">
+                                                <td class="sticky-col-index">{{ forloop.counter }}</td>
+                                                <td class="sticky-col-name fw-semibold">
+                                                    <a href="{{ student.get_profile_url }}">{{ student.fullname }}</a>
+                                                    {% if student.stage_status != 'active' %}<span class="badge bg-secondary ms-1" style="font-size: 0.6rem;">Inactive</span>{% endif %}
+                                                </td>
+                                                {% for day in days_in_month %}
+                                                    <td 
+                                                        class="attendance-td text-center
+                                                            {% for record in attendance_by_student|get_item:student.id|get_item:'records' %}
+                                                                {% if record.register.date.day|stringformat:'02d' == day %}
+                                                                    {% if record.status == 'Present' %}
+                                                                        bg-success-transparent attendance-cell
+                                                                    {% elif record.status == 'Holiday' %}
+                                                                        bg-holiday holiday-cell
+                                                                    {% elif record.status == 'Absent' %}
+                                                                        {% if record.leave_status == 'approved' %}
+                                                                            bg-approved leave-cell attendance-cell
+                                                                        {% elif record.leave_status == 'pending' %}
+                                                                            bg-pending leave-cell attendance-cell
+                                                                        {% elif record.leave_status == 'rejected' %}
+                                                                            bg-rejected leave-cell attendance-cell
+                                                                        {% else %}
+                                                                            bg-danger-transparent attendance-cell
+                                                                        {% endif %}
+                                                                    {% endif %}
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        "
+                                                        {% for record in attendance_by_student|get_item:student.id|get_item:'records' %}
+                                                            {% if record.register.date.day|stringformat:'02d' == day and record.status == 'Absent' and record.leave_status %}
+                                                                data-subject="{{ record.leave_subject|default_if_none:''|escape }}"
+                                                                data-reason="{{ record.leave_reason|default_if_none:''|escape }}"
+                                                                data-student="{{ student.fullname|escape }}"
+                                                                data-date="{{ record.register.date|date:'d/m/Y' }}"
+                                                                data-leave-status="{{ record.leave_status }}"
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    >
+                                                        {% for record in attendance_by_student|get_item:student.id|get_item:"records" %}
+                                                            {% if record.register.date.day|stringformat:"02d" == day %}
+                                                                {% if record.status == "Present" %}
+                                                                    <span class="fe fe-check-circle text-success"></span>
+                                                                {% elif record.status == "Holiday" %}
+                                                                    <span class="fe fe-umbrella text-warning" title="Holiday"></span>
+                                                                {% elif record.status == "Absent" %}
+                                                                    {% if record.leave_status %}
+                                                                        <span class="fe fe-x-circle
+                                                                            {% if record.leave_status == 'approved' %}text-success
+                                                                            {% elif record.leave_status == 'pending' %}text-warning
+                                                                            {% elif record.leave_status == 'rejected' %}text-danger
+                                                                            {% endif %}">
+                                                                        </span>
+                                                                    {% else %}
+                                                                        <span class="fe fe-x-circle text-danger"></span>
+                                                                    {% endif %}
+                                                                {% endif %}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </td>
+                                                {% endfor %}
+                                                <td class="text-success fw-bold text-center">{{ attendance_by_student|get_item:student.id|get_item:"total_present"|default:"0" }}</td>
+                                                <td class="text-danger fw-bold text-center">{{ attendance_by_student|get_item:student.id|get_item:"total_absent"|default:"0" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--End::row-1 -->
+
+<!-- Attendance Edit Modal -->
+<div class="modal fade" id="attendanceEditModal" tabindex="-1" aria-labelledby="attendanceEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <!-- Header -->
+      <div class="modal-header bg-theme">
+        <h5 class="modal-title text-white" id="attendanceEditModalLabel">
+          <i class="fe fe-edit me-2"></i> Edit Attendance
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+        <!-- Filter Row -->
+        <div class="row mb-3">
+          <!-- Batch Selector -->
+          <div class="col-md-3">
+            <label for="attendanceBatch" class="form-label">Select Batch</label>
+            <select id="attendanceBatch" class="form-select">
+              {% for batch in batches %}
+                <option value="{{ batch.id }}">{{ batch.batch_name }} - ({{batch.get_batch_student_count}} Students)</option>
+              {% empty %}
+                <option disabled>No active batches found</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Date Selector -->
+          <div class="col-md-3">
+            <label for="attendanceDate" class="form-label">Select Date</label>
+            <input type="text" class="form-control" id="attendanceDate" placeholder="Select Date" value="{{ current_date|date:'d/m/Y' }}">
+          </div>
+
+          <div class="col-md-6 d-flex align-items-center justify-content-center mt-4">
+            <button type="button" class="btn btn-primary me-2" onclick="loadAttendanceData()">
+              <i class="fe fe-refresh-cw me-1"></i> Load Data
+            </button>
+
+            <!-- WhatsApp Toggle Button Group -->
+            <button type="button" class="btn btn-toggle-whatsapp me-2" id="whatsappToggleBtn" data-state="on">
+              <i class="fab fa-whatsapp me-1"></i> WhatsApp ON
+            </button>
+
+            <button type="button" class="btn btn-success" onclick="saveAttendance()" id="saveAttendanceBtn" disabled>
+              <i class="fe fe-save me-1"></i> Save Attendance
+            </button>
+            
+          </div>
+        </div>
+
+        <!-- Holiday Alert -->
+        <div id="holidayAlert" class="alert alert-warning d-none">
+          <i class="fe fe-umbrella me-2"></i>
+          <strong>Holiday Detected:</strong> This date is a holiday. Attendance cannot be marked.
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="table-responsive">
+          <table class="table table-bordered text-nowrap">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Status</th>
+                <th>SMS Status</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceEditTableBody">
+              <tr>
+                <td colspan="5" class="text-center text-muted">
+                  Click "Load Data" to begin. Students will default to "Absent."
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="form-check form-switch me-auto">
+          <input class="form-check-input" type="checkbox" id="whatsappToggleSwitch" checked>
+          <label class="form-check-label" for="whatsappToggleSwitch">
+            <i class="fab fa-whatsapp me-1"></i> WhatsApp Notifications
+          </label>
+        </div>
+
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="fe fe-x me-1"></i> Close
+        </button>
+        <button type="button" class="btn btn-success" id="saveAttendanceBtnFooter" onclick="saveAttendance()" disabled>
+          <i class="fe fe-save me-1"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Present Students Modal -->
+<div class="modal fade" id="presentModal" tabindex="-1" aria-labelledby="presentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white" id="presentModalLabel">
+          <i class="fa fa-check-circle me-2"></i>Present Students Today
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {% if today_attendance_present.exists %}
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;">#</th>
+                  <th>Student Name</th>
+                  <th>Batch</th>
+                  <th>Contact</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for attendance in today_attendance_present %}
+                  <tr>
+                    <td class="text-center">{{ forloop.counter }}</td>
+                    <td class="fw-semibold">
+                      <a href="{{ attendance.student.get_profile_url }}" class="text-decoration-none">
+                        {{ attendance.student.fullname }}
+                      </a>
+                    </td>
+                    <td>
+                      <span class="badge bg-primary-transparent">
+                        {{ attendance.student.batch.batch_name|default:"No Batch" }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if attendance.student.contact_number %}
+                        <a href="tel:{{ attendance.student.contact_number }}" class="text-decoration-none">
+                          <i class="fe fe-phone me-1"></i>{{ attendance.student.contact_number }}
+                        </a>
+                      {% else %}
+                        <span class="text-muted">N/A</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="alert alert-success-transparent mt-3 mb-0">
+            <i class="fe fe-info me-2"></i>
+            <strong>Total Present:</strong> {{ today_present_count }} student{{ today_present_count|pluralize }}
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <i class="fa fa-users fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No Present Students Today</h5>
+            <p class="text-muted mb-0">Attendance has not been marked yet or all students are absent.</p>
+          </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fe fe-x me-1"></i>Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Absent Students Modal -->
+<div class="modal fade" id="absentModal" tabindex="-1" aria-labelledby="absentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title text-white" id="absentModalLabel">
+          <i class="fa fa-times-circle me-2"></i>Absent Students Today
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {% if today_attendance_absent.exists %}
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 60px;">#</th>
+                  <th>Student Name</th>
+                  <th>Batch</th>
+                  <th>Contact</th>
+                  <th>Leave Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for attendance in today_attendance_absent %}
+                  <tr>
+                    <td class="text-center">{{ forloop.counter }}</td>
+                    <td class="fw-semibold">
+                      <a href="{{ attendance.student.get_profile_url }}" class="text-decoration-none">
+                        {{ attendance.student.fullname }}
+                      </a>
+                    </td>
+                    <td>
+                      <span class="badge bg-primary-transparent">
+                        {{ attendance.student.batch.batch_name|default:"No Batch" }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if attendance.student.contact_number %}
+                        <a href="tel:{{ attendance.student.contact_number }}" class="text-decoration-none">
+                          <i class="fe fe-phone me-1"></i>{{ attendance.student.contact_number }}
+                        </a>
+                      {% else %}
+                        <span class="text-muted">N/A</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if attendance.leave_status == 'approved' %}
+                        <span class="badge bg-success">
+                          <i class="fe fe-check me-1"></i>Approved Leave
+                        </span>
+                      {% elif attendance.leave_status == 'pending' %}
+                        <span class="badge bg-warning">
+                          <i class="fe fe-clock me-1"></i>Pending Leave
+                        </span>
+                      {% elif attendance.leave_status == 'rejected' %}
+                        <span class="badge bg-danger">
+                          <i class="fe fe-x me-1"></i>Rejected Leave
+                        </span>
+                      {% else %}
+                        <span class="badge bg-secondary">
+                          <i class="fe fe-minus me-1"></i>No Leave
+                        </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="alert alert-danger-transparent mt-3 mb-0">
+            <i class="fe fe-info me-2"></i>
+            <strong>Total Absent:</strong> {{ today_absent_count }} student{{ today_absent_count|pluralize }}
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <i class="fa fa-users fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No Absent Students Today</h5>
+            <p class="text-muted mb-0">All students are present or attendance has not been marked yet.</p>
+          </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fe fe-x me-1"></i>Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Leave Request Modal (ADDED) -->
+<div class="modal fade" id="leaveModal" tabindex="-1" aria-labelledby="leaveModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg rounded-4 border-0">
+      <div class="modal-header text-white bg-primary rounded-top-4" id="modalHeader">
+        <h5 class="modal-title fw-bold" id="leaveModalLabel">
+          <i class="fe fe-file-text me-2"></i> Leave Request Details
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <p class="mb-2 text-muted small fw-semibold">STUDENT</p>
+            <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+              <i class="fe fe-user"></i>
+              <span class="fw-medium text-dark" id="modal-student">-</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-2 text-muted small fw-semibold">DATE</p>
+            <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+              <i class="fe fe-calendar"></i>
+              <span class="fw-medium text-dark" id="modal-date">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="mb-4">
+          <p class="mb-2 text-muted small fw-semibold">SUBJECT</p>
+          <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+            <i class="fe fe-book"></i>
+            <span class="fw-medium text-dark" id="modal-subject">-</span>
+          </div>
+        </div>
+        <div class="mb-4">
+          <p class="mb-2 text-muted small fw-semibold">REASON</p>
+          <div class="p-3 border rounded bg-light-subtle">
+            <div class="d-flex gap-2">
+              <i class="fe fe-message-square mt-1"></i>
+              <div class="flex-grow-1">
+                <p class="text-dark mb-0" id="modal-reason">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-4" id="attachmentSection" style="display:none;">
+          <p class="mb-2 text-muted small fw-semibold">ATTACHMENT</p>
+          <div class="d-flex align-items-center gap-3 p-3 border rounded bg-light-subtle" id="attachmentContent">
+            <span class="text-muted">No attachment</span>
+          </div>
+        </div>
+        <div class="mb-0">
+          <p class="mb-2 text-muted small fw-semibold">STATUS</p>
+          <div id="modal-status"></div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">
+          <i class="fe fe-x me-1"></i> Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FCM Notification Setup Modal -->
+<div class="modal fade" id="notificationSetupModal" tabindex="-1" aria-labelledby="notificationSetupModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="notificationSetupModalLabel">
+          <i class="fe fe-bell me-2 text-primary"></i>Enable Notifications
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="notification-card">
+          <h5 class="mb-3">Stay Updated with Real-time Notifications</h5>
+          <p class="text-muted mb-4">Enable push notifications to receive instant alerts for:</p>
+          
+          <div class="feature-item">
+            <div class="notification-icon">
+              <i class="fe fe-file-text"></i>
+            </div>
+            <div class="feature-text">New leave requests from students</div>
+          </div>
+          
+          <div class="feature-item">
+            <div class="notification-icon">
+              <i class="fe fe-calendar"></i>
+            </div>
+            <div class="feature-text">Attendance updates and changes</div>
+          </div>
+          
+          <div class="feature-item">
+            <div class="notification-icon">
+              <i class="fe fe-bell"></i>
+            </div>
+            <div class="feature-text">Important announcements</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">
+          Maybe Later
+        </button>
+        <button type="button" class="btn btn-primary" onclick="requestNotificationPermission()">
+          Enable Notifications
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ===========================================================
+   OXDU ERP - Teacher Dashboard & Attendance Management JS
+   With Complete Notification System
+   =========================================================== */
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCKmvxH0K1dyYqvJl5whVu2HYC4i-TsVEc",
+  authDomain: "oxduerp.firebaseapp.com",
+  projectId: "oxduerp",
+  storageBucket: "oxduerp.firebasestorage.app",
+  messagingSenderId: "980764244945",
+  appId: "1:980764244945:web:1db7d8fd89ffe55e167ef0",
+  measurementId: "G-NS90J1MG9Q"
+};
+const VAPID_KEY = null;
+
+/* ----------------- Helpers ----------------- */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const byId = id => document.getElementById(id);
+
+function getCookie(name){
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
+/* ----------------- Toast Messages ----------------- */
+function showToast(message, type = 'info') {
+  let container = byId('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 11000;
+      display: flex; flex-direction: column; gap: 10px;
+      max-width: 400px; pointer-events: none;
+    `;
+    document.body.appendChild(container);
+  }
+
+  const palette = {
+    success: { bg:'#e6ffed', border:'#a8e6b0', text:'#146c43', icon:'✅' },
+    danger: { bg:'#fde2e2', border:'#f5b5b5', text:'#b02a37', icon:'❌' },
+    warning: { bg:'#fff3cd', border:'#ffecb5', text:'#664d03', icon:'⚠️' },
+    info: { bg:'#e7f1ff', border:'#b6d4fe', text:'#084298', icon:'ℹ️' }
+  };
+  const style = palette[type] || palette.info;
+
+  const el = document.createElement('div');
+  el.style.cssText = `
+    padding:12px 16px; border-radius:8px; border:1px solid ${style.border};
+    background:${style.bg}; color:${style.text}; display:flex; align-items:flex-start;
+    justify-content:space-between; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    animation:toastIn .3s ease; word-break: break-word; pointer-events: auto;
+  `;
+  el.innerHTML = `
+    <div style="flex:1;">
+      <div style="font-weight:500; margin-bottom:4px;">${style.icon} ${type.toUpperCase()}</div>
+      <div>${message}</div>
+    </div>
+    <button class="btn btn-sm" style="background:transparent; border:none; color:${style.text}; margin-left:8px; cursor:pointer;">×</button>
+  `;
+  el.querySelector('button').onclick = () => el.remove();
+  container.appendChild(el);
+  
+  setTimeout(() => {
+    if (el.parentNode) {
+      el.style.animation = 'toastOut 0.3s ease';
+      setTimeout(() => el.remove(), 300);
+    }
+  }, 5000);
+  
+  if (!document.getElementById('toast-anim-style')) {
+    const s = document.createElement('style');
+    s.id = 'toast-anim-style';
+    s.textContent = `
+      @keyframes toastIn {
+        from { opacity:0; transform:translateX(100px) translateY(-8px); }
+        to { opacity:1; transform:translateX(0) translateY(0); }
+      }
+      @keyframes toastOut {
+        from { opacity:1; transform:translateX(0) translateY(0); }
+        to { opacity:0; transform:translateX(100px) translateY(-8px); }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+}
+
+// Make showToast available globally
+window.showToast = showToast;
+
+/* ----------------- Date & Time ----------------- */
+function updateDateTime(){
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB');
+  const timeStr = now.toLocaleTimeString('en-US', { hour12:true });
+  if(byId('current-date')) byId('current-date').textContent = dateStr;
+  if(byId('current-time')) byId('current-time').textContent = timeStr;
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
+
+/* ----------------- Flatpickr ----------------- */
+if(window.flatpickr){
+  flatpickr("#attendanceDate", { 
+    dateFormat:"d/m/Y", 
+    defaultDate:"today", 
+    maxDate:"today", 
+    allowInput:true 
+  });
+}
+
+/* ----------------- Leave Modal Handling (FIXED) ----------------- */
+let leaveHandlerAttached = false;
+function setupLeaveModalHandlers() {
+  if (leaveHandlerAttached) return;
+  leaveHandlerAttached = true;
+
+  document.addEventListener('click', function(e) {
+    const cell = e.target.closest('.leave-cell');
+    if (!cell) return;
+    e.preventDefault();
+
+    const studentName = cell.getAttribute('data-student') || '';
+    const date = cell.getAttribute('data-date') || '';
+    const subject = cell.getAttribute('data-subject') || '';
+    const reason = cell.getAttribute('data-reason') || '';
+    const leaveStatus = cell.getAttribute('data-leave-status') || '';
+
+    showLeaveModal({
+      student: studentName,
+      date: date,
+      subject: subject,
+      reason: reason,
+      status: leaveStatus
+    });
+  });
+}
+
+function showLeaveModal(leaveData) {
+  if (byId('modal-student')) byId('modal-student').textContent = leaveData.student || 'Not specified';
+  if (byId('modal-date')) byId('modal-date').textContent = leaveData.date || 'Not specified';
+  if (byId('modal-subject')) byId('modal-subject').textContent = leaveData.subject || 'Not specified';
+  if (byId('modal-reason')) byId('modal-reason').textContent = leaveData.reason || 'Not specified';
+  
+  const statusElement = byId('modal-status');
+  if (statusElement) {
+    let statusHtml = '';
+    const status = (leaveData.status || 'unknown').toLowerCase();
+    
+    if (status === 'approved') {
+      statusHtml = '<span class="badge bg-success"><i class="fe fe-check-circle me-1"></i> Approved</span>';
+      byId('modalHeader').className = 'modal-header text-white rounded-top-4 bg-success';
+    } else if (status === 'pending') {
+      statusHtml = '<span class="badge bg-warning"><i class="fe fe-clock me-1"></i> Pending</span>';
+      byId('modalHeader').className = 'modal-header text-white rounded-top-4 bg-warning';
+    } else if (status === 'rejected') {
+      statusHtml = '<span class="badge bg-danger"><i class="fe fe-x-circle me-1"></i> Rejected</span>';
+      byId('modalHeader').className = 'modal-header text-white rounded-top-4 bg-danger';
+    } else {
+      statusHtml = '<span class="badge bg-secondary"><i class="fe fe-help-circle me-1"></i> Unknown</span>';
+      byId('modalHeader').className = 'modal-header text-white rounded-top-4 bg-secondary';
+    }
+    
+    statusElement.innerHTML = statusHtml;
+  }
+  
+  const attachmentSection = byId('attachmentSection');
+  if (attachmentSection) {
+    attachmentSection.style.display = 'none';
+  }
+
+  const el = byId('leaveModal');
+  if (!el) {
+    console.error('leaveModal element not found');
+    return;
+  }
+
+  if (el.parentElement !== document.body) {
+    document.body.appendChild(el);
+  }
+
+  const leaveModal = window.bootstrap.Modal.getOrCreateInstance(el, {
+    backdrop: true,
+    keyboard: true,
+    focus: true
+  });
+  leaveModal.show();
+}
+
+/* ----------------- Attendance ----------------- */
+let attendanceData = {};
+let currentFilters = {
+  batch: '',
+  date: '',
+  course: '',
+  branch: ''
+};
+
+// Expose to window for WhatsApp toggle access
+window.attendanceData = attendanceData;
+window.currentFilters = currentFilters;
+
+function formatDateForAPI(dateString){
+  if(!dateString) return '';
+  if(dateString.includes('/')){
+    const [d,m,y] = dateString.split('/');
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  return dateString;
+}
+
+function renderAttendanceTable(){
+  const tbody = byId('attendanceEditTableBody');
+  if(!tbody) return;
+  if(!attendanceData || Object.keys(attendanceData).length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No students found</td></tr>';
+    return;
+  }
+
+  let html = '', i = 1;
+  for(const [batchName, students] of Object.entries(attendanceData)){
+    html += `<tr class="table-primary"><td colspan="4" class="fw-bold text-center">${batchName} (${students.length} students)</td></tr>`;
+    students.forEach(s=>{
+      const st = s.status || 'Absent';
+      const smsStatus = s.sms_sent ? 'Sent' : 'Pending';
+      const smsBadgeClass = s.sms_sent ? 'bg-success' : 'bg-warning';
+      
+      html += `
+      <tr data-student-id="${s.id}">
+        <td>${i++}</td>
+        <td>${s.fullname}</td>
+        <td>
+          <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" id="present_${s.id}" name="attendance_${s.id}" value="Present" ${st==='Present'?'checked':''}>
+            <label class="btn btn-outline-success btn-sm" for="present_${s.id}">Present</label>
+            <input type="radio" class="btn-check" id="absent_${s.id}" name="attendance_${s.id}" value="Absent" ${st==='Absent'?'checked':''}>
+            <label class="btn btn-outline-danger btn-sm" for="absent_${s.id}">Absent</label>
+          </div>
+        </td>
+        <td>
+          <span class="badge ${smsBadgeClass}">SMS: ${smsStatus}</span>
+        </td>
+      </tr>`;
+    });
+  }
+  tbody.innerHTML = html;
+  attachRadioListeners();
+}
+
+function attachRadioListeners(){
+  $$('input[type="radio"][name^="attendance_"]').forEach(r=>{
+    if(r._done) return;
+    r._done = true;
+    r.addEventListener('change', ()=> {
+      byId('saveAttendanceBtn')?.removeAttribute('disabled');
+      byId('saveAttendanceBtnFooter')?.removeAttribute('disabled');
+    });
+  });
+}
+
+window.markHoliday = async () => {
+  const dateEl = byId('attendanceDate');
+  const dateStr = formatDateForAPI(dateEl?.value || '');
+  if (!dateStr) {
+    showToast('Please select a valid date first', 'warning');
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to mark ${dateStr} as a Holiday? This will mark all students as Holiday for this date.`)) return;
+
+  const btn = byId('markHolidayBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+  try {
+    const res = await fetch(`/admission/attendance/auto_mark_holiday/?date=${dateStr}`);
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`Holiday marked successfully for ${data.total_students} students`, 'success');
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      showToast(data.error || data.message || 'Holiday processing failed', 'danger');
+    }
+  } catch (e) {
+    showToast('Error contacting server', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fe fe-umbrella me-1"></i> Mark Holiday';
+  }
+};
+
+window.loadAttendanceData = async ()=>{
+  const dateEl = byId('attendanceDate');
+  const batchEl = byId('attendanceBatch');
+  const tbody = byId('attendanceEditTableBody');
+  const holidayAlert = byId('holidayAlert');
+  const dateStr = formatDateForAPI(dateEl?.value || '');
+  const batchId = batchEl?.value || 'all';
+
+  if(!dateStr){
+    tbody.innerHTML='<tr><td colspan="4" class="text-center text-danger">Invalid date</td></tr>'; 
+    return;
+  }
+
+  // Store current filters
+  currentFilters.date = dateStr;
+  currentFilters.batch = batchId;
+  window.currentFilters = currentFilters;
+
+  tbody.innerHTML='<tr><td colspan="4" class="text-center text-primary">Loading...</td></tr>';
+
+  try{
+    const res = await fetch(`/admission/attendance/data/?date=${dateStr}&batch_id=${batchId}`);
+    const data = await res.json();
+    
+    if (data.is_holiday) {
+      tbody.innerHTML=`
+        <tr>
+          <td colspan="4" class="text-center text-warning">
+            <i class="fe fe-umbrella me-2"></i>
+            This date is a holiday. Attendance cannot be marked.
+          </td>
+        </tr>
+      `;
+      holidayAlert.classList.remove('d-none');
+      byId('saveAttendanceBtn')?.setAttribute('disabled','true');
+      byId('saveAttendanceBtnFooter')?.setAttribute('disabled','true');
+      byId('markHolidayBtn')?.setAttribute('disabled','true');
+      return;
+    } else {
+      holidayAlert.classList.add('d-none');
+    }
+    
+    if(!data.success || !data.students_by_batch || !Object.keys(data.students_by_batch).length){
+      tbody.innerHTML='<tr><td colspan="4" class="text-center text-muted">No students found</td></tr>';
+      return;
+    }
+    
+    attendanceData = data.students_by_batch;
+    window.attendanceData = attendanceData;
+    
+    renderAttendanceTable();
+    byId('saveAttendanceBtn')?.removeAttribute('disabled');
+    byId('saveAttendanceBtnFooter')?.removeAttribute('disabled');
+    byId('markHolidayBtn')?.removeAttribute('disabled');
+    
+  }catch(e){
+    console.error('Error loading attendance:', e);
+    tbody.innerHTML=`<tr><td colspan="4" class="text-center text-danger">Error loading data</td></tr>`;
+  }
+};
+
+// FIXED: Single saveAttendance function with WhatsApp support
+window.saveAttendance = async ()=>{
+  console.log('🔍 Save Attendance clicked');
+  
+  if(window.isSubmitting) {
+    console.log('⏳ Already submitting, ignoring click');
+    return;
+  }
+  
+  window.isSubmitting = true;
+  console.log('✅ Starting save process');
+  
+  const dateEl = byId('attendanceDate');
+  const dateStr = formatDateForAPI(dateEl?.value || '');
+  
+  if(!dateStr){ 
+    showToast('Invalid date','danger'); 
+    window.isSubmitting=false; 
+    return; 
+  }
+
+  const records = [];
+  let present=0, absent=0;
+  
+  // Get current attendance data
+  const currentAttendanceData = window.attendanceData || attendanceData;
+  
+  for(const [, students] of Object.entries(currentAttendanceData)){
+    students.forEach(s=>{
+      let st='Absent';
+      if(byId(`present_${s.id}`)?.checked) st='Present';
+      if(st==='Present') present++; else absent++;
+      records.push({student_id:s.id, status:st});
+    });
+  }
+
+  if(!records.length){ 
+    showToast('Nothing to save','warning'); 
+    window.isSubmitting=false; 
+    return; 
+  }
+
+  const cs = getCookie('csrftoken');
+  const saveBtn = byId('saveAttendanceBtn');
+  const saveF = byId('saveAttendanceBtnFooter');
+  
+  // Get WhatsApp state
+  const whatsappEnabled = window.getWhatsAppState ? window.getWhatsAppState() : true;
+  console.log('📱 WhatsApp state:', whatsappEnabled);
+  
+  // Show loading state on both buttons
+  if(saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving Attendance...';
+  }
+  if(saveF) {
+    saveF.disabled = true;
+    saveF.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Saving Changes...';
+  }
+
+  try{
+    const payload = {
+      date: dateStr,
+      records: records,
+      send_whatsapp: whatsappEnabled
+    };
+    
+    console.log('📤 Sending payload:', payload);
+    
+    const res = await fetch('/admission/attendance/save/',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-CSRFToken': cs || ''
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await res.json();
+    console.log('📥 Response:', data);
+    
+    if(data.success){ 
+      let successMessage = `✅ Attendance saved for ${data.total_records || records.length} students`;
+      
+      // Add WhatsApp status to success message
+      if (whatsappEnabled && data.sms_sent > 0) {
+        successMessage += ` (${data.sms_sent} WhatsApp ${data.sms_sent === 1 ? 'notification' : 'notifications'} sent)`;
+      } else if (whatsappEnabled) {
+        successMessage += ` (No WhatsApp notifications needed)`;
+      } else {
+        successMessage += ` (WhatsApp disabled)`;
+      }
+      
+      showToast(successMessage, 'success'); 
+      
+      // Keep the modal open and reload the data with current filters
+      setTimeout(() => {
+        const filters = window.currentFilters || currentFilters;
+        if (filters.date && filters.batch) {
+          window.loadAttendanceData();
+        }
+      }, 1500);
+    } else {
+      showToast(data.error || 'Save failed','danger');
+    }
+  }catch(e){ 
+    console.error('❌ Save error:', e);
+    showToast('Error saving attendance','danger'); 
+  }
+  finally{
+    // Reset button states
+    if(saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML='<i class="fe fe-save me-1"></i> Save Attendance';
+    }
+    if(saveF) {
+      saveF.disabled = false;
+      saveF.innerHTML='<i class="fe fe-save me-1"></i> Save Changes';
+    }
+    window.isSubmitting=false;
+    console.log('✅ Save process complete');
+  }
+};
+
+/* ----------------- Filter Functions ----------------- */
+window.applyFilters = function() {
+    const batchSelector = byId('batchSelector');
+    const monthSelector = byId('monthSelector');
+    const yearSelector = byId('yearSelector');
+    
+    if (!batchSelector || !monthSelector || !yearSelector) {
+        console.error('Filter elements not found');
+        return;
+    }
+    
+    const selectedBatch = batchSelector.value;
+    const selectedMonth = monthSelector.value;
+    const selectedYear = yearSelector.value;
+    
+    let url = window.location.pathname;
+    const params = new URLSearchParams();
+    
+    if (selectedMonth && selectedMonth !== 'all') {
+        params.append('month', selectedMonth);
+    }
+    
+    if (selectedYear && selectedYear !== 'all') {
+        params.append('year', selectedYear);
+    }
+    
+    if (selectedBatch && selectedBatch !== 'all-students') {
+        params.append('batch', selectedBatch);
+    }
+    
+    const queryString = params.toString();
+    if (queryString) {
+        window.location.href = url + '?' + queryString;
+    } else {
+        window.location.href = url;
+    }
+};
+
+/* ----------------- Initialize Batch Tabs ----------------- */
+function initializeBatchTabs() {
+    const batchSelector = byId('batchSelector');
+    if (!batchSelector) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlBatch = urlParams.get('batch');
+    
+    if (urlBatch) {
+        batchSelector.value = urlBatch;
+        const tabElement = document.querySelector(`[href="#${urlBatch}"]`);
+        if (tabElement) {
+            const tab = new window.bootstrap.Tab(tabElement);
+            tab.show();
+        }
+    }
+    
+    batchSelector.addEventListener('change', function() {
+        const selectedBatch = this.value;
+        
+        if (selectedBatch && selectedBatch !== 'all-students') {
+            const tabElement = document.querySelector(`[href="#${selectedBatch}"]`);
+            if (tabElement) {
+                const tab = new window.bootstrap.Tab(tabElement);
+                tab.show();
+            }
+        } else {
+            const allStudentsTab = document.querySelector('[href="#all-students"]');
+            if (allStudentsTab) {
+                const tab = new window.bootstrap.Tab(allStudentsTab);
+                tab.show();
+            }
+        }
+    });
+}
+
+/* ===========================================================
+   NOTIFICATION SYSTEM
+   =========================================================== */
+
+let notificationModalShown = false;
+
+function checkAndShowNotificationModal() {
+    try {
+        if (!('Notification' in window)) return;
+
+        const userType = document.getElementById('__current_user_anchor')?.getAttribute('data-user-type');
+        const isTeacher = userType === 'teacher';
+        
+        if (isTeacher && Notification.permission === 'default' && !notificationModalShown) {
+            showNotificationSetupModal();
+        }
+    } catch (error) {
+        console.error('Error checking notification status:', error);
+    }
+}
+
+function showNotificationSetupModal() {
+    try {
+        const modalElement = document.getElementById('notificationSetupModal');
+        if (!modalElement) return;
+        const modal = new window.bootstrap.Modal(modalElement);
+        modal.show();
+        notificationModalShown = true;
+    } catch (error) {
+        console.error('Error showing notification modal:', error);
+    }
+}
+
+async function requestNotificationPermission() {
+    try {
+        const modalElement = document.getElementById('notificationSetupModal');
+        if (modalElement) {
+            const modal = window.bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+        }
+
+        if (!('Notification' in window)) {
+            showToast('Your browser does not support notifications', 'warning');
+            return false;
+        }
+        if (Notification.permission === 'granted') {
+            showToast('Notifications are already enabled!', 'success');
+            await initializeFCM();
+            return true;
+        }
+        if (Notification.permission === 'denied') {
+            showToast('Notification permission was denied. Please enable it in your browser settings.', 'warning');
+            return false;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            showToast('Notification permission granted! Setting up notifications...', 'success');
+            await initializeFCM();
+            return true;
+        } else {
+            showToast('Notification permission denied. You can enable it later in browser settings.', 'warning');
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        showToast('Error setting up notifications', 'danger');
+        return false;
+    }
+}
+
+async function initializeFCM() {
+    try {
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js');
+        const { getMessaging, getToken, onMessage } = await import('https://www.gstatic.com/firebasejs/9.6.10/firebase-messaging.js');
+        
+        const firebaseApp = initializeApp(FIREBASE_CONFIG);
+        const messaging = getMessaging(firebaseApp);
+        
+        const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+        if (token) {
+            await registerFCMDevice(token);
+        } else {
+            showToast('Could not get device token for notifications', 'warning');
+            return;
+        }
+        
+        onMessage(messaging, (payload) => {
+          const msg = payload?.notification?.body || payload?.data?.body;
+          if (msg) showToast(msg, 'info');
+        });
+        
+        return true;
+        
+    } catch (error) {
+        console.error('FCM initialization failed:', error);
+        if (error.code === 'messaging/permission-blocked') {
+            showToast('Notifications are blocked. Please enable them in browser settings.', 'warning');
+        } else if (error.code === 'messaging/permission-default') {
+            showToast('Notification permission not granted.', 'warning');
+        } else {
+            showToast('Error setting up push notifications: ' + error.message, 'danger');
+        }
+        return false;
+    }
+}
+
+async function registerFCMDevice(token) {
+    try {
+        const response = await fetch('/employees/api/register-device/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                token: token,
+                type: 'web',
+                name: 'Teacher Dashboard - ' + navigator.userAgent.substring(0, 100)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('Device registered for notifications! You will now receive real-time alerts.', 'success');
+            return true;
+        } else {
+            showToast('Device registration failed: ' + (data.detail || 'Unknown error'), 'warning');
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('Device registration error:', error);
+        showToast('Error registering device for notifications', 'danger');
+        return false;
+    }
+}
+
+window.requestNotificationPermission = async function() {
+    await requestNotificationPermission();
+};
+
+/* ----------------- Initialize Everything on Page Load ----------------- */
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM Content Loaded');
+    
+    checkAndShowNotificationModal();
+    setupLeaveModalHandlers();
+    initializeBatchTabs();
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+    
+    const attModal = byId('attendanceEditModal');
+    if(attModal){
+        attModal.addEventListener('show.bs.modal', ()=>{
+            if (!currentFilters.date && !currentFilters.batch) {
+                attendanceData = {};
+                window.attendanceData = {};
+                const t = byId('attendanceEditTableBody');
+                if(t) t.innerHTML='<tr><td colspan="4" class="text-center text-muted">Click "Load Data" to begin.</td></tr>';
+                byId('saveAttendanceBtn')?.setAttribute('disabled','true');
+                byId('saveAttendanceBtnFooter')?.setAttribute('disabled','true');
+                byId('markHolidayBtn')?.removeAttribute('disabled');
+                byId('holidayAlert')?.classList.add('d-none');
+            } else {
+                if (currentFilters.date) {
+                    const dateEl = byId('attendanceDate');
+                    if (dateEl) {
+                        const [y, m, d] = currentFilters.date.split('-');
+                        dateEl.value = `${d}/${m}/${y}`;
+                    }
+                }
+                if (currentFilters.batch) {
+                    const batchEl = byId('attendanceBatch');
+                    if (batchEl) batchEl.value = currentFilters.batch;
+                }
+                setTimeout(() => window.loadAttendanceData(), 300);
+            }
+        });
+    }
+    
+    [byId('monthSelector'), byId('yearSelector')].forEach(element => {
+        if (element) {
+            element.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    window.applyFilters();
+                }
+            });
+        }
+    });
+    
+    if(window.flatpickr){
+        flatpickr("#attendanceDate", { 
+            dateFormat:"d/m/Y", 
+            defaultDate:"today", 
+            maxDate:"today", 
+            allowInput:true 
+        });
+    }
+});
+</script>
+
+<script>
+/* ===========================================================
+   WhatsApp Toggle Button Functionality
+   =========================================================== */
+
+// Global variable to track WhatsApp notification state
+let whatsappEnabled = true;
+
+// DOM Elements
+let whatsappToggleBtn = null;
+let whatsappToggleSwitch = null;
+
+/* ----------------- Initialize WhatsApp Toggle ----------------- */
+function initializeWhatsAppToggle() {
+    console.log('🔧 Initializing WhatsApp toggle...');
+    
+    whatsappToggleBtn = document.getElementById('whatsappToggleBtn');
+    whatsappToggleSwitch = document.getElementById('whatsappToggleSwitch');
+    
+    console.log('📱 WhatsApp toggle elements:', {
+        button: !!whatsappToggleBtn,
+        switch: !!whatsappToggleSwitch
+    });
+    
+    loadWhatsAppPreference();
+    updateToggleUI();
+    attachToggleEvents();
+    
+    console.log('✅ WhatsApp toggle initialized');
+}
+
+/* ----------------- Load Saved Preference ----------------- */
+function loadWhatsAppPreference() {
+    try {
+        const savedPreference = localStorage.getItem('whatsappAttendanceEnabled');
+        if (savedPreference !== null) {
+            whatsappEnabled = savedPreference === 'true';
+            console.log('📂 Loaded WhatsApp preference:', whatsappEnabled);
+        } else {
+            whatsappEnabled = true;
+            localStorage.setItem('whatsappAttendanceEnabled', 'true');
+        }
+    } catch (error) {
+        console.error('❌ Error loading WhatsApp preference:', error);
+        whatsappEnabled = true;
+    }
+}
+
+/* ----------------- Update UI State ----------------- */
+function updateToggleUI() {
+    if (whatsappToggleBtn) {
+        if (whatsappEnabled) {
+            whatsappToggleBtn.setAttribute('data-state', 'on');
+            whatsappToggleBtn.innerHTML = '<i class="fab fa-whatsapp me-1"></i> WhatsApp ON';
+            whatsappToggleBtn.classList.remove('btn-secondary');
+            whatsappToggleBtn.classList.add('btn-toggle-whatsapp');
+        } else {
+            whatsappToggleBtn.setAttribute('data-state', 'off');
+            whatsappToggleBtn.innerHTML = '<i class="fab fa-whatsapp me-1"></i> WhatsApp OFF';
+            whatsappToggleBtn.classList.remove('btn-toggle-whatsapp');
+            whatsappToggleBtn.classList.add('btn-secondary');
+        }
+    }
+    
+    if (whatsappToggleSwitch) {
+        whatsappToggleSwitch.checked = whatsappEnabled;
+    }
+    
+    console.log('🎨 UI updated - WhatsApp:', whatsappEnabled ? 'ON' : 'OFF');
+}
+
+/* ----------------- Attach Event Listeners ----------------- */
+function attachToggleEvents() {
+    if (whatsappToggleBtn) {
+        whatsappToggleBtn.addEventListener('click', handleToggleClick);
+        console.log('🎯 Button event listener attached');
+    }
+    
+    if (whatsappToggleSwitch) {
+        whatsappToggleSwitch.addEventListener('change', handleSwitchChange);
+        console.log('🎯 Switch event listener attached');
+    }
+}
+
+/* ----------------- Toggle Button Click Handler ----------------- */
+function handleToggleClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔄 Toggle button clicked');
+    
+    whatsappEnabled = !whatsappEnabled;
+    localStorage.setItem('whatsappAttendanceEnabled', whatsappEnabled.toString());
+    updateToggleUI();
+    showToggleFeedback();
+    
+    console.log('🔄 WhatsApp toggled to:', whatsappEnabled ? 'ON' : 'OFF');
+}
+
+/* ----------------- Switch Change Handler ----------------- */
+function handleSwitchChange(event) {
+    console.log('🔄 Switch changed');
+    
+    whatsappEnabled = event.target.checked;
+    localStorage.setItem('whatsappAttendanceEnabled', whatsappEnabled.toString());
+    updateToggleUI();
+    showToggleFeedback();
+    
+    console.log('🔄 WhatsApp switched to:', whatsappEnabled ? 'ON' : 'OFF');
+}
+
+/* ----------------- Show User Feedback ----------------- */
+function showToggleFeedback() {
+    const message = `WhatsApp notifications ${whatsappEnabled ? 'enabled' : 'disabled'}`;
+    const type = whatsappEnabled ? 'success' : 'warning';
+    
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        console.log(`📱 ${message}`);
+    }
+}
+
+/* ----------------- Get Current WhatsApp State (EXPOSED TO WINDOW) ----------------- */
+window.getWhatsAppState = function() {
+    return whatsappEnabled;
+};
+
+/* ----------------- Initialize on Document Ready ----------------- */
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded - initializing WhatsApp toggle');
+    initializeWhatsAppToggle();
+    
+    const attendanceModal = document.getElementById('attendanceEditModal');
+    if (attendanceModal) {
+        attendanceModal.addEventListener('show.bs.modal', function() {
+            console.log('🎯 Attendance modal opened - reinitializing toggle');
+            setTimeout(initializeWhatsAppToggle, 100);
+        });
+    }
+});
+</script>

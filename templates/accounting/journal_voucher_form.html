@@ -1,0 +1,184 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block extra_css %}
+<style>
+    .entry-row { border-bottom: 1px solid #eee; padding: 10px 0; transition: all 0.2s; }
+    .entry-row:hover { background-color: #fcfcfc; }
+    .total-section { background-color: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 5px solid #206bc4; }
+    .balance-error { color: #d63939; font-weight: bold; }
+    .balance-success { color: #2fb344; font-weight: bold; }
+    .empty-form { display: none; }
+    .delete-row-btn { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-content main-content">
+    <div class="container-fluid">
+        <div class="row mt-5">
+            <div class="col-lg-12">
+                <form method="post" id="journal-form">
+                    {% csrf_token %}
+                    <div class="card custom-card">
+                        <div class="card-header border-bottom">
+                            <h5 class="card-title mb-0">{{ title }}</h5>
+                        </div>
+                        <div class="card-body">
+                            {{ form.non_field_errors }}
+                            <div class="row">
+                                <div class="col-md-3">{{ form.date|as_crispy_field }}</div>
+                                <div class="col-md-3">{{ form.voucher_number|as_crispy_field }}</div>
+                                <div class="col-md-6">{{ form.branch|as_crispy_field }}</div>
+                                <div class="col-12">{{ form.narration|as_crispy_field }}</div>
+                            </div>
+
+                            <hr>
+                            <h4>Journal Entries</h4>
+                            {{ formset.management_form }}
+                            
+                            <div id="formset-container">
+                                {% for fs_form in formset %}
+                                <div class="row entry-row align-items-end">
+                                    {{ fs_form.id }}
+                                    <div class="col-md-4">{{ fs_form.account|as_crispy_field }}</div>
+                                    <div class="col-md-2">{{ fs_form.debit_amount|as_crispy_field }}</div>
+                                    <div class="col-md-2">{{ fs_form.credit_amount|as_crispy_field }}</div>
+                                    <div class="col-md-3">{{ fs_form.description|as_crispy_field }}</div>
+                                    <div class="col-md-1 mb-3 text-center">
+                                        {% if formset.can_delete %}
+                                            <div class="d-none">{{ fs_form.DELETE }}</div>
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-row">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <button type="button" class="btn btn-outline-info btn-sm mt-3" id="add-row">
+                                + Add Account Row
+                            </button>
+
+                            <div class="total-section mt-4">
+                                <div class="row">
+                                    <div class="col-md-4">Total Debits: <strong id="total-debits">0.00</strong></div>
+                                    <div class="col-md-4">Total Credits: <strong id="total-credits">0.00</strong></div>
+                                    <div class="col-md-4 text-end">
+                                        Status: <span id="balance-status" class="balance-error">Out of Balance</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer text-end">
+                            <a href="{% url 'accounting:journal_voucher_list' %}" class="btn btn-link">Cancel</a>
+                            <button type="submit" class="btn btn-primary" id="submit-btn">Save Journal Voucher</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template for new rows (Hidden) -->
+<div id="empty-form-template" style="display:none;">
+    <div class="row entry-row align-items-end">
+        <div class="col-md-4">{{ formset.empty_form.account|as_crispy_field }}</div>
+        <div class="col-md-2">{{ formset.empty_form.debit_amount|as_crispy_field }}</div>
+        <div class="col-md-2">{{ formset.empty_form.credit_amount|as_crispy_field }}</div>
+        <div class="col-md-3">{{ formset.empty_form.description|as_crispy_field }}</div>
+        <div class="col-md-1 mb-3 text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-row">
+                <i class="fa fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.querySelector('#formset-container');
+    const addButton = document.querySelector('#add-row');
+    const totalForms = document.querySelector('#id_form-TOTAL_FORMS');
+    
+    // 1. Add Row
+    addButton.addEventListener('click', function() {
+        const currentCount = parseInt(totalForms.value);
+        const template = document.querySelector('#empty-form-template').innerHTML;
+        const newFormHtml = template.replace(/__prefix__/g, currentCount);
+        
+        container.insertAdjacentHTML('beforeend', newFormHtml);
+        totalForms.value = currentCount + 1;
+    });
+
+    // 2. Remove Row
+    container.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-row')) {
+            const row = e.target.closest('.entry-row');
+            const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                // If it's an existing row from DB, hide it and mark for deletion
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+            } else {
+                // If it's a new unsaved row, just remove it from DOM
+                row.remove();
+                // Update total forms count
+                const forms = container.querySelectorAll('.entry-row');
+                totalForms.value = forms.length;
+                // Re-index remaining forms for consistency (Optional but safer)
+            }
+            calculateTotals();
+        }
+    });
+
+    // 3. Calculation Logic
+    function calculateTotals() {
+        let debits = 0;
+        let credits = 0;
+        
+        // Select all rows that are NOT marked for deletion
+        const rows = container.querySelectorAll('.entry-row');
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const debitVal = row.querySelector('input[id$="-debit_amount"]').value;
+                const creditVal = row.querySelector('input[id$="-credit_amount"]').value;
+                debits += parseFloat(debitVal) || 0;
+                credits += parseFloat(creditVal) || 0;
+            }
+        });
+
+        document.getElementById('total-debits').textContent = debits.toFixed(2);
+        document.getElementById('total-credits').textContent = credits.toFixed(2);
+
+        const status = document.getElementById('balance-status');
+        const diff = Math.abs(debits - credits);
+        const submitBtn = document.getElementById('submit-btn');
+        
+        if (diff < 0.01 && (debits > 0 || credits > 0)) {
+            status.textContent = "Balanced ✓";
+            status.className = "balance-success";
+            submitBtn.disabled = false;
+        } else {
+            status.textContent = "Difference: " + diff.toFixed(2);
+            status.className = "balance-error";
+            // Optional: submitBtn.disabled = true; 
+        }
+    }
+
+    // Event delegation for input changes
+    container.addEventListener('input', function(e) {
+        if (e.target.matches('input[id$="-debit_amount"], input[id$="-credit_amount"]')) {
+            calculateTotals();
+        }
+    });
+
+    calculateTotals(); 
+});
+</script>
+{% endblock %}

@@ -1,0 +1,661 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                           <div class="col-12">
+                                <form method="post" id="request-form" enctype="multipart/form-data" autocomplete="off">
+                                    {% csrf_token %}
+                                    {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">
+                                        {{ form.non_field_errors }}
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="row">
+                                    {% if not object %}
+                                        <div class="mb-3 col-lg-4 col-sm-12 col-md-6">
+                                        {{ form.title|as_crispy_field }}
+                                        </div>
+
+                                        <div class="mb-3 col-lg-4 col-sm-12 col-md-6">
+                                        {{ form.description|as_crispy_field }}
+                                        </div>
+
+                                        <div class="mb-3 col-lg-4 col-sm-12 col-md-6">
+                                        {{ form.attachment|as_crispy_field }}
+                                        </div>
+                                    {% endif %}
+                                    </div>
+
+                                    <div class="row">
+                                        {% if form.status %}
+                                            <div class="mb-3 col-lg-3 col-sm-12 col-md-6">
+                                            {{ form.status|as_crispy_field }}
+                                            </div>
+                                        {% endif %}
+
+                                        {% if form.remark %}
+                                            <div class="mb-3 col-lg-6 col-sm-12 col-md-6">
+                                            {{ form.remark|as_crispy_field }}
+                                            </div>
+                                        {% endif %}
+
+                                        <!-- Share Request Field: Only HR after coo approves/rejects -->
+                                        {% if form.share_request %}
+                                            <div class="mb-3 col-lg-3 col-sm-12 col-md-3">
+                                                {{ form.share_request|as_crispy_field }}
+                                            </div>
+
+                                            <div class="mb-3 col-lg-3 col-sm-12 col-md-3" id="share_request_usertype_wrapper" style="display:none;">
+                                                {{ form.request_shared_usertype|as_crispy_field }}
+                                            </div>
+                                        {% endif %}
+
+                                        {% if request.user.usertype != "hr" and request.user.usertype != "branch_staff" and request.user.usertype != "coo" %}
+                                            <div class="col-lg-3">
+                                                {{ form.is_request_closed_by_users|as_crispy_field }}
+                                            </div>
+                                            <div class="col-lg-3" id="users_status_wrapper" style="display: none;">
+                                                {{ form.users_status|as_crispy_field }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if request.user.usertype == "hr" %}
+                                    <div class="row">
+                                        {% if form.alternative_description %}
+                                            <div class="mb-3 col-lg-4">
+                                            {{ form.alternative_description|as_crispy_field }}
+                                            </div>
+                                        {% endif %}
+
+                                        <!-- HR Specific Fields -->
+                                        {% if request.user.usertype == "hr" and not form.remark %}
+                                            <!-- Usertype Flow Section -->
+                                            <div id="usertype_flow_section" class="mb-3 col-lg-5">
+                                                <label class="form-label mb-2">Usertype Flow</label>
+                                                <div class="usertype-flow-minimal d-flex align-items-center flex-wrap mb-2" style="gap: 0.5rem;">
+                                                    {% for key in form.user_flow.value %}
+                                                        <span class="usertype-pill usertype-middle position-relative" data-key="{{ key }}">
+                                                            {% for val, lbl in usertype_choices %}
+                                                                {% if val == key %}{{ lbl }}{% endif %}
+                                                            {% endfor %}
+                                                            <button type="button" class="remove-middle-usertype" data-key="{{ key }}" title="Remove" tabindex="-1">&times;</button>
+                                                        </span>
+                                                    {% endfor %}
+                                                    <span class="usertype-pill fixed">COO</span>
+                                                </div>
+
+                                                <div class="input-group input-group-sm" style="max-width: 320px;">
+                                                    <select id="usertype-add-select" class="form-select" style="min-width: 140px;">
+                                                        <option value="">Add usertype...</option>
+                                                        {% for key, label in usertype_choices %}
+                                                            {% if key not in form.user_flow.value and key not in "hr branch_staff coo" %}
+                                                                <option value="{{ key }}">{{ label }}</option>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                    <button type="button" id="add-usertype-btn" class="btn btn-outline-primary px-3">+</button>
+                                                </div>
+
+                                                <div id="user_flow_hidden_inputs">
+                                                    {% for val in form.user_flow.value %}
+                                                        <input type="hidden" name="user_flow" value="{{ val }}">
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <!-- Final Status Section (Hidden by default) -->
+                                            <div id="final_status_section" class="mb-3 col-lg-3" style="display: none;">
+                                                <label class="form-label">Final Status</label>
+                                                <div class="final-status-options">
+                                                    <div class="status-option">
+                                                        <input type="radio" name="final_status" value="approved" id="final_status_approved" class="status-radio">
+                                                        <label for="final_status_approved" class="status-label approved">
+                                                            <span class="status-icon">✓</span>
+                                                            <span class="status-text">Completed</span>
+                                                        </label>
+                                                    </div>
+                                                    <div class="status-option">
+                                                        <input type="radio" name="final_status" value="rejected" id="final_status_rejected" class="status-radio">
+                                                        <label for="final_status_rejected" class="status-label rejected">
+                                                            <span class="status-icon">✗</span>
+                                                            <span class="status-text">Rejected</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- End Request Flow Field: Always visible to HR -->
+                                            {% if form.end_request_flow %}
+                                                <div class="mb-3 col-lg-3 col-sm-12 col-md-6">
+                                                    <label class="form-label">{{ form.end_request_flow.label }}</label>
+                                                    <div class="radio-group">
+                                                        {% for choice in form.end_request_flow.field.choices %}
+                                                        <label class="radio-inline">
+                                                            <input type="radio" 
+                                                                name="{{ form.end_request_flow.name }}" 
+                                                                value="{{ choice.0 }}" 
+                                                                id="id_end_request_flow_{{ forloop.counter0 }}"
+                                                                {% if form.end_request_flow.value == choice.0 %}checked{% endif %}>
+                                                            <span class="custom-radio"></span>
+                                                            <span class="form-check-label">{{ choice.1 }}</span>
+                                                        </label>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% if form.end_request_flow.help_text %}
+                                                        <small class="form-text text-muted">{{ form.end_request_flow.help_text }}</small>
+                                                    {% endif %}
+                                                    {% if form.end_request_flow.errors %}
+                                                        <div class="alert alert-danger mt-2">
+                                                            {{ form.end_request_flow.errors }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                            
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="card-footer">
+                                        <div class="row">
+                                            <div class="col d-flex justify-content-end">
+                                            <button type="submit" class="btn btn-success" id="submit-btn"><i class="fe fe-save"></i> Forward</button>
+                                            <button type="button" onclick="history.back()" class="btn btn-outline-info ms-2"><i class="fa fa-cancel"></i> Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block javascript %}
+{{ form.media }}
+<style>
+.usertype-flow-minimal .usertype-pill {
+    display: inline-block;
+    padding: 0.25em 0.9em 0.25em 0.9em;
+    border-radius: 999px;
+    background: #f5f5f7;
+    color: #222;
+    font-size: 1em;
+    border: 1px solid #e0e0e0;
+    position: relative;
+    transition: background 0.2s;
+}
+.usertype-flow-minimal .usertype-pill.fixed {
+    background: #f0f0f0;
+    color: #444;
+    font-weight: 500;
+    border: 1px solid #e0e0e0;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle {
+    background: #e9f5ff;
+    color: #1976d2;
+    border: 1px solid #b6d7f7;
+}
+.usertype-flow-minimal .usertype-arrow {
+    color: #bdbdbd;
+    font-size: 1.2em;
+    user-select: none;
+}
+.usertype-flow-minimal .remove-middle-usertype {
+    display: none;
+    position: absolute;
+    top: 0.1em;
+    right: 0.3em;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.1em;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle:hover .remove-middle-usertype {
+    display: inline;
+}
+.usertype-flow-minimal .usertype-pill.usertype-middle:focus-within .remove-middle-usertype {
+    display: inline;
+}
+
+/* Simple Enhanced Radio Buttons */
+.radio-group {
+    display: flex;
+    gap: 30px;
+    margin-top: 10px;
+}
+
+.radio-group .radio-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px 20px;
+    border-radius: 25px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.radio-group .radio-inline:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.radio-group .radio-inline input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: #007bff;
+    cursor: pointer;
+}
+
+.radio-group .radio-inline input[type="radio"]:checked {
+    transform: scale(1.1);
+}
+
+.radio-group .radio-inline input[type="radio"]:checked ~ .form-check-label {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.radio-group .radio-inline.checked {
+    border-color: #007bff;
+    background: #e7f3ff;
+}
+
+.radio-group label:before{
+    display: none !important;
+}
+
+/* Final Status Styles */
+.final-status-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.status-option {
+    display: flex;
+    align-items: center;
+}
+
+.status-radio {
+    display: none;
+}
+
+.status-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+    background: white;
+}
+
+.status-label:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+
+.status-radio:checked + .status-label {
+    border-color: #007bff;
+    background: #e7f3ff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.status-radio:checked + .status-label.approved {
+    border-color: #28a745;
+    background: #f0fff4;
+}
+
+.status-radio:checked + .status-label.rejected {
+    border-color: #dc3545;
+    background: #fff0f0;
+}
+
+.status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    color: white;
+}
+
+.status-label.approved .status-icon {
+    background: #28a745;
+}
+
+.status-label.rejected .status-icon {
+    background: #dc3545;
+}
+
+.status-text {
+    font-weight: 500;
+    color: #333;
+}
+
+.status-radio:checked + .status-label .status-text {
+    font-weight: 600;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Prevent multiple form submissions ---
+    const form = document.getElementById('request-form');
+    const submitBtn = document.getElementById('submit-btn');
+    let isSubmitting = false;
+
+    if (form && submitBtn) {
+        form.addEventListener('submit', function (e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+            isSubmitting = true;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Submitting...';
+            
+            // Add final_status value to form data if it exists and end_request_flow is true
+            const endRequestFlowValue = document.querySelector('input[name="end_request_flow"]:checked')?.value;
+            const finalStatus = document.querySelector('input[name="final_status"]:checked');
+            
+            if (endRequestFlowValue === 'true' && finalStatus) {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'users_status';
+                hiddenInput.value = finalStatus.value;
+                form.appendChild(hiddenInput);
+            }
+        });
+    }
+
+    // --- Toggle between usertype flow and final status ---
+    function toggleFlowSections() {
+        const endRequestFlowValue = document.querySelector('input[name="end_request_flow"]:checked')?.value;
+        const usertypeFlowSection = document.getElementById('usertype_flow_section');
+        const finalStatusSection = document.getElementById('final_status_section');
+        
+        console.log('End request flow value:', endRequestFlowValue);
+        console.log('Usertype flow section:', usertypeFlowSection);
+        console.log('Final status section:', finalStatusSection);
+        
+        if (endRequestFlowValue === 'true') {
+            // Hide usertype flow and show final status
+            if (usertypeFlowSection) usertypeFlowSection.style.display = 'none';
+            if (finalStatusSection) finalStatusSection.style.display = 'block';
+            
+            // Update button text
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fe fe-save"></i> End Flow & Submit';
+            }
+        } else {
+            // Show usertype flow and hide final status
+            if (usertypeFlowSection) usertypeFlowSection.style.display = 'block';
+            if (finalStatusSection) finalStatusSection.style.display = 'none';
+            
+            // Reset button text
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fe fe-save"></i> Forward';
+            }
+        }
+    }
+
+    // --- End Request Flow Logic ---
+    const endRequestFlowRadios = document.querySelectorAll('input[name="end_request_flow"]');
+    const statusField = document.querySelector('select[name="status"]');
+
+    if (endRequestFlowRadios.length > 0) {
+        function handleEndRequestFlowChange() {
+            const selectedValue = document.querySelector('input[name="end_request_flow"]:checked')?.value;
+            
+            if (selectedValue === 'true' && statusField) {
+                // When ending flow, only allow approved/rejected status
+                Array.from(statusField.options).forEach(option => {
+                    if (option.value !== 'approved' && option.value !== 'rejected') {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                    } else {
+                        option.style.display = '';
+                        option.disabled = false;
+                    }
+                });
+                
+                // If current value is not approved/rejected, set to approved
+                if (statusField.value !== 'approved' && statusField.value !== 'rejected') {
+                    statusField.value = 'approved';
+                }
+            } else if (statusField) {
+                // Show all options when not ending flow
+                Array.from(statusField.options).forEach(option => {
+                    option.style.display = '';
+                    option.disabled = false;
+                });
+            }
+            
+            toggleFlowSections();
+        }
+        
+        // Add event listeners to radio buttons
+        endRequestFlowRadios.forEach(radio => {
+            radio.addEventListener('change', handleEndRequestFlowChange);
+        });
+
+        // Initial setup
+        handleEndRequestFlowChange();
+    }
+
+    // --- Final Status Selection ---
+    const finalStatusRadios = document.querySelectorAll('input[name="final_status"]');
+    finalStatusRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Update the main status field to match final status
+            if (statusField && this.checked) {
+                statusField.value = this.value;
+            }
+        });
+    });
+
+    // --- Usertype flow handling (unified) ---
+    const flowDiv = document.querySelector('.usertype-flow-minimal');
+    const hiddenInput = document.getElementById('usertype_flow_input'); // For creation
+    const userFlowHidden = document.getElementById('user_flow_hidden_inputs'); // For update
+    const usertypeSelect = document.getElementById('usertype-add-select');
+    const addBtn = document.getElementById('add-usertype-btn');
+
+    if (flowDiv && usertypeSelect && addBtn) {
+        // Determine mode: creation (hiddenInput) or update (userFlowHidden)
+        let isCreation = !!hiddenInput;
+        let selectedUsertypes = [];
+
+        if (isCreation) {
+            selectedUsertypes = hiddenInput.value ? hiddenInput.value.split(',') : [];
+        } else if (userFlowHidden) {
+            selectedUsertypes = [{% for key in form.user_flow.value %}'{{ key }}',{% endfor %}];
+        }
+
+        const usertypeChoices = [
+            {% for value, label in usertype_choices %}
+            { value: '{{ value }}', label: '{{ label }}' },
+            {% endfor %}
+        ];
+
+        function updateFlow() {
+            // --- Update hidden inputs ---
+            if (isCreation && hiddenInput) {
+                hiddenInput.value = selectedUsertypes.join(',');
+            } else if (!isCreation && userFlowHidden) {
+                userFlowHidden.innerHTML = '';
+                selectedUsertypes.forEach(val => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'user_flow';
+                    input.value = val;
+                    userFlowHidden.appendChild(input);
+                });
+            }
+
+            // --- Update UI pills ---
+            flowDiv.querySelectorAll('.usertype-pill.usertype-middle, .usertype-arrow.middle-arrow').forEach(el => el.remove());
+            const directorPill = flowDiv.querySelector('.usertype-pill.fixed:last-child');
+            let insertBefore = directorPill;
+
+            selectedUsertypes.forEach((ut, index) => {
+                if (index > 0) {
+                    const arrow = document.createElement('span');
+                    arrow.className = 'usertype-arrow middle-arrow';
+                    arrow.innerHTML = '&#8594;';
+                    flowDiv.insertBefore(arrow, insertBefore);
+                }
+
+                const label = usertypeChoices.find(u => u.value === ut)?.label || ut;
+                const pill = document.createElement('span');
+                pill.className = 'usertype-pill usertype-middle position-relative';
+                pill.dataset.key = ut;
+                pill.innerHTML = `${label} <button type="button" class="remove-middle-usertype" data-key="${ut}" tabindex="-1">&times;</button>`;
+                flowDiv.insertBefore(pill, insertBefore);
+
+                // Disable option in dropdown
+                const option = usertypeSelect.querySelector(`option[value="${ut}"]`);
+                if (option) option.disabled = true;
+
+                // Remove handler
+                pill.querySelector('.remove-middle-usertype').addEventListener('click', function () {
+                    selectedUsertypes = selectedUsertypes.filter(k => k !== ut);
+                    if (option) option.disabled = false;
+                    updateFlow();
+                });
+            });
+
+            if (selectedUsertypes.length > 0) {
+                const arrow = document.createElement('span');
+                arrow.className = 'usertype-arrow middle-arrow';
+                arrow.innerHTML = '&#8594;';
+                flowDiv.insertBefore(arrow, directorPill);
+            }
+        }
+
+        // --- Add usertype from select ---
+        addBtn.addEventListener('click', () => {
+            const val = usertypeSelect.value;
+            if (val && !selectedUsertypes.includes(val)) {
+                selectedUsertypes.push(val);
+                updateFlow();
+                usertypeSelect.value = '';
+            }
+        });
+
+        // Initialize display
+        updateFlow();
+    }
+
+    // --- Share request logic ---
+    const shareRequestSelect = document.querySelector('select[name="share_request"]');
+    const usertypeWrapper = document.getElementById("share_request_usertype_wrapper");
+
+    if (usertypeWrapper) {
+        usertypeWrapper.style.display = "none";
+    }
+
+    if (shareRequestSelect) {
+        shareRequestSelect.addEventListener("change", function () {
+            if (this.value.toLowerCase() === "yes") {
+                usertypeWrapper.style.display = "block";
+            } else {
+                usertypeWrapper.style.display = "none";
+            }
+        });
+
+        // Trigger on page load if value is already "yes"
+        if (shareRequestSelect.value.toLowerCase() === "yes") {
+            usertypeWrapper.style.display = "block";
+        }
+    }
+
+    // --- FO status field handling ---
+    const isClosedByFoSelect = document.querySelector('select[name="is_request_closed_by_users"]');
+    const foStatusWrapper = document.getElementById("users_status_wrapper");
+
+    if (isClosedByFoSelect && foStatusWrapper) {
+        // Initial state
+        if (isClosedByFoSelect.value === "true") {
+            foStatusWrapper.style.display = "block";
+            // Make users_status required when shown
+            const foStatusSelect = document.querySelector('select[name="users_status"]');
+            if (foStatusSelect) {
+                foStatusSelect.required = true;
+            }
+        }
+
+        // Change handler
+        isClosedByFoSelect.addEventListener("change", function () {
+            if (this.value === "true") {
+                foStatusWrapper.style.display = "block";
+                // Make users_status required
+                const foStatusSelect = document.querySelector('select[name="users_status"]');
+                if (foStatusSelect) {
+                    foStatusSelect.required = true;
+                }
+            } else {
+                foStatusWrapper.style.display = "none";
+                // Remove required attribute
+                const foStatusSelect = document.querySelector('select[name="users_status"]');
+                if (foStatusSelect) {
+                    foStatusSelect.required = false;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

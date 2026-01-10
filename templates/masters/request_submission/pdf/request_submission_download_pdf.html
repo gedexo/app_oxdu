@@ -1,0 +1,326 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Request Submission PDF</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {  
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fafbfc;
+            margin: 0;
+            padding: 20px;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+        
+        .pdf-wrapper {
+            max-width: auto;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .header-bar {
+            background: #ffffff;
+            color: #1a1a1a;
+            padding: 32px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            background: #f9fafb;
+            padding: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .title-section {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .main-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 16px 0;
+            color: #1a1a1a;
+            letter-spacing: -0.025em;
+        }
+        
+        .title-meta {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            text-align: center;
+        }
+        
+        .title-meta-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .title-meta-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+        
+        .title-meta-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            text-align: center;
+        }
+        
+        .request-title-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .request-title-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        
+        .request-title-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            text-align: center;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        
+
+        
+        .section {
+            padding: 32px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .section:last-of-type {
+            border-bottom: none;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 0 0 20px 0;
+            letter-spacing: -0.025em;
+        }
+        
+        .desc-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 20px;
+            line-height: 1.7;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .table-container {
+            margin-top: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        thead {
+            background: #f9fafb;
+        }
+        
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 13px;
+        }
+        
+        td {
+            padding: 12px 16px;
+            color: #1a1a1a;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #9ca3af;
+            font-style: italic;
+            padding: 24px;
+        }
+        
+        .footer {
+            padding: 24px 32px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            font-size: 80px;
+            color: #f3f4f6;
+            opacity: 0.3;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            pointer-events: none;
+            z-index: 0;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+        }
+        
+        /* Print optimizations */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .pdf-wrapper {
+                box-shadow: none;
+                border: none;
+                max-width: none;
+            }
+            
+            .watermark {
+                opacity: 0.1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="pdf-wrapper">
+        <div class="header-bar">
+            <img src="{% static 'app/assets/images/brand-logos/favicon.png' %}" class="logo" alt="Logo">
+            
+            <div class="title-section">
+                <div class="main-title">Request Submission</div>
+            </div>
+            
+            <div class="request-title-section">
+                <div class="request-title-label">Request Title</div>
+                <div class="request-title-value">{{ instance.title }}</div>
+                
+                <div class="title-meta">
+                    <div class="title-meta-item">
+                        <div class="title-meta-label">Submitted By</div>
+                        <div class="title-meta-value">{{ instance.branch_staff.user.get_full_name|default:instance.branch_staff }}</div>
+                    </div>
+                    <div class="title-meta-item">
+                        <div class="title-meta-label">Created Date</div>
+                        <div class="title-meta-value">{{ instance.created|date:'d M Y, h:i A' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Description</div>
+            <div class="desc-card">
+                {{ instance.description|safe }}
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Status History</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Remark</th>
+                            <th>Assigned To</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for history in instance.status_history.all %}
+                        <tr>
+                            <td>{{ history.date|date:'d M Y, h:i A' }}</td>
+                            <td>{{ history.user|default:'-' }}</td>
+                            <td>{{ history.usertype }}</td>
+                            <td>
+                                {% if instance.current_usertype == 'branch_staff' %}
+                                    {% if history.status == 'approved' %}
+                                        approved
+                                    {% elif history.status == 'rejected' %}
+                                        rejected
+                                    {% else %}
+                                        pending
+                                    {% endif %}
+                                {% elif instance.current_usertype == 'OE' %}
+                                    {% if history.status == 'approved' %}
+                                        approved
+                                    {% elif history.status == 'rejected' %}
+                                        rejected
+                                    {% else %}
+                                        pending
+                                    {% endif %}
+                                {% else %}
+                                    pending
+                                {% endif %}
+                            </td>
+                            <td>{{ history.remark|safe|default:'-' }}</td>
+                            <td>{{ history.next_usertype|default:'-' }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-state">No history available</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="footer">
+            Generated by OXDU ERP &mdash; {{ now|date:'d M Y, h:i A' }}
+        </div>
+    </div>
+</body>
+</html>

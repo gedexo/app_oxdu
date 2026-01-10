@@ -1,0 +1,276 @@
+/* Start:: pricing */
+.plan-card {
+	.plan-icon {
+		display: inline-block;
+		font-size: 35px;
+		width: 100px;
+		height: 100px;
+		color: $white;
+		line-height: 76px;
+		overflow: hidden;
+		border: 12px solid rgba(242, 246, 249, 0.55);
+		border-radius: 50%;
+		transition: all .3s;
+	}
+	.plan-price {
+		border-block-start: 1px solid $default-border;
+		padding-block-start: 20px;
+		span {
+			font-size: 15px;
+			vertical-align: middle;
+		}
+	}
+	.plan-features p {
+		line-height: 40px;
+		margin-block-end: 0;
+		border-block-end: 1px solid $default-border;
+		&:first-child {
+			border-block-start: 1px solid $default-border;
+		}
+	}
+}
+.pricing {
+	color: $white;
+	border-radius: 7px;
+	.card-category {
+		background: rgba(255, 255, 255, 0.34);
+		padding: 7px 0;
+		color: #Fff;
+		border-radius: 5px;
+	}
+	.list-unstyled li {
+		border-block-end: 1px solid rgba($white, 0.1);
+		padding: 7px 0;
+	}
+}
+.panel.price {
+    margin-block-end: 1.5rem;
+    border: 1px solid $default-border;
+    overflow: hidden;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.price-svg {
+    position: relative;
+    .price-title {
+        position: absolute;
+        inset-block-start: 29%;
+        inset-inline-start: 0;
+        inset-inline-end: 0;
+        text-align: center;
+        color: #fff;
+        text-transform: uppercase;
+        font-weight: 500;
+        font-size: 24px;
+    }
+    svg {
+        height: 120px;
+    }
+}
+.price {
+    &.panel-color>.panel-body {
+        background-color: $custom-white;
+    }
+    .panel-footer {
+        border-block-end: 0px;
+        background-color: $custom-white;
+    }
+}
+.panel-body .lead {
+    font-size: 20px;
+    margin-block-end: 0;
+    padding: 0.625rem 0;
+    strong {
+        font-size: 40px;
+        margin-block-end: 0;
+    }
+}
+.lead {
+    line-height: 1.4;
+}
+.panel-footer {
+    padding: 0.625rem 15px;
+    background-color: #f7f7f7;
+    border-block-start: 1px solid $default-border;
+    border-inline-start: 1px solid $default-border;
+    border-inline-end: 1px solid $default-border;
+    border-bottom-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+}
+
+@media (min-width: 992px) {
+	.plan-card.active {
+		margin-block-start: -25px;
+		margin-inline-start: -20px;
+		width: 120%;
+		height: 100%;
+		z-index: 1;
+		box-shadow: 0px 0.625rem 0.625rem 20px rgba(176, 184, 214, 0.09), 0.625rem 0.625rem 15px -5px rgba(176, 184, 214, 0.16);
+		padding: 30px 0;
+		font-size: 16px;
+		padding-block-end: 20px;
+		.plan-features p {
+			line-height: 50px;
+		}
+		.plan-card .plan-price span {
+			font-size: 18px;
+		}
+		.display-4 {
+			font-size: 3.5rem;
+		}
+	}
+	.pricing-sctive {
+		margin-block-start: -25px;
+		margin-inline-start: -20px;
+		width: 120%;
+		height: 100%;
+		font-size: 16px;
+		z-index: 1;
+	}
+    .panel.price.active {
+		margin-block-start: -25px;
+		margin-inline-start: -20px;
+		width: 120%;
+		height: 100%;
+		z-index: 8;
+		box-shadow: 0px 0.625rem 0.625rem 20px rgba(176, 184, 214, 0.09), 0.625rem 0.625rem 15px -5px rgba(176, 184, 214, 0.08);
+		position: relative;
+		font-size: 16px;
+		border-inline-end: 1px !important;
+	}
+    .no-gutters .panel.price {
+		&.active {
+			.panel-body .lead strong {
+				font-size: 50px;
+			}
+			.price-title {
+				font-size: 26px;
+			}
+		}
+		border-inline-end: 0;
+		&:last-child {
+			border-inline-end: 1px;
+		}
+	}
+}
+[data-theme-mode="dark"] {
+	.plan-card.active {
+		box-shadow: 0px 0.625rem 0.625rem 20px rgba(0, 0, 0, 0.09), 0.625rem 0.625rem 15px -5px rgba(0, 0, 0, 0.08);
+	}
+	.panel.price.active {
+		box-shadow: 0 0.625rem 0.625rem 20px rgba(0, 0, 0, .09), 0.625rem 0.625rem 15px -5px rgba(0, 0, 0, .08);
+	}
+}
+.pricing-tabs {
+	.pri-tabs-heading2 ul.nav-price {
+		text-align: center;
+		margin: 0 auto;
+		display: inline-flex;
+		margin-block-start: 30px;
+		margin-block-end: 40px;
+		border: 1px solid $default-border;
+		border-radius: 0px;
+		background: $custom-white;
+		border-radius: 50px;
+		li {
+			display: block;
+			a {
+				padding: 12px 40px;
+				display: block;
+				background: $custom-white;
+				font-size: 16px;
+				border-radius: 50px;
+				transition: 0.3s;
+				font-weight: 600;
+				&.active {
+					background: $primary;
+				}
+			}
+		}
+	}
+	.pri-tabs-heading3 ul.nav-price {
+		border-radius: 50px;
+		li {
+			&:first-child a {
+				border-start-start-radius: 50px;
+				border-start-end-radius: 0;
+				border-end-end-radius: 0;
+				border-end-start-radius: 50px;
+				border-inline-start: 0;
+			}
+			&:last-child a {
+				border-start-start-radius: 0px;
+				border-start-end-radius: 50px;
+				border-end-end-radius: 50px;
+				border-end-start-radius: 0px;
+			}
+			a {
+				border-inline-start: 1px solid $default-border;
+			}
+		}
+	}
+}
+.pricing-tabs ul.nav-price {
+	text-align: center;
+	margin: 0 auto;
+	display: inline-flex;
+	margin-block-start: 30px;
+	margin-block-end: 40px;
+	border: 1px solid $default-border;
+	border-radius: 5px;
+	background: $custom-white;
+	overflow: hidden;
+	li {
+		display: block;
+		a {
+			padding: 12px 40px;
+			display: block;
+			background: $custom-white;
+			font-size: 16px;
+			border-radius: 0px;
+			transition: 0.3s;
+			&.active {
+				background: $primary;
+				color: $white;
+				transition: 0.3s;
+			}
+		}
+	}
+}
+.leading-loose{
+    line-height: 2 !important;
+    li {
+        padding: 5px 0;
+        border-block-end: 1px solid $default-border;
+        &:last-child {
+            border-block-end: 0;
+        }
+    }
+}.list-group-transparent.file-manager.file-manager-border .list-group-item {
+    border: 1px solid $default-border;
+    border-radius: 0;
+}
+@media (max-width: 480px) {
+	.pricing-tabs .pri-tabs-heading3 ul.nav-price,
+	.pricing-tabs .pri-tabs-heading2 ul.nav-price {
+		border-radius: 5px;
+	}
+	.pricing-tabs ul.nav-price,
+	.pricing-tabs .pri-tabs-heading2 ul.nav-price {
+		display: block;
+	}
+	.pricing-tabs .pri-tabs-heading3 ul.nav-price li:first-child a,
+	.pricing-tabs .pri-tabs-heading3 ul.nav-price li:last-child a,
+	.pricing-tabs .pri-tabs-heading2 ul.nav-price li a {
+		border-radius: 2px;
+	}
+	.pricing-tabs .pri-tabs-heading3 ul.nav-price li a {
+		border-inline-start: 0;
+	}
+}
+[dir="rtl"] {
+	.price-svg svg {
+		transform: scaleX(-1);
+	}
+}
+/* End:: pricing */

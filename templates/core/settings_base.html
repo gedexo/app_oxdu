@@ -1,0 +1,67 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-xxl-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row ">
+            <div class="col-lg-6 col-xl-3">
+                <div class="position-sticky top-0">
+                    <div class="card custom-card">
+                        <div class="card-body">
+                            <div class="list-group list-group-transparent mb-0 file-manager file-manager-border">
+                                <h4>Settings</h4>
+                                <div>
+                                    <a href="{% url 'core:general_settings' %}"
+                                        class="list-group-item border-bottom-0  d-flex align-items-center px-0 border-top">
+                                        <i class="mdi mdi-domain fs-18 text-success py-2 px-3"></i>General
+                                    </a>
+                                </div>
+                                
+                                <div>
+                                    <a href="{% url 'core:group_settings' %}"
+                                        class="list-group-item  d-flex align-items-center px-0">
+                                        <i class="la la-layer-group fs-18 text-danger py-2 px-3"></i> Group 
+                                    </a>
+                                </div>
+                                <div>
+                                    <a href="{% url 'core:account_settings' %}"
+                                        class="list-group-item  d-flex align-items-center px-0">
+                                        <i class="la la-layer-group fs-18 text-warning py-2 px-3"></i> Account 
+                                    </a>
+                                </div>
+                               
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 col-xl-9">
+                {% include 'app/partials/messages.html' %}
+                {% block settings_content %}{% endblock %}
+                
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}

@@ -1,0 +1,232 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-12 col-xl-12">
+        
+            <!-- Main Card -->
+            <div class="card border-0 shadow-lg overflow-hidden mb-5">
+                <!-- Featured Image -->
+                <div class="card-img-top position-relative">
+                    <img src="{{ object.image.url }}" alt="{{ object.title }}" class="img-fluid w-100" style="max-height: 400px; object-fit: cover;">
+                    
+                    <!-- Action Buttons Overlay -->
+                    {% if request.user.is_superuser or request.user.usertype in "admin_staff,ceo,cfo,coo,hr,cmo,mentor" %}
+                    <div class="position-absolute top-0 end-0 p-3">
+                        <div class="btn-group dropstart">
+                            <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm" data-bs-toggle="dropdown" aria-expanded="false" style="width: 40px; height: 40px;">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu p-2">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" href="{{ object.get_update_url }}">
+                                        <i class="fas fa-edit text-primary me-2"></i> Edit Update
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center text-danger" href="{{ object.get_delete_url }}">
+                                        <i class="fas fa-trash-alt me-2"></i> Delete Update
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+        
+                <!-- Content Section -->
+                <div class="card-body px-4 px-md-5 py-5">
+                    <!-- Meta Information -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                                <i class="far fa-calendar me-1"></i> {{ object.created|date:"F j, Y" }}
+                            </span>
+                        </div>
+                        
+                        
+                    </div>
+        
+                    <!-- Title -->
+                    <h2 class="fw-bold mb-4 display-7">{{ object.title }}</h2>
+                    
+                    <!-- Author Info (Optional) -->
+                    {% if object.author %}
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+                            <i class="fas fa-user text-muted"></i>
+                        </div>
+                        <div>
+                            <p class="mb-0 fw-semibold">{{ object.author.get_full_name|default:object.author.username }}</p>
+                            <small class="text-muted">Posted on {{ object.created|date:"F j, Y" }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+        
+                    <!-- Content -->
+                    <div class="content-body fs-6 lh-lg">
+                        {{ object.description|safe }}
+                    </div>
+                    
+                    <!-- Tags (Optional) -->
+                    {% if object.tags.all %}
+                    <div class="mt-5 pt-4 border-top">
+                        <h6 class="mb-3">Tags:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for tag in object.tags.all %}
+                            <span class="badge bg-light text-dark border px-3 py-2">{{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        
+            <!-- Related Updates -->
+            {% if related_updates %}
+            <div class="related-updates mb-5">
+                <h3 class="mb-4 pb-2 border-bottom">Related Updates</h3>
+                <div class="row g-4">
+                    {% for item in related_updates %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 border-0 shadow-sm transition-all hover-lift">
+                            <a href="{{ item.get_absolute_url }}" class="text-decoration-none text-dark">
+                                <div class="card-img-container overflow-hidden" style="height: 200px;">
+                                    <img src="{{ item.image.url }}" class="card-img-top h-100 w-100 object-fit-cover" alt="{{ item.title }}">
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title fw-semibold mb-2">{{ item.title|truncatechars:60 }}</h6>
+                                    <small class="text-muted"><i class="far fa-calendar me-1"></i> {{ item.created|date:"M d, Y" }}</small>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+</div>
+
+{% endblock content %}
+
+{% block extra_css %}
+    <style>
+        /* Detail Page Specific Styles */
+        .card {
+            border-radius: 16px;
+        }
+        
+        .card-img-top {
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .content-body {
+            line-height: 1.8;
+            color: #444;
+        }
+        
+        .content-body img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .content-body h2, .content-body h3, .content-body h4 {
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            color: #222;
+        }
+        
+        .content-body ul, .content-body ol {
+            padding-left: 1.75rem;
+            margin-bottom: 1.75rem;
+        }
+        
+        .content-body blockquote {
+            border-left: 4px solid #0d6efd;
+            padding: 1.5rem 2rem;
+            margin: 2rem 0;
+            font-style: italic;
+            color: #555;
+            background-color: #f8f9fa;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .social-sharing a {
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #f8f9fa;
+        }
+        
+        .social-sharing a:hover {
+            transform: translateY(-2px);
+            background-color: #0d6efd;
+            color: white !important;
+        }
+        
+        .hover-lift {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+        }
+        
+        .btn-group .dropdown-menu {
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 13px !important;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .card-body {
+                padding: 1.5rem;
+            }
+            
+            .content-body {
+                font-size: 1rem !important;
+            }
+            
+            h1.display-6 {
+                font-size: 1.75rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .d-flex.justify-content-between.align-items-center {
+                flex-direction: column;
+                align-items: flex-start !important;
+            }
+            
+            .social-sharing {
+                margin-top: 1rem;
+            }
+        }
+    </style>
+{% endblock %}

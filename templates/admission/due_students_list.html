@@ -1,0 +1,383 @@
+{% extends 'app/base.html' %}
+{% load static humanize i18n crispy_forms_tags django_tables2 %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+
+  <div class="container-fluid">
+
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{title|title}}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add and new_link %}
+          <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+              class="fe fe-plus"></i>New </a>
+          {% endif %}
+          {% if table.paginated_rows %}
+          <a href="{% export_url 'xlsx' %}" class="btn btn-light3" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Export"> <i class="fe fe-download"></i> </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button"
+            aria-controls="offcanvasFilter" title="Filter Data"> <i class="fe fe-filter"></i> </a>
+
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        
+        <!-- Filters Card -->
+        <div class="card custom-card mb-3">
+          <div class="card-header">
+            <h5 class="card-title">Filters</h5>
+          </div>
+          <div class="card-body">
+            <form method="get" id="filterForm" class="row g-3 align-items-end">
+              <!-- Month Filter -->
+              <div class="col-md-3">
+                <label for="monthSelect" class="form-label"><strong>Month</strong></label>
+                <select name="month" id="monthSelect" class="form-select">
+                  {% for month in month_options %}
+                  <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                    {{ month.display }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Course Filter -->
+              <div class="col-md-2">
+                <label for="courseSelect" class="form-label"><strong>Course</strong></label>
+                <select name="course" id="courseSelect" class="form-select" onchange="updateBatches()">
+                  <option value="">All Courses</option>
+                  {% for course in courses %}
+                  <option value="{{ course.id }}" {% if selected_course == course.id|stringformat:"s" %}selected{% endif %}>
+                    {{ course.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Branch Filter -->
+              <div class="col-md-2">
+                <label for="branchSelect" class="form-label"><strong>Branch</strong></label>
+                <select name="branch" id="branchSelect" class="form-select" onchange="updateBatches()">
+                  <option value="">All Branches</option>
+                  {% for branch in branches %}
+                  <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                    {{ branch.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Batch Filter -->
+              <div class="col-md-2">
+                <label for="batchSelect" class="form-label"><strong>Batch</strong></label>
+                <select name="batch" id="batchSelect" class="form-select">
+                  <option value="">All Batches</option>
+                  {% for batch in batches %}
+                  <option value="{{ batch.id }}" {% if selected_batch == batch.id|stringformat:"s" %}selected{% endif %}>
+                    {{ batch.batch_name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="col-md-3">
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fe fe-filter"></i> Apply Filters
+                  </button>
+                  <a href="{% url 'admission:due_students_list' %}" class="btn btn-outline-secondary">
+                    <i class="fe fe-refresh-cw"></i> Reset
+                  </a>
+                </div>
+              </div>
+
+              <!-- Hidden fields to preserve other filters -->
+              {% for key, value in request.GET.items %}
+                {% if key != 'month' and key != 'course' and key != 'branch' and key != 'batch' and key != 'page' %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+              {% endfor %}
+            </form>
+            
+            <!-- Filter Summary -->
+            <div class="mt-3">
+              <small class="text-muted">
+                {% if selected_month %}
+                  Showing due students for <strong>{{ selected_month|date:"F Y" }}</strong>
+                  {% if selected_course or selected_branch or selected_batch %}
+                    with additional filters
+                  {% endif %}
+                {% else %}
+                  Showing <strong>all overdue students</strong>
+                {% endif %}
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="card custom-card">
+          {% if table.paginated_rows %}
+          <div class="card-body">
+            <div class="row justify-content-between">
+              <div class="col-lg-6">
+                <div class="d-flex align-items-center">
+                  <span>Show</span>
+                  <div class="d-flex ms-2 mx-2">
+                    <div class="form-group mb-0">
+                      <select name="table_pagination" id="select-table_pagination" class="form-control wd-150" data-trigger>
+                        <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                        <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                        <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                        <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                    </select>
+                    </div>
+                  </div>
+                  <span>entries</span>
+                </div>
+              </div>
+              <div class="col col-auto">
+                <form action="" id="table-search">
+                  <div class="form-group w-100">
+                      <div class="input-icon" >
+                        <span class="input-icon-addon">
+                          <i class="fe fe-search"></i>
+                      </span>
+                          <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                      </div>
+                  </div>
+              </form>
+            </div>
+            </div>
+            {% render_table table %}
+            <nav class="mt-4">
+              {% if table.page and table.paginator.num_pages > 1 %}
+              <ul class="pagination justify-content-end mb-0">
+                {% if table.page.has_previous %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Prev</a>
+                </li>
+                {% endif %}
+
+                {% for p in table.page|table_page_range:table.paginator %}
+                <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                  {% if p == '...' %}
+                  <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                  {% else %}
+                  <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+
+                {% if table.page.has_next %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Next</a>
+                </li>
+                {% endif %}
+              </ul>
+              {% endif %}
+            </nav>
+          </div>
+          {% else %}
+          <div class="card-body">
+            {% if selected_month or selected_course or selected_branch or selected_batch %}
+              No due students found for the selected filters.
+            {% else %}
+              {{title|title}} {% translate "list is empty." %}
+            {% endif %}
+            {% if can_add %}<a href="{{new_link}}">{% translate "Add New One" %}</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for new_html in includes %}
+  {% include new_html %}
+{% endfor %}
+
+{% include 'app/partials/filter.html' %}
+{% include 'app/partials/help.html' %}
+
+{% endblock content %}
+
+{% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function copyBrochureLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        const alert = document.createElement('div');
+        alert.className = 'custom-copy-alert';
+        alert.innerHTML = `
+            <div class="alert-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path fill="none" stroke="white" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="alert-text">Link Copied!</div>
+        `;
+        document.body.appendChild(alert);
+
+        setTimeout(() => {
+            alert.classList.add('show');
+        }, 10);
+
+        setTimeout(() => {
+            alert.classList.remove('show');
+            setTimeout(() => alert.remove(), 300);
+        }, 2000);
+    });
+}
+
+// Handle table pagination change
+document.getElementById('select-table_pagination').addEventListener('change', function() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('table_pagination', this.value);
+    url.searchParams.delete('page'); // Go to first page when changing pagination
+    window.location.href = url.toString();
+});
+
+// Update batches based on course and branch selection
+function updateBatches() {
+    const courseId = document.getElementById('courseSelect').value;
+    const branchId = document.getElementById('branchSelect').value;
+    const batchSelect = document.getElementById('batchSelect');
+    
+    // Reset batch options
+    batchSelect.innerHTML = '<option value="">All Batches</option>';
+    
+    if (courseId && branchId) {
+        // Fetch batches via AJAX
+        fetch(`/admission/ajax/get-batches/?course=${courseId}&branch=${branchId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.batches) {
+                    data.batches.forEach(batch => {
+                        const option = document.createElement('option');
+                        option.value = batch.id;
+                        option.textContent = batch.batch_name;
+                        batchSelect.appendChild(option);
+                    });
+                    
+                    // Set the selected batch if it exists in the new options
+                    const selectedBatch = '{{ selected_batch }}';
+                    if (selectedBatch) {
+                        batchSelect.value = selectedBatch;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching batches:', error);
+            });
+    }
+}
+
+// Initialize batches on page load if course and branch are selected
+document.addEventListener('DOMContentLoaded', function() {
+    const courseId = document.getElementById('courseSelect').value;
+    const branchId = document.getElementById('branchSelect').value;
+    
+    if (courseId && branchId) {
+        updateBatches();
+    }
+    
+    // Auto-submit form when month is changed (optional)
+    document.getElementById('monthSelect').addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+});
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.custom-copy-alert {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    background: rgba(76, 175, 80, 0.85);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    z-index: 9999;
+    backdrop-filter: blur(6px);
+}
+
+.custom-copy-alert.show {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+}
+
+.custom-copy-alert .alert-icon svg {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: draw 0.4s forwards;
+}
+
+@keyframes draw {
+    to { stroke-dashoffset: 0; }
+}
+
+/* Style for filter card */
+.card.custom-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.custom-card h6 {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.custom-card h3 {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+.border-danger { border-left: 5px solid #dc3545 !important; }
+.border-warning { border-left: 5px solid #ffc107 !important; }
+.border-success { border-left: 5px solid #198754 !important; }
+.border-primary { border-left: 5px solid #0d6efd !important; }
+</style>
+{% endblock %}

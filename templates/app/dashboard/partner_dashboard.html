@@ -1,0 +1,952 @@
+{% load static humanize %}
+
+<style>
+    /* --- SHARED VARIABLES --- */
+    :root {
+        --kpi-primary: #0f172a;    /* Dark Navy */
+        --kpi-secondary: #64748b;  /* Slate Gray */
+        --kpi-accent: #ee4c24;     /* theme */
+        --kpi-success: #10b981;    /* Emerald Green */
+        --bg-surface: #ffffff;
+        --bg-subtle: #f8fafc;
+        --border-color: #e2e8f0;
+    }
+
+    /* --- STATS CARD (TOP ROW) --- */
+    .kpi-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card:hover {
+        border-color: var(--kpi-accent);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
+    }
+    .kpi-icon {
+        width: 40px; height: 40px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+    .kpi-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--kpi-secondary); margin-bottom: 0.25rem; }
+    .kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--kpi-primary); line-height: 1.2; }
+
+    /* --- PARTNER PORTFOLIO (CLEAN DESIGN) --- */
+    .portfolio-wrapper {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .portfolio-header {
+        background: #f8fafc;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .portfolio-stat-box {
+        background: #f8fafc;
+        border: 1px solid #d9d9d9;
+        border-radius: 12px;
+        padding: 1.25rem;
+        height: 100%;
+    }
+    
+    .money-text { font-family: 'Inter', system-ui, -apple-system, sans-serif; letter-spacing: -0.5px; }
+    
+    .badge-soft {
+        background-color: #ecfdf5;
+        color: #059669;
+        font-weight: 600;
+        font-size: 0.75rem;
+        padding: 0.35em 0.8em;
+        border-radius: 6px;
+        border: 1px solid #d1fae5;
+    }
+
+    /* --- DARK MODE OVERRIDES --- */
+    [data-theme-mode="dark"] {
+        --bg-surface: #1e293b;
+        --bg-subtle: #0f172a;
+        --border-color: #334155;
+        --kpi-primary: #f8fafc;
+        --kpi-secondary: #94a3b8;
+    }
+    [data-theme-mode="dark"] .portfolio-wrapper,
+    [data-theme-mode="dark"] .portfolio-stat-box {
+        background-color: #1e293b;
+        border-color: #334155;
+    }
+    [data-theme-mode="dark"] .portfolio-header {
+        background-color: #0f172a;
+        border-color: #334155;
+    }
+    [data-theme-mode="dark"] .badge-soft {
+        background-color: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    .progress-bar {
+    border-radius: 3px;
+    transition: width 0.6s ease;
+    background-color: #eb135e;
+}
+.branch-student-section:hover .branch-stat-card, 
+.branch-employee-section:hover .branch-stat-card {
+    border: 1px solid #ee4c24 !important; 
+    transition: border-color 0.3s ease-in-out;
+}
+
+/* Branch card specific light theme */
+.branch-card {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.branch-icon-container {
+    background-color: #f8f1f0;
+    height: 40px;
+    width: 40px;
+    color: #eb135e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.branch-icon-container i{ 
+    font-size: 18px !important;
+}
+.branch-title {
+    color: #333;
+}
+.branch-id {
+    color: #eb135e;
+}
+.branch-stat-card {
+    background-color: #f9f9f9;
+    border-color: rgba(0,0,0,0.05) !important;
+}
+.branch-stat-icon {
+    background-color: rgba(238,76,36,0.1);
+    color: #ee4c24;
+}
+.branch-stat-label {
+    color: #6c757d;
+}
+.branch-stat-value {
+    color: #212529;
+}
+.branch-fee-summary {
+    background-color: #f9f9f9;
+    border-color: rgba(0,0,0,0.05) !important;
+}
+.fee-icon {
+    width: 24px; 
+    height: 24px; 
+    border-radius: 4px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+}
+.total-fee-icon {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+.pending-fee-icon {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+.collected-fee-icon {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+.fee-label {
+    color: #6c757d;
+}
+.fee-amount {
+    color: #212529;
+}
+.pending-amount {
+    color: #dc3545 !important;
+}
+.collected-amount {
+    color: #28a745 !important;
+}
+.branch-progress-container {
+    background-color: #f9f9f9;
+    border-color: rgba(0,0,0,0.05) !important;
+}
+.progress-label, .progress-amount-label {
+    color: #6c757d;
+}
+.progress-percent {
+    color: #eb135e;
+}
+.branch-progress-bar {
+    background-color: #e9ecef;
+}
+.branch-view-btn {
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+    color: white !important;
+    border: none;
+    border-radius: 6px !important;
+}
+
+/* Dark theme overrides */
+[data-theme-mode="dark"] .branch-card,
+[data-theme-mode="dark"] .card {
+    background-color: #2a3042;
+    border-color: rgba(255,255,255,0.05) !important;
+}
+[data-theme-mode="dark"] .branch-card:hover,
+[data-theme-mode="dark"] .card:hover {
+    box-shadow: 0 6px 15px rgba(0,0,0,0.3) !important;
+}
+[data-theme-mode="dark"] .branch-title {
+    color: #e9ecef;
+}
+[data-theme-mode="dark"] .branch-id {
+    color: #ff6b9e;
+}
+[data-theme-mode="dark"] .branch-stat-card,
+[data-theme-mode="dark"] .branch-fee-summary,
+[data-theme-mode="dark"] .branch-progress-container {
+    background-color: #343a4a;
+    border-color: rgba(255,255,255,0.05) !important;
+}
+[data-theme-mode="dark"] .branch-stat-label,
+[data-theme-mode="dark"] .fee-label,
+[data-theme-mode="dark"] .progress-label,
+[data-theme-mode="dark"] .progress-amount-label {
+    color: #adb5bd;
+}
+[data-theme-mode="dark"] .branch-stat-value,
+[data-theme-mode="dark"] .fee-amount {
+    color: #f8f9fa;
+}
+[data-theme-mode="dark"] .branch-progress-bar {
+    background-color: #495057;
+}
+[data-theme-mode="dark"] .progress-percent {
+    color: #ff6b9e;
+}
+[data-theme-mode="dark"] .branch-icon-container {
+    background-color: rgba(235, 19, 94, 0.2);
+    color: #ff6b9e;
+}
+[data-theme-mode="dark"] .branch-stat-icon {
+    background-color: rgba(238,76,36,0.2);
+    color: #ff6b9e;
+}
+[data-theme-mode="dark"] .total-fee-icon {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #6ea8fe;
+}
+[data-theme-mode="dark"] .pending-fee-icon {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #ff6b6b;
+}
+[data-theme-mode="dark"] .collected-fee-icon {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #79df9f;
+}
+[data-theme-mode="dark"] .branch-view-btn {
+    background: linear-gradient(90deg, #ff6b6b, #ff6b9e) !important;
+}
+/* Seating Capacity Styles */
+.batch-capacity-container {
+    margin-top: 0.5rem;
+}
+
+.batch-row {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.batch-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.batch-icon-container {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.batch-name {
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.batch-time {
+    font-size: 0.75rem;
+    margin-top: -2px;
+}
+
+.capacity-bar-container {
+    margin-top: 0.5rem;
+}
+
+.capacity-bar {
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.capacity-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: all 0.4s ease;
+    position: relative;
+}
+
+.capacity-fill:hover {
+    transform: scaleY(1.2);
+}
+
+.fn-fill {
+    background: linear-gradient(90deg, #ffc107, #ffb300);
+}
+
+.an-fill {
+    background: linear-gradient(90deg, #17a2b8, #138496);
+}
+
+.ev-fill {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+}
+
+.capacity-percent {
+    color: #495057;
+    font-weight: 500;
+}
+
+.capacity-numbers {
+    font-size: 0.75rem;
+}
+
+.capacity-summary .bg-light {
+    background-color: #f8f9fa !important;
+    border: 1px solid #e9ecef;
+    transition: all 0.2s ease;
+}
+
+.capacity-summary .bg-light:hover {
+    background-color: #e9ecef !important;
+    transform: translateY(-1px);
+}
+.branch-seating-summary{
+    background-color: #f9f9f9 !important;
+}
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .batch-stats {
+        font-size: 0.85rem;
+    }
+    
+    .batch-name {
+        font-size: 0.85rem;
+    }
+    
+    .capacity-summary .fs-6 {
+        font-size: 0.9rem !important;
+    }
+}
+</style>
+
+<!-- ROW 1: KPI CARDS -->
+<div class="row g-3 mb-4">
+    <!-- 1. Branches -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'branches:branch_list' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="fas fa-sitemap"></i></div>
+                </div>
+                <div class="kpi-label">Total Branches</div>
+                <div class="kpi-value">{{ branch_count }}</div>
+            </div>
+        </a>
+    </div>
+    
+    <!-- 2. Students -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'admission:all_admission_list' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="fe fe-user-check"></i></div>
+                </div>
+                <div class="kpi-label">Total Students</div>
+                <div class="kpi-value">{{ totel_students_count }}</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- 3. Active Students -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'admission:all_admission_list' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fas fa-graduation-cap"></i></div>
+                </div>
+                <div class="kpi-label">Active Students</div>
+                <div class="kpi-value">{{ active_student_count }}</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- 4. Employees -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'employees:employee_list' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="fe fe-users"></i></div>
+                </div>
+                <div class="kpi-label">Employees</div>
+                <div class="kpi-value">{{ total_employee_count }}</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- 5. Courses -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'masters:course_list' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-danger bg-opacity-10 text-danger"><i class="fe fe-book"></i></div>
+                </div>
+                <div class="kpi-label">Courses</div>
+                <div class="kpi-value">{{ total_course_count }}</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- 6. Profit & Loss -->
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <a href="{% url 'transactions:income_expense_report' %}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between">
+                    <div class="kpi-icon bg-secondary bg-opacity-10 text-secondary"><i class="fas fa-lightbulb"></i></div>
+                </div>
+                <div class="kpi-label">Profit & Loss</div>
+                <div class="kpi-value text-success">₹{{ profit_loss|intcomma }}</div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ROW 2: CLEAN COMPANY PROFILE & PARTNER SECTION -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% if company_profile %}
+            
+            {# --- LOGIC: PARTNER VIEW (Clean & Structured) --- #}
+            {% if request.user.usertype == 'partner' %}
+                <div class="row justify-content-center">
+                    <div class="col-xxl-12 col-xl-12">
+                        {% for partner in partners %}
+                            {% if partner.user == request.user or partner.email == request.user.email %}
+                            
+                            <!-- STRUCTURED PORTFOLIO CARD -->
+                            <div class="portfolio-wrapper">
+                                <!-- A. Header Section -->
+                                <div class="portfolio-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                    <div class="d-flex align-items-center">
+                                        {% if partner.photo %}
+                                            <img src="{{ partner.photo.url }}" class="rounded-circle border border-2 border-white shadow-sm me-3" width="64" height="64" style="object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fs-4 fw-bold me-3 shadow-sm" style="width: 64px; height: 64px;">
+                                                {{ partner.full_name|slice:":1" }}
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <div class="d-flex gap-2 mb-0 pb-0">
+                                                <h4 class="fw-bold text-dark">{{ partner.full_name }}</h4>
+                                                <span class="badge-soft"><i class="fas fa-check-circle me-1"></i>Verified Partner</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2 mt-0 pt-0">
+                                                <span class="text-muted small">Partner ID: {{ partner.partner_id }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-md-end">
+                                        <div class="text-dark small text-uppercase fw-bold ls-1">Company Valuation</div>
+                                        <div class="fs-5 fw-bold text-success">₹{{ company_profile.total_value|intcomma }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- B. Financial Grid Section -->
+                                <div class="p-4">
+                                    <div class="row g-4">
+                                        <!-- Primary Metric: Total Investment -->
+                                        <div class="col-md-5">
+                                            <div class="portfolio-stat-box bg-primary bg-opacity-10 border-primary border-opacity-25 h-100 d-flex flex-column justify-content-center">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <div class="p-1 bg-primary text-white rounded me-2"><i class="fas fa-wallet"></i></div>
+                                                    <span class="text-primary fw-semibold small text-uppercase">Total Equity Value</span>
+                                                </div>
+                                                <h1 class="fw-bold text-dark mb-0 money-text">₹{{ partner.share_amount|floatformat:2|intcomma }}</h1>
+                                                <span class="text-muted small mt-2">Current estimated value of your holdings</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Secondary Metrics: Grid -->
+                                        <div class="col-md-7">
+                                            <div class="row g-3 h-100">
+                                                <!-- Share Count -->
+                                                <div class="col-sm-6">
+                                                    <div class="portfolio-stat-box">
+                                                        <span class="text-muted small text-uppercase fw-semibold d-block mb-2">Shares Owned</span>
+                                                        <h3 class="fw-bold text-dark mb-1">{{ partner.shares_owned|intcomma }}</h3>
+                                                        <span class="small text-muted">Units</span>
+                                                    </div>
+                                                </div>
+                                                <!-- Share Price -->
+                                                <div class="col-sm-6">
+                                                    <div class="portfolio-stat-box">
+                                                        <span class="text-muted small text-uppercase fw-semibold d-block mb-2">Unit Price</span>
+                                                        <h3 class="fw-bold text-dark mb-1">₹{{ company_profile.get_single_share_value|floatformat:2|intcomma }}</h3>
+                                                        <span class="small text-success"><i class="fas fa-chart-line me-1"></i>Live Rate</span>
+                                                    </div>
+                                                </div>
+                                                <!-- Ownership % -->
+                                                <div class="col-12">
+                                                    <div class="portfolio-stat-box d-flex align-items-center justify-content-between">
+                                                        <div>
+                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Ownership Stake</span>
+                                                            <div class="h4 fw-bold text-dark mb-0 mt-1">{{ partner.share_percentage }}%</div>
+                                                        </div>
+                                                        <div class="flex-grow-1 ms-4" style="max-width: 200px;">
+                                                            <div class="progress" style="height: 8px;">
+                                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ partner.share_percentage }}%"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- END PORTFOLIO CARD -->
+
+                            {% endif %}
+                        {% empty %}
+                            <div class="alert alert-light border text-center">No partner data found.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            {# --- LOGIC: ADMIN VIEW (Clean Table) --- #}
+            {% else %}
+                <div class="portfolio-wrapper">
+                    <div class="portfolio-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1">Company Equity Structure</h5>
+                            <span class="text-muted small">Overview of shares and partner distribution</span>
+                        </div>
+                        <div class="d-flex gap-3 text-end">
+                            <div>
+                                <span class="d-block text-muted small fw-semibold text-uppercase">Share Price</span>
+                                <span class="fw-bold text-dark">₹{{ company_profile.get_single_share_value|floatformat:2|intcomma }}</span>
+                            </div>
+                            <div class="border-start ps-3">
+                                <span class="d-block text-muted small fw-semibold text-uppercase">Total Shares</span>
+                                <span class="fw-bold text-dark">{{ company_profile.number_of_shares|intcomma }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-0">
+                        <div class="col-lg-4 border-end border-light">
+                            <div class="p-4 h-100 d-flex flex-column align-items-center justify-content-center bg-light bg-opacity-10">
+                                <div style="height: 200px; width: 100%;">
+                                    <canvas id="companyShareChart"></canvas>
+                                </div>
+                                <div class="mt-3 text-center small">
+                                    <span class="badge bg-primary rounded-pill me-1">&bull;</span> Company
+                                    <span class="badge bg-success rounded-pill ms-2 me-1">&bull;</span> Partners
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="bg-light text-muted small text-uppercase">
+                                        <tr>
+                                            <th class="ps-4 py-3 fw-semibold">Partner Name</th>
+                                            <th class="py-3 text-center">Stake</th>
+                                            <th class="py-3 text-end">Shares</th>
+                                            <th class="pe-4 py-3 text-end">Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="border-top-0">
+                                        {% for partner in partners %}
+                                        <tr>
+                                            <td class="ps-4 py-3">
+                                                <div class="d-flex align-items-center">
+                                                    {% if partner.photo %}
+                                                        <img src="{{ partner.photo.url }}" class="rounded-circle me-2" width="32" height="32">
+                                                    {% else %}
+                                                        <div class="rounded-circle bg-light text-primary fw-bold d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; border: 1px solid #dee2e6;">
+                                                            {{ partner.full_name|slice:":1" }}
+                                                        </div>
+                                                    {% endif %}
+                                                    <span class="fw-medium text-dark">{{ partner.full_name }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark border">{{ partner.share_percentage }}%</span>
+                                            </td>
+                                            <td class="text-end font-monospace text-muted">{{ partner.shares_owned|intcomma }}</td>
+                                            <td class="text-end pe-4 fw-bold text-dark">₹{{ partner.share_amount|floatformat:2|intcomma }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="4" class="text-center py-4">No partners found.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="alert alert-light border text-center py-4">
+                <h5 class="text-muted">Company Profile Not Configured</h5>
+                <a href="{% url 'core:company_profile' %}" class="btn btn-primary btn-sm mt-2">Create Profile</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<div class="row g-4">
+    {% for branch_info in branch_infos %}
+    {% with total_fees=branch_info.total_fee_amount %}
+    {% if total_fees and total_fees > 0 %}
+        {% widthratio branch_info.total_fee_paid total_fees 100 as progress %}
+    {% else %}
+        {% widthratio 0 1 0 as progress %}
+    {% endif %}
+    <div class="col-xxl-3 col-xl-4 col-lg-6 col-md-6">
+        <!-- Modern Minimal Card -->
+        <div class="card border-0 overflow-hidden transition-all branch-card" style="border-radius: 12px;">
+            
+            <!-- Subtle Gradient Header -->
+            <div class="card-header border-bottom py-3 px-4">
+                <div class="d-flex align-items-center">
+                    <div class="p-2 rounded-circle me-3 branch-icon-container">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div>
+                        <h4 class="card-title mb-0 fw-semibold branch-title">
+                            {{ branch_info.name }}
+                        </h4>
+                        <span class="small branch-id">Seating Capacity : {{ branch_info.seating_capacity|default:"Not Mentioned" }}</span>
+                        
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Clean Card Body -->
+            <div class="card-body p-0">
+                <!-- Stats Grid -->
+                <div class="row g-0 p-3">
+                    <!-- Student Count -->
+                    <div class="col-6 pe-2 mb-3 branch-student-section">
+                        <a href="{% url 'admission:admission_list' %}?branch={{ branch_info.id|urlencode }}">
+                            <div class="p-3 rounded-3 border branch-stat-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="p-2 rounded me-2 branch-stat-icon">
+                                        <i class="fas fa-users fs-6"></i>
+                                    </div>
+                                    <div>
+                                        <span class="small d-block branch-stat-label">Students</span>
+                                        <h5 class="mb-0 fw-bold branch-stat-value">{{ branch_info.student_count }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <!-- Employee Count -->
+                    <div class="col-6 ps-2 mb-3 branch-employee-section">
+                        <a href="{% url 'employees:employee_list' %}?branch={{ branch_info.id|urlencode }}">
+                            <div class="p-3 rounded-3 border branch-stat-card">
+                                <div class="d-flex align-items-center">
+                                    <div class="p-2 rounded me-2 branch-stat-icon">
+                                        <i class="fas fa-user-tie fs-6"></i>
+                                    </div>
+                                    <div>
+                                        <span class="small d-block branch-stat-label">Employees</span>
+                                        <h5 class="mb-0 fw-bold branch-stat-value">{{ branch_info.employee_count }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- New Fee Summary List -->
+                <div class="px-3 pb-0">
+                    <!-- Enhanced Batch-wise Seating Capacity -->
+                    <div class="p-3 rounded-3 border mb-3 branch-seating-summary">
+                        <h6 class="fw-semibold mb-3 d-flex align-items-center">
+                            <i class="fas fa-chart-pie me-2 text-theme"></i>Seating Occupancy
+                            <span class="badge bg-theme bg-opacity-10 text-theme ms-2 small">{{ branch_info.seating_capacity|default:"0" }} Total</span>
+                        </h6>
+                        
+                        <div class="batch-capacity-container">
+                            <!-- Forenoon Batch -->
+                            <div class="batch-row mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="batch-icon-container me-2 bg-warning bg-opacity-10 p-1 rounded">
+                                            <i class="fas fa-sun text-warning fa-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="batch-name fw-medium">Forenoon</span>
+                                            <span class="batch-time text-muted small d-block">(FN)</span>
+                                        </div>
+                                    </div>
+                                    <!-- Stats: Showing Free vs Total -->
+                                    <div class="batch-stats text-end">
+                                        <div class="fw-bold text-dark">{{ branch_info.forenoon_available|default:"0" }}</div>
+                                        <div class="text-muted small">seats available</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Store the Availability Ratio in a variable -->
+                                {% if branch_info.seating_capacity and branch_info.seating_capacity > 0 %}
+                                    {% widthratio branch_info.forenoon_occupied branch_info.seating_capacity 100 as fn_occupancy_pct %}
+                                {% else %}
+                                    {% widthratio 0 1 0 as fn_occupancy_pct %}
+                                {% endif %}
+                                
+                                <div class="capacity-bar-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="capacity-percent small fw-medium">
+                                            Occupancy
+                                        </span>
+                                        <span class="capacity-numbers small text-muted">
+                                            {{ branch_info.forenoon_occupied|default:"0" }}/{{ branch_info.seating_capacity|default:"0" }} left
+                                        </span>
+                                    </div>
+                                    <div class="capacity-bar">
+                                        <!-- CSS Calc inverts the width: 100% - Available% = Occupied% -->
+                                        <div class="capacity-fill fn-fill" 
+                                            style="width: {{ fn_occupancy_pct }}%"
+                                            data-bs-toggle="tooltip" 
+                                            title="Batch is {{ fn_occupancy_pct }}% occupied">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Afternoon Batch -->
+                            <div class="batch-row mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="batch-icon-container me-2 bg-info bg-opacity-10 p-1 rounded">
+                                            <i class="fas fa-cloud-sun text-info fa-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="batch-name fw-medium">Afternoon</span>
+                                            <span class="batch-time text-muted small d-block">(AN)</span>
+                                        </div>
+                                    </div>
+                                    <div class="batch-stats text-end">
+                                        <div class="fw-bold text-dark">{{ branch_info.afternoon_available|default:"0" }}</div>
+                                        <div class="text-muted small">seats available</div>
+                                    </div>
+                                </div>
+
+                                {% if branch_info.seating_capacity and branch_info.seating_capacity > 0 %}
+                                    {% widthratio branch_info.afternoon_occupied branch_info.seating_capacity 100 as an_occupancy_pct %}
+                                {% else %}
+                                    {% widthratio 0 1 0 as an_occupancy_pct %}
+                                {% endif %}
+
+                                <div class="capacity-bar-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="capacity-percent small fw-medium">
+                                            Occupancy
+                                        </span>
+                                        <span class="capacity-numbers small text-muted">
+                                            {{ branch_info.afternoon_occupied|default:"0" }}/{{ branch_info.seating_capacity|default:"0" }} left
+                                        </span>
+                                    </div>
+                                    <div class="capacity-bar">
+                                        <div class="capacity-fill an-fill" 
+                                            style="width: {{ an_occupancy_pct }}%"
+                                            data-bs-toggle="tooltip" 
+                                            title="Batch is {{ an_occupancy_pct }}% occupied">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Evening Batch -->
+                            <div class="batch-row">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="batch-icon-container me-2 bg-primary bg-opacity-10 p-1 rounded">
+                                            <i class="fas fa-moon text-primary fa-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="batch-name fw-medium">Evening</span>
+                                            <span class="batch-time text-muted small d-block">(EV)</span>
+                                        </div>
+                                    </div>
+                                    <div class="batch-stats text-end">
+                                        <div class="fw-bold text-dark">{{ branch_info.evening_available|default:"0" }}</div>
+                                        <div class="text-muted small">seats available</div>
+                                    </div>
+                                </div>
+
+                                {% if branch_info.seating_capacity and branch_info.seating_capacity > 0 %}
+                                    {% widthratio branch_info.evening_occupied branch_info.seating_capacity 100 as ev_occupancy_pct %}
+                                {% else %}
+                                    {% widthratio 0 1 0 as ev_occupancy_pct %}
+                                {% endif %}
+
+                                <div class="capacity-bar-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="capacity-percent small fw-medium">
+                                            Occupancy
+                                        </span>
+                                        <span class="capacity-numbers small text-muted">
+                                            {{ branch_info.evening_occupied|default:"0" }}/{{ branch_info.seating_capacity|default:"0" }} left
+                                        </span>
+                                    </div>
+                                    <div class="capacity-bar">
+                                        <div class="capacity-fill ev-fill" 
+                                            style="width: {{ ev_occupancy_pct }}%"
+                                            data-bs-toggle="tooltip" 
+                                            title="Batch is {{ ev_occupancy_pct }}% occupied">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Capacity Status Summary (Updated Labels) -->
+                        <div class="capacity-summary mt-3 pt-3 border-top">
+                            <div class="row text-center g-2">
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="fw-bold text-success fs-6">{{ branch_info.forenoon_available|default:"0" }}</div>
+                                        <div class="small text-muted">FN Available</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="fw-bold text-info fs-6">{{ branch_info.afternoon_available|default:"0" }}</div>
+                                        <div class="small text-muted">AN Available</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="fw-bold text-primary fs-6">{{ branch_info.evening_available|default:"0" }}</div>
+                                        <div class="small text-muted">EV Available</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-3 border mb-3 branch-fee-summary">
+                        <ul class="list-unstyled mb-0">
+                            <li class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 fee-icon total-fee-icon">
+                                        <i class="fas fa-wallet fa-xs"></i>
+                                    </span>
+                                    <span class="small fee-label">Total Fees</span>
+                                </div>
+                                <span class="fw-semibold fee-amount">₹{{ total_fees|floatformat:2|intcomma  }}</span>
+                            </li>
+
+                            <li class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 fee-icon pending-fee-icon">
+                                        <i class="fas fa-clock fa-xs"></i>
+                                    </span>
+                                    <span class="small fee-label">Pending</span>
+                                </div>
+                                <span class="fw-semibold fee-amount pending-amount">₹{{ branch_info.pending_fee_amount|floatformat:2|intcomma  }}</span>
+                            </li>
+
+                            <li class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 fee-icon collected-fee-icon">
+                                        <i class="fas fa-check-circle fa-xs"></i>
+                                    </span>
+                                    <span class="small fee-label">Collected</span>
+                                </div>
+                                <span class="fw-semibold fee-amount collected-amount">₹{{ branch_info.total_fee_paid|floatformat:2|intcomma  }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Progress Section -->
+                <div class="px-3 pb-3">
+                    <div class="p-3 rounded-3 border branch-progress-container">
+                        <!-- Progress Indicator -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small progress-label">Fees Collected</span>
+                            <span class="fw-semibold small progress-percent">
+                                {{ progress }}% Complete
+                            </span>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress mb-3 branch-progress-bar">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: {{ progress }}%;" 
+                                 aria-valuenow="{{ progress }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100"></div>
+                        </div>
+                        
+                        <!-- Fee Amounts -->
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <span class="d-block fw-bold collected-amount">₹{{ branch_info.total_fee_paid|floatformat:2|intcomma }}</span>
+                                <span class="small progress-amount-label">Collected</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="d-block fw-bold pending-amount">₹{{ branch_info.pending_fee_amount|floatformat:2|intcomma }}</span>
+                                <span class="small progress-amount-label">Pending</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% comment %} <!-- Action Button -->
+            <div class="card-footer bg-transparent border-0 py-3 px-4 text-center">
+                <a href="{{ branch_info.get_absolute_url }}" class="btn btn-sm w-100 rounded-pill py-2 fw-semibold branch-view-btn">
+                    View Details <i class="fas fa-chevron-right ms-1 small"></i>
+                </a>
+            </div> {% endcomment %}
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>

@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Request Submission PDF</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; box-sizing: border-box; }
+        body { margin: 0; padding: 0; }
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        @page:first {
+            background: url("{% static 'app/assets/request_pdf/request.png' %}") no-repeat center;
+            background-size: cover;
+        }
+        @page {
+            background: url("{% static 'app/assets/request_pdf/request2.png' %}") no-repeat center;
+            background-size: cover;
+        }
+        .page {
+            width: 100%;
+            min-height: 29.7cm;
+            padding: 60px 50px;
+            position: relative;
+            page-break-before: always;
+            break-inside: avoid;
+            overflow: hidden;
+        }
+        .page.first {
+            page-break-before: auto;
+        }
+        .request_id {
+            position: absolute;
+            top: 130px;
+            right: 104px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #000;
+        }
+        .content {
+            font-size: 15px;
+            line-height: 1.6rem;
+            text-align: justify;
+            margin-top: 5%; 
+        }
+        .content.first {
+            margin-top: 20%; 
+        }
+    </style>
+</head>
+<body>
+    {% for chunk in chunks %}
+        <div class="page{% if forloop.first %} first{% endif %}">
+            {% if forloop.first %}
+                <div class="request_id">ID : {{ instance.request_id }}</div>
+            {% endif %}
+            <div class="content{% if forloop.first %} first{% endif %}">
+                {{ chunk|safe }}
+            </div>
+        </div>
+    {% endfor %}
+</body>
+</html>

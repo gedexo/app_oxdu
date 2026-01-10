@@ -1,0 +1,150 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action="" novalidate>
+                                    {% csrf_token %}
+                                    {{ form|crispy }}
+
+                                    <!-- Syllabus Formset -->
+                                    {{ syllabus_formset.management_form }}
+
+                                    <div>
+                                        <hr class="solid">
+                                    </div>
+
+                                    <h3 class="fs-5 p-2 text-center">SYLLABUS ITEMS</h3>
+
+                                    <table class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th width="15%">Title</th>
+                                                <th width="35%">Description</th>
+                                                <th width="35%">Homework</th>
+                                                <th width="10%">Attachment</th>
+                                                <th width="5%">Delete</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for form in syllabus_formset.forms %}
+                                                <tr class="form_set_row">
+                                                    {% for hidden in form.hidden_fields %}
+                                                        {{ hidden }}
+                                                    {% endfor %}
+                                                    <td>{{ form.order_id }}</td>
+                                                    <td>{{ form.title }}</td>
+                                                    <td>{{ form.description }}</td>
+                                                    <td>{{ form.homework }}</td>
+                                                    <td>{{ form.attachment_url }}</td>
+                                                    <td>{{ form.DELETE }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+
+                                    <div class="card-footer">
+                                        <div class="row">
+                                            <div class="col">
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fe fe-save"></i> Save
+                                                </button>
+                                                <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                                    <i class="fa fa-cancel"></i> Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{ form.media }}
+                                    {{ syllabus_formset.media }}
+                                </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block js_plugins %}
+<script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
+<script>
+function initTinyMCEForTextareas(context) {
+    $(context).find('textarea.tinymce').each(function(){
+        if (tinymce.get(this.id)) {
+            tinymce.get(this.id).remove(); // remove existing instance
+        }
+        tinymce.init({
+            target: this,
+            menubar: false,
+            plugins: 'link lists code',
+            toolbar: 'undo redo | bold italic | bullist numlist | link | code',
+            height: 150
+        });
+    });
+}
+
+$(document).ready(function(){
+    // Initialize existing TinyMCE fields
+    initTinyMCEForTextareas(document);
+
+    // Initialize formset
+    $('.form_set_row').formset({
+        addText: 'Add Item',
+        deleteText: 'Remove',
+        prefix: '{{ syllabus_formset.prefix }}',
+        added: function(row) {
+            // Initialize TinyMCE for newly added row
+            initTinyMCEForTextareas(row);
+        }
+    });
+});
+</script>
+{% endblock js_plugins %}
+
+{% block javascript %}
+{{form.media}}
+{{formset.media}}
+
+{% endblock %}

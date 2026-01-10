@@ -1,0 +1,66 @@
+{% load crispy_forms_tags %}
+
+{% if section == 'personal' %}
+    {# Personal Information Form #}
+    <div class="row">
+        {% if form.employee_id %}<div class="col-md-6">{{ form.employee_id|as_crispy_field }}</div>{% endif %}
+        {% if form.first_name %}<div class="col-md-6">{{ form.first_name|as_crispy_field }}</div>{% endif %}
+        {% if form.last_name %}<div class="col-md-6">{{ form.last_name|as_crispy_field }}</div>{% endif %}
+        {% if form.gender %}<div class="col-md-6">{{ form.gender|as_crispy_field }}</div>{% endif %}
+        {% if form.date_of_birth %}<div class="col-md-6">{{ form.date_of_birth|as_crispy_field }}</div>{% endif %}
+        {% if form.mobile %}<div class="col-md-6">{{ form.mobile|as_crispy_field }}</div>{% endif %}
+        {% if form.whatsapp %}<div class="col-md-6">{{ form.whatsapp|as_crispy_field }}</div>{% endif %}
+        {% if form.personal_email %}<div class="col-md-6">{{ form.personal_email|as_crispy_field }}</div>{% endif %}
+        {% if form.religion %}<div class="col-md-6">{{ form.religion|as_crispy_field }}</div>{% endif %}
+        {% if form.marital_status %}<div class="col-md-6">{{ form.marital_status|as_crispy_field }}</div>{% endif %}
+        {% if form.blood_group %}<div class="col-md-6">{{ form.blood_group|as_crispy_field }}</div>{% endif %}
+        {% if form.experience %}<div class="col-12">{{ form.experience|as_crispy_field }}</div>{% endif %}
+        {% if form.qualifications %}<div class="col-12">{{ form.qualifications|as_crispy_field }}</div>{% endif %}
+    </div>
+
+{% elif section == 'parent' %}
+    {# Emergency Contact Form #}
+    <div class="row">
+        {% if form.father_name %}<div class="col-md-6">{{ form.father_name|as_crispy_field }}</div>{% endif %}
+        {% if form.father_mobile %}<div class="col-md-6">{{ form.father_mobile|as_crispy_field }}</div>{% endif %}
+        {% if form.mother_name %}<div class="col-md-6">{{ form.mother_name|as_crispy_field }}</div>{% endif %}
+        {% if form.guardian_name %}<div class="col-md-6">{{ form.guardian_name|as_crispy_field }}</div>{% endif %}
+        {% if form.guardian_mobile %}<div class="col-md-6">{{ form.guardian_mobile|as_crispy_field }}</div>{% endif %}
+        {% if form.relationship_with_employee %}<div class="col-md-6">{{ form.relationship_with_employee|as_crispy_field }}</div>{% endif %}
+    </div>
+
+{% elif section == 'address' %}
+    {# Address Information Form #}
+    <div class="row">
+        {% if form.type_of_residence %}<div class="col-md-6">{{ form.type_of_residence|as_crispy_field }}</div>{% endif %}
+        {% if form.residence_name %}<div class="col-md-6">{{ form.residence_name|as_crispy_field }}</div>{% endif %}
+        {% if form.residential_address %}<div class="col-12">{{ form.residential_address|as_crispy_field }}</div>{% endif %}
+        {% if form.residence_contact %}<div class="col-md-6">{{ form.residence_contact|as_crispy_field }}</div>{% endif %}
+        {% if form.residential_zip_code %}<div class="col-md-6">{{ form.residential_zip_code|as_crispy_field }}</div>{% endif %}
+        {% if form.permanent_address %}<div class="col-12">{{ form.permanent_address|as_crispy_field }}</div>{% endif %}
+        {% if form.permanent_zip_code %}<div class="col-md-6">{{ form.permanent_zip_code|as_crispy_field }}</div>{% endif %}
+    </div>
+
+{% elif section == 'financial' %}
+    {# Bank Details Form #}
+    <div class="row">
+        {% if form.bank_name %}<div class="col-md-6">{{ form.bank_name|as_crispy_field }}</div>{% endif %}
+        {% if form.account_name %}<div class="col-md-6">{{ form.account_name|as_crispy_field }}</div>{% endif %}
+        {% if form.account_number %}<div class="col-md-6">{{ form.account_number|as_crispy_field }}</div>{% endif %}
+        {% if form.ifsc_code %}<div class="col-md-6">{{ form.ifsc_code|as_crispy_field }}</div>{% endif %}
+        {% if form.bank_branch %}<div class="col-md-6">{{ form.bank_branch|as_crispy_field }}</div>{% endif %}
+        {% if form.pan_number %}<div class="col-md-6">{{ form.pan_number|as_crispy_field }}</div>{% endif %}
+    </div>
+
+{% elif section == 'documents' %}
+    {# Documents Form #}
+    <div class="row">
+        {% if form.aadhar %}<div class="col-md-6">{{ form.aadhar|as_crispy_field }}</div>{% endif %}
+        {% if form.pancard %}<div class="col-md-6">{{ form.pancard|as_crispy_field }}</div>{% endif %}
+    </div>
+
+{% else %}
+    <div class="alert alert-danger">Invalid section requested.</div>
+{% endif %}
+
+<input type="hidden" name="section" value="{{ section }}">

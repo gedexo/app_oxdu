@@ -1,0 +1,354 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table thead th {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8f9fa;
+        color: #6c757d;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 0.75rem;
+    }
+    .table td { vertical-align: middle; font-size: 0.875rem; color: #495057; padding: 1rem 0.75rem; }
+    .table-hover tbody tr:hover { background-color: #f8f9fa; }
+    
+    .avatar-initials {
+        width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; background-color: #e9ecef; color: #495057; font-weight: 600; margin-right: 12px; font-size: 0.85rem;
+    }
+
+    .badge-soft-success { background-color: #d1e7dd; color: #0f5132; }
+    .badge-soft-primary { background-color: #cfe2ff; color: #084298; }
+    .badge-soft-info { background-color: #cff4fc; color: #055160; }
+    .badge-soft-warning { background-color: #fff3cd; color: #664d03; }
+    .badge { padding: 0.5em 0.75em; font-weight: 500; }
+
+    .stats-card { border-left: 4px solid; transition: transform 0.2s; }
+    .stats-card:hover { transform: translateY(-2px); }
+    .border-primary { border-color: #0d6efd !important; }
+    .border-success { border-color: #198754 !important; }
+    .border-info { border-color: #0dcaf0 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+      <h4 class="page-title mb-0">{{ title|title }}</h4>
+      <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+         <i class="fe fe-printer me-1"></i> Print Report
+      </button>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-md-6">
+            <div class="card custom-card stats-card border-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 text-uppercase small fw-bold">Total Enrolled</p>
+                            <h3 class="mb-0 fw-bold">{{ total_students }}</h3>
+                        </div>
+                        <div class="avatar bg-primary-transparent text-primary"><i class="fe fe-users fs-20"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="card custom-card stats-card border-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 text-uppercase small fw-bold">Eligible for Placement</p>
+                            <h3 class="mb-0 fw-bold">{{ eligible_students }}</h3>
+                        </div>
+                        <div class="avatar bg-success-transparent text-success"><i class="fe fe-check-circle fs-20"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-12">
+            <div class="card custom-card stats-card border-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 text-uppercase small fw-bold">Filtered Count</p>
+                            <h3 class="mb-0 fw-bold">{% if students %}{{ students.count }}{% else %}0{% endif %}</h3>
+                        </div>
+                        <div class="avatar bg-info-transparent text-info"><i class="fe fe-filter fs-20"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card custom-card shadow-sm">
+          <div class="card-header border-bottom-0">
+            <h5 class="card-title mb-0"><i class="fe fe-sliders me-2"></i>Filter Criteria</h5>
+          </div>
+          <div class="card-body pt-0">
+            <form method="get" id="filterForm">
+              <div class="row g-3">
+                <!-- Branch -->
+                <div class="col-md-2">
+                  <label class="form-label text-muted small fw-bold">Branch</label>
+                  <select name="branch" id="branch" class="form-select"
+                          {% if is_teacher %}disabled{% endif %}
+                          onchange="updateBatches()">
+                      <option value="">All Branches</option>
+                      {% for branch in branches %}
+                      <option value="{{ branch.id }}"
+                          {% if selected_branch == branch.id|stringformat:"i" %}selected{% endif %}>
+                          {{ branch.name }}
+                      </option>
+                      {% endfor %}
+                  </select>
+
+                  {% if is_teacher %}
+                    <input type="hidden" name="branch" value="{{ teacher_branch_id }}">
+                  {% endif %}
+
+                </div>
+
+                <!-- Course -->
+                <div class="col-md-2">
+                  <label class="form-label text-muted small fw-bold">Course</label>
+                  <select name="course" id="course" class="form-select"
+                          {% if is_teacher %}disabled{% endif %}
+                          onchange="updateBatches()">
+                      <option value="">All Courses</option>
+                      {% for course in courses %}
+                      <option value="{{ course.id }}"
+                          {% if selected_course == course.id|stringformat:"i" %}selected{% endif %}>
+                          {{ course.name }}
+                      </option>
+                      {% endfor %}
+                  </select>
+
+                  {% if is_teacher %}
+                    <input type="hidden" name="course" value="{{ teacher_course_id }}">
+                  {% endif %}
+                </div>
+
+                <!-- Batch -->
+                <div class="col-md-3">
+                  <label class="form-label text-muted small fw-bold">Batch</label>
+                  <select name="batch" id="batch" class="form-select">
+                    <option value="">Select Batch</option>
+                    {% for batch in batches %}
+                    <option value="{{ batch.id }}" {% if selected_batch == batch.id|stringformat:"i" %}selected{% endif %}>{{ batch.batch_name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <!-- Status (Fixed Name and Loop) -->
+                <div class="col-md-3">
+                  <label class="form-label text-muted small fw-bold">Status</label>
+                  <select name="status" class="form-select">
+                    <option value="">All Eligible</option>
+                    {% for val, label in placement_statuses %}
+                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="col-md-2 d-flex align-items-end">
+                  <div class="d-grid gap-2 d-md-block w-100">
+                      <button type="submit" class="btn btn-primary"><i class="fe fe-search me-1"></i> Apply</button>
+                      <a href="{% url 'masters:placement_report' %}" class="btn btn-light"><i class="fe fe-refresh-cw me-1"></i> Reset</a>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Results Table -->
+    {% if filters_applied %}
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card shadow-sm">
+          <div class="card-header bg-white border-bottom">
+            <h5 class="card-title mb-0">Eligible Student List</h5>
+          </div>
+          <div class="card-body p-0">
+            {% if students %}
+            <div class="table-responsive">
+              <table class="table table-hover table-nowrap mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-4">Student</th>
+                    <th>Branch</th>
+                    <th>Academic Info</th>
+                    <th>Stage Status</th>
+                    <th>Contact</th>
+                    <th>Placement Status</th>
+                    <th>Placement Details</th>
+                    <th class="text-end pe-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for student in students %}
+                  <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-initials">{{ student.fullname|slice:":1" }}</div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-dark">{{ student.fullname }}</h6>
+                                <span class="text-muted small">ID: {{ student.admission_number|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="fw-medium text-dark">{{ student.branch.name }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="fw-medium text-dark">{{ student.course.name }}</span>
+                            <span class="text-muted small">{{ student.batch }}</span>
+                        </div>
+                    </td>
+                    <td>
+                      {% if student.stage_status == 'completed' %}
+                        <span class="badge badge-soft-success">Completed</span>
+                      {% elif student.stage_status == 'placed' %}
+                        <span class="badge badge-soft-info">Placed</span>
+                      {% elif student.stage_status == 'internship' %}
+                        <span class="badge badge-soft-primary">Internship</span>
+                      {% else %}
+                        <span class="badge badge-soft-warning">{{ student.get_stage_status_display }}</span>
+                      {% endif %}
+                    </td>
+                    <td><i class="fe fe-phone me-2"></i> {{ student.contact_number|default:"-" }}</td>
+                    <td>
+                      {% if student.stage_status == 'placed' %}
+                        <div class="text-success fw-bold small"><i class="fe fe-check-circle me-1"></i> PLACED</div>
+                      {% else %}
+                        <div class="text-warning fw-bold small"><i class="fe fe-clock me-1"></i> PENDING</div>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if student.stage_status == 'placed' or student.stage_status == 'internship' %}
+                        <div class="d-flex flex-column">
+                            <!-- Status Badge -->
+                            <div class="mb-1">
+                                {% if student.stage_status == 'placed' %}
+                                    <span class="badge badge-soft-success text-uppercase" style="font-size: 0.65rem;">Placed</span>
+                                {% else %}
+                                    <span class="badge badge-soft-primary text-uppercase" style="font-size: 0.65rem;">Internship</span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Company & Position -->
+                            <div class="fw-bold text-dark">{{ student.placed_company_name|default:"Company Not Set" }}</div>
+                            <div class="text-muted small">
+                                <i class="fe fe-briefcase me-1"></i> {{ student.placed_position|default:"Position N/A" }}
+                            </div>
+                            
+                            <!-- Placement Source -->
+                            <div class="mt-1">
+                                <span class="text-info small fw-medium">
+                                    <i class="fe fe-external-link me-1"></i> Source: {{ student.get_placement_source_display }}
+                                </span>
+                            </div>
+                        </div>
+                      {% else %}
+                        <div class="text-warning fw-bold small">
+                            <i class="fe fe-clock me-1"></i> PENDING DETAILS
+                        </div>
+                      {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                      <div class="btn-group">
+                          <a href="{% url 'masters:student_placement_history' student.pk %}" class="btn btn-sm btn-light text-primary" data-bs-toggle="tooltip" title="View History"><i class="fe fe-eye"></i></a>
+                          {% if request.user.usertype == "mentor" %}
+                            <a href="{% url 'masters:placement_history_create' student.pk %}" class="btn btn-sm btn-light text-success ms-1" data-bs-toggle="tooltip" title="Add Placement"><i class="fe fe-plus-circle"></i></a>
+                          {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+              <h4>No students found</h4>
+              <p class="text-muted">No students in the selected criteria are in Completed, Internship, or Placed status.</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card border-0 bg-transparent shadow-none">
+          <div class="card-body text-center py-5">
+            <div class="mb-4">
+                <div class="d-inline-block bg-white p-4 rounded-circle shadow-sm text-primary"><i class="fe fe-filter fs-40"></i></div>
+            </div>
+            <h4 class="text-dark">Ready to Generate Report</h4>
+            <p class="text-muted col-md-6 mx-auto">Select Branch, Course or Status and click Apply.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl) })
+});
+
+function updateBatches() {
+    const branchId = document.getElementById('branch').value;
+    const courseId = document.getElementById('course').value;
+    const batchSelect = document.getElementById('batch');
+    batchSelect.innerHTML = '<option value="">Select Batch</option>';
+    
+    if (branchId && courseId) {
+        batchSelect.disabled = true;
+        fetch(`{% url 'admission:get_batches_for_course' %}?branch_id=${branchId}&course_id=${courseId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.batches) {
+                    data.batches.forEach(batch => {
+                        const option = document.createElement('option');
+                        option.value = batch.id;
+                        option.textContent = batch.batch_name;
+                        batchSelect.appendChild(option);
+                    });
+                }
+                batchSelect.disabled = false;
+            });
+    } else {
+        batchSelect.disabled = true; 
+    }
+}
+</script>
+{% endblock content %}

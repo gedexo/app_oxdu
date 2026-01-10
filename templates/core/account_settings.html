@@ -1,0 +1,79 @@
+{% extends 'core/settings_base.html' %}
+{% load static i18n crispy_forms_tags %}
+
+
+{% block settings_content %}
+<div class="card custom-card">
+    <div class="card-header border-bottom-0">
+        <div class="card-title">{{ sub_title|title }}</div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-12">
+                <form class="form" method="post" autocomplete="off" enctype="multipart/form-data" action=""
+                enctype="multipart/form-data">
+                {% csrf_token %}
+                <table class="table">
+                    {{ formset.management_form }}
+                    <thead class="table-success">
+                        <tr>
+                            <th>Name</th>
+                            <th>Account</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for form in formset.forms %}
+                            <tr class="formset_row">
+                                {% for hidden in form.hidden_fields %}
+                                    {{ hidden }}
+                                {% endfor %}
+                                <td class="p-0">{{ form.name }}</td>
+                                <td class="p-0">{{ form.account }}</td>
+                                <td style="vertical-align: middle;" class="p-0 text-center">{{ form.DELETE }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col">
+                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                        </div>
+                    </div>
+                </div>
+                
+            </form>
+            </div>
+        </div>
+      
+        
+    </div>
+    
+</div>
+
+{% endblock settings_content %}
+
+{% block js_plugins %}
+<script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
+{% endblock js_plugins %}
+
+{% block javascript %}
+<script>
+    $(document).ready(function () {
+        $('.formset_row').formset({
+            addText: '<span>Add Row</span>',
+            deleteText: '<i class="fa-solid fa-xmark"></i>',
+            prefix: '{{ form_set.prefix }}',
+            formCssClass: 'formset_row',
+            added: function (row) {
+                
+            },
+            removed: function (row) {
+
+            }
+        });  
+    });
+</script>
+{% endblock javascript %}

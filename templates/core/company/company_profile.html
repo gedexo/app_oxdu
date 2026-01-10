@@ -1,0 +1,343 @@
+{% extends 'app/base.html' %}
+{% load static humanize i18n crispy_forms_tags number_words %}
+
+{% block title %}Company Profile: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<style>
+    .company-avatar {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(45deg, #6c5ffc, #a55ffc);
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 5px 15px rgba(108, 95, 252, 0.2);
+    }
+    .stat-card {
+        transition: transform 0.2s;
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    }
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    [data-theme-mode="dark"] {
+        --bg-surface: #1e293b;
+        --bg-subtle: #0f172a;
+        --border-color: #334155;
+        --kpi-primary: #f8fafc;
+        --kpi-secondary: #94a3b8;
+    }
+
+    :root {
+        --kpi-primary: #0f172a;    /* Dark Navy */
+        --kpi-secondary: #64748b;  /* Slate Gray */
+        --kpi-accent: #ee4c24;     /* theme */
+        --kpi-success: #10b981;    /* Emerald Green */
+        --bg-surface: #ffffff;
+        --bg-subtle: #f8fafc;
+        --border-color: #e2e8f0;
+    }
+
+
+    /* --- STATS CARD (TOP ROW) --- */
+    .kpi-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card:hover {
+        border-color: var(--kpi-accent);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
+    }
+    .kpi-icon {
+        width: 40px; height: 40px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+    .kpi-label { font-size: 15px !important; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--kpi-secondary); margin-bottom: 0.25rem; }
+    .kpi-value { font-size: 18px !important; font-weight: 600; color: var(--kpi-primary); line-height: 1.2; }
+
+</style>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex justify-content-between align-items-center mb-4 mt-3">
+            <div>
+                <h1 class="page-title fs-3 fw-bold mb-0">Company Overview</h1>
+            </div>
+            
+            <div class="btn-list">
+                {% if company %}
+                    <a class="btn custom-btn-2 fw-bold me-2" href="{{ company.get_update_url }}" 
+                       data-bs-toggle="tooltip" title="Edit Details">
+                        <i class="fe fe-edit-3 me-1"></i> Edit Company
+                    <a class="btn btn-danger shadow-sm fw-bold" href="{{ company.get_delete_url }}" 
+                       data-bs-toggle="tooltip" title="Delete Company">
+                        <i class="fe fe-trash-2 me-1"></i> Delete
+                    </a>
+                {% else %}
+                    <a class="btn btn-primary shadow-sm fw-bold" href="{% url 'core:company_profile_create' %}">
+                        <i class="fe fe-plus-circle me-1"></i> Create New Profile
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% include 'app/partials/messages.html' %}
+
+        {% if company %}
+        <!-- Stats Row -->
+        <div class="row mb-4">
+            
+            <!-- Total Value Card -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <a class="text-decoration-none">
+                    <div class="kpi-card">
+                        <div class="d-flex justify-content-between">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="mdi mdi-currency-inr"></i></div>
+                        </div>
+                        <div class="kpi-label">Total Value</div>
+                        <div class="kpi-value text-success fs-6">₹{{ company.total_value|intcomma }}</div>
+                        <small class="text-muted fst-italic">
+                            {{ company.total_value|in_words }} Rupees
+                        </small>
+                    </div>
+                </a>
+            </div>
+            
+            <!-- Share Price Card -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <a class="text-decoration-none">
+                    <div class="kpi-card">
+                        <div class="d-flex justify-content-between">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fe fe-trending-up"></i></div>
+                        </div>
+                        <div class="kpi-label">Share Value</div>
+                        <div class="kpi-value fs-6">₹{{ company.get_single_share_value|intcomma }}</div>
+                        <small class="text-muted fst-italic">
+                            {{ company.get_single_share_value|in_words }} Rupees
+                        </small>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Total Shares Card -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <a class="text-decoration-none">
+                    <div class="kpi-card">
+                        <div class="d-flex justify-content-between">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fe fe-trending-up"></i></div>
+                        </div>
+                        <div class="kpi-label">Total Shares</div>
+                        <div class="kpi-value fs-6">{{ company.number_of_shares|intcomma }}</div>
+                        <small class="text-muted fst-italic">
+                            {{ company.number_of_shares|in_words }} Units
+                        </small>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Holdings Percentage -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <a class="text-decoration-none">
+                    <div class="kpi-card">
+                        <div class="d-flex justify-content-between">
+                            <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="fe fe-percent"></i></div>
+                        </div>
+                        <div class="kpi-label">Company Holdings</div>
+                        <div class="kpi-value fs-6">{{ company.get_hold_percentage }}%</div>
+                        <div class="progress h-2 mt-2">
+                            <div class="progress-bar bg-info" role="progressbar" 
+                                 style="width: {{ company.get_hold_percentage }}%;" 
+                                 aria-valuenow="{{ company.get_hold_percentage }}" 
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+          
+        </div>
+
+        <!-- Main Content Row -->
+        <div class="row">
+            <!-- Left Column: Company Identity -->
+            <div class="col-xl-4 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body text-center p-5">
+                        <div class="d-flex justify-content-center">
+                            <div class="company-avatar">
+                                {{ company.name|slice:":1"|upper }}
+                            </div>
+                        </div>
+                        <h3 class="mb-1 fw-bold">{{ company.name }}</h3>
+                        <p class="text-muted mb-4">Registered Corporation</p>
+                        
+                        <div class="row text-start mt-4">
+                            <div class="col-6 border-end">
+                                <label class="text-muted fs-12 mb-1">Created</label>
+                                <h6 class="fw-semibold mb-0">{{ company.created|date:"d M Y" }}</h6>
+                            </div>
+                            <div class="col-6 ps-4">
+                                <label class="text-muted fs-12 mb-1">Last Update</label>
+                                <h6 class="fw-semibold mb-0">{{ company.updated|date:"d M Y" }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Detailed Breakdown -->
+            <div class="col-xl-8 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header border-bottom">
+                        <h3 class="card-title fw-bold">Share Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded-3 border mb-3 mb-md-0">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted fw-medium">Company Held</span>
+                                        <i class="fe fe-lock text-muted"></i>
+                                    </div>
+                                    <h3 class="fw-bold mb-0 text-dark">{{ company.company_hold_shares|intcomma }}</h3>
+                                    <small class="text-muted">shares reserved</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded-3 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted fw-medium">Publicly Available</span>
+                                        <i class="fe fe-globe text-muted"></i>
+                                    </div>
+                                    <h3 class="fw-bold mb-0 text-dark">{{ company.get_total_shares|intcomma }}</h3>
+                                    <small class="text-success">
+                                        <i class="fe fe-check-circle"></i> ready for trade
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-semibold mb-3">Share Metrics</h5>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-vcenter">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th class="text-end">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Market Capitalization -->
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="bg-primary-transparent rounded-circle p-2 me-2">
+                                                    <i class="mdi mdi-chart-line text-primary"></i>
+                                                </span>
+                                                <span class="fw-medium">Market Capitalization</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            ₹{{ company.total_value|intcomma }}
+                                            <div class="text-muted fs-12 fst-italic fw-normal">
+                                                {{ company.total_value|in_words }} Rupees
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Cost Per Share -->
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="bg-secondary-transparent rounded-circle p-2 me-2">
+                                                    <i class="mdi mdi-ticket-percent text-secondary"></i>
+                                                </span>
+                                                <span class="fw-medium">Cost Per Share</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            ₹{{ company.get_single_share_value|intcomma }}
+                                            <div class="text-muted fs-12 fst-italic fw-normal">
+                                                {{ company.get_single_share_value|in_words }} Rupees
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Total Volume -->
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="bg-warning-transparent rounded-circle p-2 me-2">
+                                                    <i class="mdi mdi-chart-pie text-warning"></i>
+                                                </span>
+                                                <span class="fw-medium">Total Volume</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            {{ company.number_of_shares|intcomma }} Units
+                                            <div class="text-muted fs-12 fst-italic fw-normal">
+                                                {{ company.number_of_shares|in_words }} Units
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        
+        <!-- Empty State Design -->
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6">
+                <div class="card custom-card shadow-lg border-0">
+                    <div class="card-body text-center py-5">
+                        <div class="bg-primary-transparent rounded-circle d-inline-flex p-4 mb-4">
+                            <i class="fe fe-briefcase text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h3 class="fw-bold mb-2">No Company Profile Found</h3>
+                        <p class="text-muted mb-4 fs-16">It looks like you haven't set up a company profile yet. <br>Create one to start tracking your shares and valuation.</p>
+                        <a href="{% url 'core:company_profile_create' %}" class="btn btn-primary btn-lg px-5 shadow-sm">
+                            <i class="fe fe-plus me-2"></i> Create Company
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock content %}

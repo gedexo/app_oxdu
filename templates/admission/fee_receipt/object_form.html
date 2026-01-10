@@ -1,0 +1,648 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{{formset.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                    {% csrf_token %}
+
+                                    <!-- Main Form Fields -->
+                                    <div class="row">   
+                                        {% if user.is_superuser or user.usertype in "admin_staff,sales_head,ceo,cfo,coo,hr,cmo,mentor" %}
+                                        <div class="col-lg-3 col-sm-12 col-md-3 mb-3" id="div_id_branch">
+                                            <label for="branch" class="form-label">Filter by Branch</label>
+                                            <select class="form-control" name="branch" id="branch">
+                                                <option value="">All Branches</option>
+                                                {% for branch in branches %}
+                                                    <option value="{{ branch.id }}" 
+                                                        {% if object and object.student.branch.id == branch.id %}selected
+                                                        {% elif not object and user.branch.id == branch.id %}selected
+                                                        {% endif %}>
+                                                        {{ branch.name }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="form-text text-muted">Select branch to filter students</small>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="col-md-3">
+                                            {{ form.student|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            {{ form.date|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            {{ form.note|as_crispy_field }}
+                                        </div>
+                                    </div>
+
+                                    {% if object and object.student.branch %}
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <div class="alert alert-info">
+                                                <strong>Student Branch:</strong> {{ object.student.branch.name }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Payment Methods Formset -->
+                                    {% if formset %}
+                                    <div class="row mt-4">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header payment-method-header">
+                                                    <h5 class="card-title">Payment Methods</h5>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="alert alert-info" id="amount-summary">
+                                                        <strong id="total-amount-display">Total: ₹0.00</strong> 
+                                                    </div>
+                                                    <div class="table-responsive">
+                                                        {{ formset.management_form }}
+                                                        <table class="table table-bordered" id="payment-methods-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Payment Type</th>
+                                                                    <th>Amount (₹)</th>
+                                                                    <th>Note</th>
+                                                                    <th>Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {# Render existing and initial forms preserving hidden fields #}
+                                                                {% for form in formset.forms %}
+                                                                <tr class="payment-row {% if form.instance.pk and form.DELETE.value %}deleted-row{% endif %}">
+                                                                    {% for hidden in form.hidden_fields %}
+                                                                        {{ hidden }}
+                                                                    {% endfor %}
+                                                                    <td>
+                                                                        {% if form.instance.pk and form.DELETE.value %}
+                                                                            <div class="text-muted"><del>{{ form.instance.get_payment_type_display }}</del></div>
+                                                                            {{ form.payment_type.as_hidden }}
+                                                                        {% else %}
+                                                                            {{ form.payment_type|as_crispy_field }}
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>
+                                                                        {% if form.instance.pk and form.DELETE.value %}
+                                                                            <div class="text-muted"><del>₹{{ form.instance.amount }}</del></div>
+                                                                            {{ form.amount.as_hidden }}
+                                                                        {% else %}
+                                                                            {{ form.amount|as_crispy_field }}
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td>
+                                                                        {% if form.instance.pk and form.DELETE.value %}
+                                                                            <div class="text-muted"><del>{{ form.instance.note|default:"-" }}</del></div>
+                                                                            {{ form.note.as_hidden }}
+                                                                        {% else %}
+                                                                            {{ form.note|as_crispy_field }}
+                                                                        {% endif %}
+                                                                    </td>
+                                                                    <td class="text-center">
+                                                                        {% if form.instance.pk %}
+                                                                            <div>
+                                                                                <button type="button" class="btn btn-danger btn-sm remove-existing">
+                                                                                    <i class="mdi mdi-delete"></i> Remove
+                                                                                </button>
+                                                                                <button type="button" class="btn btn-warning btn-sm undo-delete d-none">
+                                                                                    <i class="mdi mdi-undo"></i> Undo
+                                                                                </button>
+                                                                            </div>
+                                                                        {% else %}
+                                                                            <button type="button" class="btn btn-danger btn-sm remove-new">
+                                                                                <i class="mdi mdi-delete"></i> Remove
+                                                                            </button>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+
+                                                    <button type="button" class="btn btn-primary" id="add-more">
+                                                        <i class="mdi mdi-plus"></i> Add Payment Method
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Fee Structure Table -->
+                                    <div class="row mt-4">
+                                        <div class="d-flex justify-content-center">
+                                            <div id="div_id_fee_structure_table" class="col-12 col-md-12 col-lg-10 mb-3" style="display:none;">
+                                                <label class="form-label">Fee Structure Allocation</label>
+                                                <div class="alert alert-warning py-2">
+                                                    <small><i class="mdi mdi-information"></i> Values below update automatically based on the Total Payment entered.</small>
+                                                </div>
+                                                <table class="table table-bordered table-striped" id="fee_structure_table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Installment</th>
+                                                            <th>Amount (₹)</th>
+                                                            <th>Due Date</th>
+                                                            <th>Paid (₹)</th>
+                                                            <th>Balance (₹)</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Fee structure rows will be injected here -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Form Buttons -->
+                                    <div class="card-footer">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <button type="submit" class="btn btn-success" id="submit-btn">
+                                                    <i class="fe fe-save"></i> {% if object %}Update{% else %}Save{% endif %}
+                                                </button>
+                                                <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                                    <i class="fa fa-cancel"></i> Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Hidden client-side template for new rows -->
+<script type="text/template" id="empty-form-template">
+<tr class="payment-row">
+    <td>
+        <div class="form-group">
+            <select name="paymentmethod-__prefix__-payment_type" class="form-control">
+                <option value="">---------</option>
+                <option value="cash">Cash</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="Razorpay">Razorpay</option>
+            </select>
+        </div>
+    </td>
+    <td>
+        <div class="form-group">
+            <input type="number" name="paymentmethod-__prefix__-amount" step="0.01" class="form-control payment-amount-input">
+        </div>
+    </td>
+    <td>
+        <div class="form-group">
+            <input type="text" name="paymentmethod-__prefix__-note" maxlength="100" class="form-control">
+        </div>
+    </td>
+    <td class="text-center">
+        <button type="button" class="btn btn-danger btn-sm remove-new">
+            <i class="mdi mdi-delete"></i> Remove
+        </button>
+    </td>
+</tr>
+</script>
+
+<style>
+    .loading { opacity: 0.6; pointer-events: none; }
+    .payment-row td { vertical-align: middle; }
+    .asteriskField { color: red; }
+    .table-danger { background-color: #f8d7da; }
+    .table-danger td { opacity: 0.6; }
+    .undo-delete { margin-left: 5px; }
+    .deleted-row { display: none; }
+    
+    /* Fee table styles */
+    #fee_structure_table th { background-color: #f0f2f5; }
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85em; }
+    .bg-soft-success { background-color: #d1e7dd; color: #0f5132; }
+    .bg-soft-warning { background-color: #fff3cd; color: #664d03; }
+    .bg-soft-danger { background-color: #f8d7da; color: #842029; }
+</style>
+
+<script>
+/* ----------------------------
+   Configuration / Constants
+   ---------------------------- */
+const PREFIX = 'paymentmethod'; 
+
+function roundAmount(value) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/* ----------------------------
+   Feature: Update Fee Table with Allocation
+   ---------------------------- */
+function updateFeeTable(currentTotalPayment) {
+    let remainingToAllocate = currentTotalPayment;
+    const rows = $('#fee_structure_table tbody tr');
+
+    rows.each(function() {
+        const row = $(this);
+        // Get base numbers from data attributes (set during AJAX load)
+        const totalFee = parseFloat(row.data('amount')) || 0;
+        const originalPaid = parseFloat(row.data('original-paid')) || 0;
+
+        // Calculate pending balance BEFORE the current new payment
+        const pendingOnRow = roundAmount(totalFee - originalPaid);
+
+        let allocatedNow = 0;
+
+        // Allocate logic
+        if (pendingOnRow > 0 && remainingToAllocate > 0) {
+            if (remainingToAllocate >= pendingOnRow) {
+                allocatedNow = pendingOnRow;
+                remainingToAllocate -= pendingOnRow;
+            } else {
+                allocatedNow = remainingToAllocate;
+                remainingToAllocate = 0;
+            }
+        }
+
+        // Calculate new display values
+        const newTotalPaid = originalPaid + allocatedNow;
+        const newBalance = totalFee - newTotalPaid;
+
+        // Update DOM cells
+        row.find('.paid_amount').text(newTotalPaid.toFixed(2));
+        row.find('.balance').text(Math.abs(newBalance).toFixed(2)); // Use abs to avoid -0.00
+
+        // Update Status Column
+        const statusCell = row.find('.status');
+        if (newBalance <= 0.01) { // Effectively zero
+            statusCell.html('<span class="status-badge bg-soft-success">Paid</span>');
+        } else if (newTotalPaid > 0) {
+            statusCell.html('<span class="status-badge bg-soft-warning">Partial</span>');
+        } else {
+            statusCell.html('<span class="status-badge bg-soft-danger">Unpaid</span>');
+        }
+    });
+}
+
+/* ----------------------------
+   Utility: Update TOTALS
+   ---------------------------- */
+function updateTotalAmount() {
+    let totalAmount = 0;
+    let hasEmptyAmount = false;
+    let hasValidForms = false;
+
+    $('#payment-methods-table tbody tr.payment-row').each(function () {
+        const row = $(this);
+        const deleteField = row.find(`input[name$="-DELETE"]`);
+        const amountInput = row.find(`input[name$="-amount"]`);
+        const paymentTypeSelect = row.find(`select[name$="-payment_type"]`);
+
+        if (deleteField.length && (deleteField.val() === 'on' || deleteField.is(':checked'))) {
+            return; 
+        }
+
+        const amount = parseFloat(amountInput.val()) || 0;
+        const paymentType = paymentTypeSelect.val();
+
+        if (paymentType && amount > 0) {
+            totalAmount += amount;
+            hasValidForms = true;
+        }
+
+        if (paymentType && (amount === 0 || amountInput.val() === '')) {
+            hasEmptyAmount = true;
+        }
+    });
+
+    $('#total-amount-display').text('Total: ₹' + totalAmount.toFixed(2));
+
+    // ** CALL THE FEE UPDATE LOGIC HERE **
+    updateFeeTable(totalAmount);
+
+    // validation UI:
+    const submitBtn = $('#submit-btn');
+    const studentSelected = $('#id_student').val();
+
+    if (!studentSelected || !hasValidForms || hasEmptyAmount) {
+        submitBtn.prop('disabled', true).addClass('btn-secondary').removeClass('btn-success');
+
+        if (!studentSelected) {
+            $('#amount-summary').addClass('alert-warning').removeClass('alert-info');
+            $('#total-amount-display').html('Total: ₹0.00 <small class="text-danger">(Please select a student)</small>');
+        } else if (!hasValidForms) {
+            $('#amount-summary').addClass('alert-warning').removeClass('alert-info');
+            $('#total-amount-display').html('Total: ₹0.00 <small class="text-danger">(Please fill payment details)</small>');
+        } else if (hasEmptyAmount) {
+            $('#amount-summary').addClass('alert-warning').removeClass('alert-info');
+            $('#total-amount-display').html('Total: ₹' + totalAmount.toFixed(2) + ' <small class="text-danger">(Some amounts are empty)</small>');
+        }
+    } else {
+        submitBtn.prop('disabled', false).removeClass('btn-secondary').addClass('btn-success');
+        $('#amount-summary').removeClass('alert-warning').addClass('alert-info');
+    }
+}
+
+/* ----------------------------
+   Reindex all forms
+   ---------------------------- */
+function updateFormIndices() {
+    const rows = $('#payment-methods-table tbody tr.payment-row');
+    rows.each(function (index) {
+        const row = $(this);
+        row.find('input, select, textarea, label').each(function () {
+            const el = $(this);
+            const name = el.attr('name');
+            const id = el.attr('id');
+            const forAttr = el.attr('for');
+
+            if (name) {
+                const newName = name.replace(new RegExp(`${PREFIX}-\\d+-`), `${PREFIX}-${index}-`);
+                el.attr('name', newName);
+            }
+            if (id) {
+                el.attr('id', id.replace(new RegExp(`${PREFIX}-\\d+-`), `${PREFIX}-${index}-`));
+            }
+            if (forAttr) {
+                el.attr('for', forAttr.replace(new RegExp(`${PREFIX}-\\d+-`), `${PREFIX}-${index}-`));
+            }
+        });
+    });
+    $(`#id_${PREFIX}-TOTAL_FORMS`).val(rows.length);
+}
+
+/* ----------------------------
+   Row Deletion Logic
+   ---------------------------- */
+function markRowForDeletion(row) {
+    const deleteField = row.find(`input[name$="-DELETE"]`);
+    const idInput = row.find(`input[name$="-id"]`);
+    updateFormIndices();
+    const currentIndex = row.index();
+
+    if (idInput.length && idInput.val()) {
+        if (deleteField.length) {
+            if (deleteField.is(':checkbox')) deleteField.prop('checked', true);
+            else deleteField.val('on');
+        } else {
+            row.append(`<input type="hidden" name="${PREFIX}-${currentIndex}-DELETE" value="on">`);
+        }
+        row.addClass('table-danger').addClass('deleted-row');
+        row.find('input:not([type="hidden"]), select, textarea, .select2').prop('disabled', true);
+        row.find('.remove-existing').addClass('d-none');
+        row.find('.undo-delete').removeClass('d-none');
+    } else {
+        if (!deleteField.length) {
+            row.append(`<input type="hidden" name="${PREFIX}-${currentIndex}-DELETE" value="on">`);
+        } else {
+            if (deleteField.is(':checkbox')) deleteField.prop('checked', true);
+            else deleteField.val('on');
+        }
+        row.addClass('table-danger').addClass('deleted-row');
+        row.find('input:not([type="hidden"]), select, textarea, .select2').prop('disabled', true);
+        row.find('.remove-new').addClass('d-none');
+        if (row.find('.undo-delete').length === 0) {
+            row.find('td:last').append('<button type="button" class="btn btn-warning btn-sm undo-delete"><i class="mdi mdi-undo"></i> Undo</button>');
+        } else {
+            row.find('.undo-delete').removeClass('d-none');
+        }
+    }
+    updateFormIndices();
+    updateTotalAmount();
+}
+
+function undoDeletion(row) {
+    const deleteField = row.find(`input[name$="-DELETE"]`);
+    if (deleteField.length) {
+        if (deleteField.is(':checkbox')) {
+            deleteField.prop('checked', false);
+        } else {
+            deleteField.remove();
+        }
+    }
+    row.removeClass('table-danger').removeClass('deleted-row');
+    row.find('input:not([type="hidden"]), select, textarea, .select2').prop('disabled', false);
+    row.find('.remove-existing').removeClass('d-none');
+    row.find('.remove-new').removeClass('d-none');
+    row.find('.undo-delete').addClass('d-none');
+    updateFormIndices();
+    updateTotalAmount();
+}
+
+function addNewForm() {
+    const totalForms = parseInt($(`#id_${PREFIX}-TOTAL_FORMS`).val(), 10) || 0;
+    let tpl = $('#empty-form-template').html();
+    tpl = tpl.replace(/__prefix__/g, totalForms);
+    $('#payment-methods-table tbody').append(tpl);
+    updateFormIndices();
+    updateTotalAmount();
+}
+
+/* ----------------------------
+   Events
+   ---------------------------- */
+$(document).ready(function () {
+    if ($.fn.select2) {
+        $('#id_student').select2({ placeholder: "Search students...", allowClear: true });
+    }
+
+    $('#add-more').on('click', function () { addNewForm(); });
+
+    $(document).on('click', '.remove-existing', function (e) {
+        e.preventDefault();
+        markRowForDeletion($(this).closest('tr.payment-row'));
+    });
+
+    $(document).on('click', '.remove-new', function (e) {
+        e.preventDefault();
+        markRowForDeletion($(this).closest('tr.payment-row'));
+    });
+
+    $(document).on('click', '.undo-delete', function (e) {
+        e.preventDefault();
+        undoDeletion($(this).closest('tr.payment-row'));
+    });
+
+    $(document).on('input', `input[name^="${PREFIX}"][name$="-amount"]`, function () {
+        updateTotalAmount();
+    });
+
+    $(document).on('change', `select[name^="${PREFIX}"][name$="-payment_type"]`, function () {
+        setTimeout(updateTotalAmount, 50);
+    });
+
+    // Branch/student loading logic
+    const userIsAdmin = {% if user.is_superuser or user.usertype in "admin_staff,ceo,cfo,coo,hr,cmo,mentor" %}true{% else %}false{% endif %};
+    const userBranchId = {% if user.branch.id %}{{ user.branch.id }}{% else %}null{% endif %};
+    const objectStudentBranchId = {% if object and object.student.branch.id %}{{ object.student.branch.id }}{% else %}null{% endif %};
+
+    if (userIsAdmin) {
+        if (objectStudentBranchId) {
+            $('#branch').val(objectStudentBranchId);
+            loadStudents(objectStudentBranchId);
+        } else if (userBranchId) {
+            $('#branch').val(userBranchId);
+            loadStudents(userBranchId);
+        }
+    } else {
+        loadStudents(userBranchId);
+    }
+
+    $('#branch').on('change', function() {
+        loadStudents($(this).val());
+    });
+
+    function loadStudents(branchId) {
+        const studentSelect = $('#id_student');
+        const currentStudentId = {% if object and object.student.id %}{{ object.student.id }}{% else %}null{% endif %};
+
+        studentSelect.empty().append('<option value="">Loading students...</option>');
+
+        $.ajax({
+            url: "{% url 'admission:get_students_by_branch' %}",
+            method: 'GET',
+            data: { branch_id: branchId },
+            success: function(response) {
+                studentSelect.empty().append('<option value="">---------</option>');
+                if (response.success && response.students.length > 0) {
+                    response.students.forEach(function(student) {
+                        const option = new Option(student.display, student.id);
+                        if (student.id === currentStudentId) option.selected = true;
+                        studentSelect.append(option);
+                    });
+                } else {
+                    studentSelect.append('<option value="">No students found</option>');
+                }
+                studentSelect.trigger('change');
+            },
+            error: function() {
+                studentSelect.empty().append('<option value="">Error loading students</option>').trigger('change');
+            }
+        });
+    }
+
+    // Fee structure loading logic
+    $('#id_student').on('change', function() {
+        const studentId = $(this).val();
+        const tableBody = $('#fee_structure_table tbody');
+
+        if (!studentId) {
+            $('#div_id_fee_structure_table').hide();
+            tableBody.empty();
+            updateTotalAmount();
+            return;
+        }
+
+        $('#div_id_fee_structure_table').show();
+        tableBody.html('<tr><td colspan="6">Loading fee structure...</td></tr>');
+
+        $.ajax({
+            url: "{% url 'admission:get_student_fee_structure' %}",
+            method: 'GET',
+            data: { 
+                student_id: studentId,
+                {% if object %}exclude_receipt_id: '{{ object.id }}'{% endif %}
+            },
+            success: function(response) {
+                tableBody.empty();
+
+                function formatDate(dateStr) {
+                    if (!dateStr) return 'Not set';
+                    const months = ["Jan.", "Feb.", "Mar.", "Apr.", "May.", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."];
+                    const date = new Date(dateStr);
+                    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+                }
+
+                if (response.success && response.fee_structures.length > 0) {
+                    // Filter and sort unpaid fees
+                    const unpaidFs = response.fee_structures
+                        .filter(fs => !fs.is_paid)
+                        .sort((a, b) => new Date(a.due_date || 0) - new Date(b.due_date || 0));
+
+                    if (unpaidFs.length > 0) {
+                        unpaidFs.forEach(fs => {
+                            const totalAmount = parseFloat(fs.amount) || 0;
+                            const paidAlready = parseFloat(fs.paid_amount) || 0;
+                            const balance = roundAmount(totalAmount - paidAlready);
+                            const formattedDate = formatDate(fs.due_date);
+
+                            // IMPORTANT: store original values in data attributes
+                            const row = $(`
+                                <tr data-amount="${totalAmount}" data-original-paid="${paidAlready}">
+                                    <td>${fs.name || 'Installment'}</td>
+                                    <td>${totalAmount.toFixed(2)}</td>
+                                    <td class="text-danger fw-bold">${formattedDate}</td>
+                                    <td class="paid_amount text-dark fw-bold">${paidAlready.toFixed(2)}</td>
+                                    <td class="balance text-danger fw-bold">${balance.toFixed(2)}</td>
+                                    <td class="status">
+                                        <span class="status-badge bg-soft-danger">Unpaid</span>
+                                    </td>
+                                </tr>
+                            `);
+                            tableBody.append(row);
+                        });
+                    } else {
+                        tableBody.append('<tr><td colspan="6" class="text-center text-success">All fee structures are paid</td></tr>');
+                    }
+                } else {
+                    tableBody.append('<tr><td colspan="6" class="text-center">No fee structure found</td></tr>');
+                }
+
+                // Trigger update immediately after loading table to apply any pre-entered amount
+                updateTotalAmount();
+            },
+            error: function() {
+                tableBody.html('<tr><td colspan="6" class="text-center text-danger">Error loading fee structure</td></tr>');
+                updateTotalAmount();
+            }
+        });
+    });
+
+    // Initial load
+    updateFormIndices();
+    updateTotalAmount();
+});
+</script>
+
+{% endblock content %}

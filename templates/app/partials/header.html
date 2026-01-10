@@ -1,0 +1,820 @@
+{% load static %}
+<!-- app-header -->
+<header class="app-header">
+
+    <!-- Start::main-header-container -->
+    <div class="main-header-container container-fluid">
+
+        <!-- Start::header-content-left -->
+        <div class="header-content-left">
+
+            <!-- Start::header-element -->
+            <div class="header-element">
+                <div class="horizontal-logo">
+                    <a href="{% url 'core:home' %}" class="header-logo">
+                        <img src="{% static 'app/assets/images/brand-logos/desktop-logo.png' %}" alt="logo"
+                            class="desktop-logo">
+                        <img src="{% static 'app/assets/images/brand-logos/toggle-logo.png' %}" alt="logo"
+                            class="toggle-logo">
+                        <img src="{% static 'app/assets/images/brand-logos/desktop-dark.png' %}" alt="logo"
+                            class="desktop-dark">
+                        <img src="{% static 'app/assets/images/brand-logos/toggle-dark.png' %}" alt="logo"
+                            class="toggle-dark">
+                        <img src="{% static 'app/assets/images/brand-logos/desktop-white.png' %}" alt="logo"
+                            class="desktop-white">
+                        <img src="{% static 'app/assets/images/brand-logos/toggle-white.png' %}" alt="logo"
+                            class="toggle-white">
+                    </a>
+                </div>
+            </div>
+            <!-- End::header-element -->
+
+            <!-- Start::header-element -->
+            <div class="header-element">
+                <!-- Start::header-link -->
+                <a aria-label="Hide Sidebar"
+                    class="sidemenu-toggle header-link animated-arrow hor-toggle horizontal-navtoggle"
+                    data-bs-toggle="sidebar" href="javascript:void(0);">
+                    <span>
+
+                    </span>
+                </a>
+                <!-- End::header-link -->
+                <!-- Start::header-search -->
+                {% comment %} <div class="mt-0">
+                    <form class="form-inline d-none d-lg-block">
+                        <div class="search-element">
+                            <input type="search" class="form-control header-search" placeholder="Search…"
+                                aria-label="Search" tabindex="1">
+                            <button class="btn">
+                                <i class="fe fe-search"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div> {% endcomment %}
+                <!-- End::header-search -->
+            </div>
+            <!-- End::header-element -->
+
+        </div>
+        <!-- End::header-content-left -->
+
+        <!-- Start::header-content-right -->
+        <div class="header-content-right">
+
+            <!-- Start::header-element -->
+            <div class="header-element header-search d-lg-none">
+                <!-- Start::header-link -->
+                <a href="javascript:void(0);" class="header-link dropdown-toggle" data-bs-auto-close="outside"
+                    data-bs-toggle="dropdown">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="header-link-icon" height="24px" viewBox="0 0 24 24"
+                        width="24px" fill="#000000">
+                        <path d="M0 0h24v24H0V0z" fill="none" />
+                        <path
+                            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                </a>
+
+                <ul class="main-header-dropdown dropdown-menu dropdown-menu-end" data-popper-placement="none">
+                    <li>
+                        <span class="dropdown-item d-flex align-items-center">
+                            <span class="input-group">
+                                <input type="text" class="form-control" placeholder="Search..."
+                                    aria-label="Search input" aria-describedby="button-addon2">
+                                <button class="btn btn-primary" type="button" id="button-addon2">Search</button>
+                            </span>
+                        </span>
+                    </li>
+                </ul>
+
+                <!-- End::header-link -->
+            </div>
+            <!-- End::header-element -->
+
+            {% if loged_branch %}
+            <div class="header-element header-details d-none d-lg-flex">
+                <span class="badge py-2 bg-success"><i class="fe fe-shuffle"></i> {{ loged_branch }}</span>
+            </div>
+            {% endif %}
+
+            {% if request.user.is_superuser or request.user.usertype in "admin_staff,ceo,cfo,coo,hr,cmo" %}
+                <!-- Start::header-element -->
+                <div class="header-element header-accounting" id="accounting-btn">
+                    <a href="{% url 'accounting:accounting_base' %}" class="header-link" title="Accounting Module">
+                        <i class="fe fe-credit-card header-link-icon"></i>
+                    </a>
+                </div>
+
+                <div class="header-element header-home" id="home-btn">
+                    <a href="{% url 'core:home' %}" class="header-link" title="Home">
+                        <i class="fe fe-grid header-link-icon"></i>
+                    </a>
+                </div>
+                <!-- End::header-element -->
+            {% endif %}
+
+
+            <!-- Start::header-element - Notification Icon -->
+            <div class="header-element header-notification">
+                <!-- Start::header-link -->
+                <a href="javascript:void(0);" class="header-link dropdown-toggle" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" id="notificationDropdown" aria-expanded="false">
+                    <i class="fe fe-bell header-link-icon"></i>
+                    {% if unread_notification_count > 0 %}
+                    <span class="badge bg-danger rounded-pill header-icon-badge" id="notification-badge">
+                        {% if unread_notification_count > 99 %}99+{% else %}{{ unread_notification_count }}{% endif %}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-danger rounded-pill header-icon-badge" id="notification-badge"
+                        style="display: none;">0</span>
+                    {% endif %}
+                </a>
+                <!-- End::header-link -->
+
+                <!-- Start::main-header-dropdown -->
+                <div class="main-header-dropdown dropdown-menu dropdown-menu-end"
+                    aria-labelledby="notificationDropdown">
+                    <div class="p-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <p class="mb-0 fs-17 fw-semibold">Updates & Notifications</p>
+                            <span class="badge bg-secondary rounded-pill" id="notification-dropdown-count">
+                                {{ unread_notification_count }} New
+                            </span>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+
+                    <!-- Notification content will be dynamically updated -->
+                    <div id="notification-content">
+                        {% include 'app/partials/notification_list.html' %}
+                    </div>
+                </div>
+                <!-- End::main-header-dropdown -->
+            </div>
+            <!-- End::header-element - Notification Icon -->
+
+
+            <div class="header-element header-shortcut">
+                <a href="javascript:void(0);" class="header-link" onclick="openInstallModal()">
+                    <img src="{% static 'app/assets/images/logo/logo-192.svg' %}" alt="Shortcut Logo"
+                        class="header-link-icon" style="height:34px; width:34px;">
+                </a>
+            </div>
+
+            <div id="installModal" class="install-modal">
+                <div class="install-modal-content">
+                    <img src="{% static 'app/assets/images/logo/logo-192.svg' %}" alt="App Icon" class="app-icon">
+                    <h3 class="app-title">OXDU ERP</h3>
+                    <p class="app-desc">Add this app to your home screen for faster access and offline use.</p>
+
+                    <div class="install-buttons">
+                        <button id="installButton" onclick="installShortcut()" class="btn-install">
+                            Install Now
+                        </button>
+                        <button onclick="closeInstallModal()" class="btn-cancel">
+                            Back
+                        </button>
+                    </div>
+                    <div id="installStatus" class="install-status"></div>
+                </div>
+            </div>
+
+            <!-- Start::header-element -->
+            {% comment %} <div class="header-element header-theme-mode">
+                <!-- Start::header-link|layout-setting -->
+                <a href="javascript:void(0);" class="header-link layout-setting">
+                    <span class="light-layout lh-1">
+                        <!-- Start::header-link-icon -->
+                        <i class="fe fe-moon header-link-icon"></i>
+                        <!-- End::header-link-icon -->
+                    </span>
+                    <span class="dark-layout lh-1">
+                        <!-- Start::header-link-icon -->
+                        <i class="fe fe-sun header-link-icon"></i>
+                        <!-- End::header-link-icon -->
+                    </span>
+                </a>
+                <!-- End::header-link|layout-setting -->
+            </div> {% endcomment %}
+            <!-- End::header-element -->
+
+            <!-- Start::header-element -->
+            <div class="header-element header-fullscreen">
+                <!-- Start::header-link -->
+                <a onclick="openFullscreen();" href="javascript:void(0);" class="header-link">
+                    <i class="fe fe-maximize full-screen-open header-link-icon"></i>
+                    <i class="fe fe-minimize full-screen-close header-link-icon d-none"></i>
+                </a>
+                <!-- End::header-link -->
+            </div>
+            <!-- End::header-element -->
+
+
+
+            <!-- Start::header-element -->
+            <div class="header-element main-header-profile">
+                <!-- Start::header-link|dropdown-toggle -->
+                <a href="javascript:void(0);" class="header-link dropdown-toggle mx-0 w-100" id="mainHeaderProfile"
+                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    <div>
+                        {% if request.user.usertype == "student" %}
+                        {% if request.user.student.photo %}
+                        <img src="{{ request.user.student.photo.url }}" alt="img" class="rounded-3 avatar avatar-md">
+                        {% else %}
+                        <img src="{{ default_user_avatar }}" alt="img" class="rounded-3 avatar avatar-md">
+                        {% endif %}
+                        {% elif request.user.employee.photo %}
+                        <img src="{{ request.user.employee.photo.url|default:default_user_avatar }}" alt="img"
+                            class="rounded-3 avatar avatar-md">
+                        {% else %}
+                        <img src="{{ default_user_avatar }}" alt="img" class="rounded-3 avatar avatar-md">
+                        {% endif %}
+                    </div>
+                </a>
+                <!-- End::header-link|dropdown-toggle -->
+                <ul class="main-header-dropdown dropdown-menu pt-0 header-profile-dropdown dropdown-menu-end"
+                    aria-labelledby="mainHeaderProfile">
+                    <li>
+                        <div class="p-3 text-center border-bottom">
+                            <a href="#" class="text-center fw-semibold">{{ request.user }}</a>
+                            {% if request.user.is_superuser %}
+                            <p class="text-center user-semi-title fs-13 mb-0">
+                                {% if request.user.get_usertype_display %}
+                                {{ request.user.get_usertype_display }}
+                                {% else %}
+                                Super Admin
+                                {% endif %}
+                            </p>
+                            {% else %}
+                            <p class="text-center user-semi-title fs-13 mb-0">{{ request.user.get_usertype_display }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </li>
+
+                    {# --- Student Profile --- #}
+                    {% if request.user.usertype == "student" and request.user.student %}
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center"
+                            href="{% url 'admission:admission_profile_detail' request.user.student.pk %}">
+                            <i class="fas fa-user-circle me-2"></i>Profile
+                        </a>
+                    </li>
+
+                    {% elif not request.user.is_superuser and request.user.usertype != "student" and request.user.usertype != "partner" %}
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center"
+                            href="{% url 'employees:employee_profile' %}">
+                            <i class="fas fa-user-circle me-2"></i>Profile
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center"
+                            href="{% url 'employees:payroll_report_detail' request.user.employee.pk %}">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>Payroll Report
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center"
+                            href="{% url 'employees:payroll_report_slip' request.user.employee.pk %}">
+                            <i class="fas fa-file-contract me-2"></i>Payroll Slip
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if not request.user.is_superuser and request.user.usertype != "partner" %}
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'core:my_id_card' %}">
+                            <i class="fas fa-id-card me-2"></i>ID Card
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if request.user.is_superuser or request.user.admin_staff %}
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'core:company_profile' %}">
+                            <i class="fe fe-settings me-2"></i>Company Profile
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'auth_password_change' %}">
+                            <i class="fe fe-edit-3 me-2"></i>Change Password
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center"
+                            href="{% url 'user_sessions:session_list' %}">
+                            <i class="fe fe-headphones me-2"></i>My Sessions
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'auth_logout' %}">
+                            <i class="fe fe-power me-2"></i>Log Out
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+
+
+        </div>
+        <!-- End::header-content-right -->
+
+    </div>
+    <!-- End::main-header-container -->
+
+</header>
+<!-- /app-header -->
+
+{% block extra_css %}
+<style>
+    
+    .avatar.avatar-md {
+        width: 2.5rem;
+        height: 2.5rem;
+        line-height: 2.5rem;
+        font-size: .8rem;
+        object-fit: cover !important;
+    }
+
+    .install-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+    }
+
+    .install-modal-content {
+        background: #fff;
+        padding: 30px 20px;
+        border-radius: 16px;
+        text-align: center;
+        width: 90%;
+        max-width: 380px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+        animation: fadeInUp 0.3s ease;
+    }
+
+    .app-icon {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 15px;
+        border-radius: 16px;
+        border: 1px solid #ddd;
+        object-fit: cover;
+    }
+
+    .app-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .app-desc {
+        font-size: 0.95rem;
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    .btn-install {
+        background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+        color: #fff;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 5px;
+        width: 100%;
+    }
+
+    .btn-install:hover {
+        background: #0069d9;
+    }
+
+    .btn-cancel {
+        background: #f8f9fa;
+        color: #333;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 5px;
+        width: 100%;
+    }
+
+    .btn-cancel:hover {
+        background: #e2e6ea;
+    }
+
+    .install-status {
+        margin-top: 15px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #28a745;
+    }
+
+    /* Notification Styles */
+    .header-notification .header-link {
+        position: relative;
+    }
+
+    .header-icon-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        font-size: 0.7rem;
+        padding: 0.25em 0.4em;
+    }
+
+    #header-notification-scroll {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .header-notification .header-link {
+        position: relative;
+    }
+
+    .header-icon-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        font-size: 0.7rem;
+        padding: 0.25em 0.4em;
+    }
+
+    #header-notification-scroll {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .notification-image {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    // Helper function to get CSRF token - FIXED VERSION
+    function getCsrfToken() {
+        // Try multiple ways to get the CSRF token
+        let csrfToken = '';
+
+        // Method 1: Look for hidden input field
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfInput) {
+            csrfToken = csrfInput.value;
+        }
+
+        // Method 2: Look for CSRF token in cookies
+        if (!csrfToken) {
+            const cookieValue = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+            if (cookieValue) {
+                csrfToken = cookieValue;
+            }
+        }
+
+        // Method 3: Look for meta tag
+        if (!csrfToken) {
+            const metaToken = document.querySelector('meta[name="csrf-token"]');
+            if (metaToken) {
+                csrfToken = metaToken.getAttribute('content');
+            }
+        }
+
+        return csrfToken;
+    }
+
+    async function markAsRead(updateId) {
+        try {
+            const csrfToken = getCsrfToken();
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                return { status: 'error', message: 'CSRF token missing' };
+            }
+
+            const response = await fetch(`/masters/api/notifications/mark-read/${updateId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // Update notification count
+                if (typeof updateNotificationCount === 'function') {
+                    updateNotificationCount();
+                }
+
+                // Remove the notification from dropdown visually
+                const notificationElement = document.querySelector(`[data-update-id="${updateId}"]`);
+                if (notificationElement) {
+                    const dropdownItem = notificationElement.closest('.dropdown-item');
+                    if (dropdownItem) {
+                        dropdownItem.style.opacity = '0.5';
+                        setTimeout(() => {
+                            dropdownItem.remove();
+                            // Update dropdown count
+                            updateDropdownCount();
+                        }, 300);
+                    }
+                }
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+            return { status: 'error' };
+        }
+    }
+
+    async function markAllAsRead() {
+        try {
+            const csrfToken = getCsrfToken();
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                return { status: 'error', message: 'CSRF token missing' };
+            }
+
+            const response = await fetch('/masters/api/notifications/mark-all-read/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // Update notification count
+                if (typeof updateNotificationCount === 'function') {
+                    updateNotificationCount();
+                }
+
+                // Clear all notifications from dropdown
+                const notificationList = document.getElementById('header-notification-scroll');
+                if (notificationList) {
+                    notificationList.innerHTML = `
+                        <li class="dropdown-item text-center py-4">
+                            <div class="text-muted">
+                                <i class="fe fe-bell fs-24 mb-2 d-block"></i>
+                                <p class="mb-0 fs-13">No new notifications</p>
+                            </div>
+                        </li>
+                    `;
+                }
+
+                // Hide the mark all button and update dropdown count
+                updateDropdownCount();
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error marking all notifications as read:', error);
+            return { status: 'error' };
+        }
+    }
+
+    function markAsReadAndRedirect(updateId, redirectUrl) {
+        // Mark as read first, then redirect
+        markAsRead(updateId).then(() => {
+            window.location.href = redirectUrl;
+        });
+    }
+
+    function updateDropdownCount() {
+        const remainingNotifications = document.querySelectorAll('.mark-as-read').length;
+        const dropdownCount = document.getElementById('notification-dropdown-count');
+
+        if (dropdownCount) {
+            if (remainingNotifications > 0) {
+                dropdownCount.textContent = remainingNotifications + ' New';
+            } else {
+                dropdownCount.textContent = '0 New';
+                // Hide the mark all button container
+                const markAllButtonContainer = document.querySelector('.empty-header-item .d-flex');
+                if (markAllButtonContainer) {
+                    markAllButtonContainer.remove();
+                }
+            }
+        }
+    }
+
+    // Notification Manager Class
+    class NotificationManager {
+        constructor() {
+            this.updateInterval = 60000; // Start with 60 seconds
+            this.isTabVisible = true;
+            this.lastUpdate = Date.now();
+            this.intervalId = null;
+
+            this.init();
+        }
+
+        init() {
+            this.startPolling();
+            this.setupEventListeners();
+
+            // Initial update after page load
+            setTimeout(() => this.updateNotificationCount(), 5000);
+        }
+
+        startPolling() {
+            if (this.intervalId) {
+                clearInterval(this.intervalId);
+            }
+
+            this.intervalId = setInterval(() => {
+                if (this.isTabVisible) {
+                    this.updateNotificationCount();
+                }
+            }, this.updateInterval);
+        }
+
+        async updateNotificationCount() {
+            try {
+                const response = await fetch('/masters/api/notifications/count/');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                this.updateBadge(data.count);
+                this.lastUpdate = Date.now();
+
+            } catch (error) {
+                console.warn('Failed to fetch notification count:', error);
+                // Don't spam on errors - increase interval temporarily
+                this.updateInterval = Math.min(this.updateInterval * 1.5, 300000); // Max 5 minutes
+                this.startPolling();
+            }
+        }
+
+        updateBadge(count) {
+            const badge = document.getElementById('notification-badge');
+            const dropdownCount = document.getElementById('notification-dropdown-count');
+
+            if (!badge) return;
+
+            if (count > 0) {
+                const displayCount = count > 99 ? '99+' : count;
+                badge.textContent = displayCount;
+                badge.style.display = 'inline-block';
+
+                if (dropdownCount) {
+                    dropdownCount.textContent = count + ' New';
+                    dropdownCount.style.display = 'inline-block';
+                }
+
+                // If notifications exist, check more frequently
+                if (this.updateInterval > 30000) {
+                    this.updateInterval = 30000;
+                    this.startPolling();
+                }
+            } else {
+                badge.style.display = 'none';
+                if (dropdownCount) {
+                    dropdownCount.textContent = '0 New';
+                }
+
+                // If no notifications, check less frequently
+                if (this.updateInterval < 120000) {
+                    this.updateInterval = 120000;
+                    this.startPolling();
+                }
+            }
+        }
+
+        setupEventListeners() {
+            // Track tab visibility
+            document.addEventListener('visibilitychange', () => {
+                this.isTabVisible = !document.hidden;
+
+                // Update immediately when tab becomes visible
+                if (this.isTabVisible && (Date.now() - this.lastUpdate > 30000)) {
+                    this.updateNotificationCount();
+                }
+            });
+
+            // Update when user interacts with notification dropdown
+            document.addEventListener('show.bs.dropdown', (event) => {
+                if (event.target.closest('.header-notification')) {
+                    // Call API to mark all currently fetched notifications as read
+                    fetch('/masters/api/notifications/mark-all-read/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'Content-Type': 'application/json',
+                        }
+                    }).then(res => res.json()).then(data => {
+                        if (data.status === 'success') {
+                            // Update badge
+                            updateNotificationCount();
+                        }
+                    });
+
+                    // Also refresh dropdown visually
+                    notificationManager.updateNotificationCount();
+                }
+            });
+        }
+
+        destroy() {
+            if (this.intervalId) {
+                clearInterval(this.intervalId);
+            }
+        }
+    }
+
+    // Make updateNotificationCount available globally for markAsRead function
+    function updateNotificationCount() {
+        if (notificationManager) {
+            notificationManager.updateNotificationCount();
+        }
+    }
+
+    // Initialize notification manager when DOM is ready
+    let notificationManager;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        notificationManager = new NotificationManager();
+
+        // Add click event listeners to all mark-as-read links
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.mark-as-read')) {
+                const link = e.target.closest('.mark-as-read');
+                const updateId = link.getAttribute('data-update-id');
+                const redirectUrl = link.getAttribute('data-redirect-url');
+
+                if (updateId && redirectUrl) {
+                    e.preventDefault();
+                    markAsReadAndRedirect(updateId, redirectUrl);
+                } else if (updateId) {
+                    e.preventDefault();
+                    markAsRead(updateId);
+                }
+            }
+        });
+    });
+
+    // Clean up when page unloads
+    window.addEventListener('beforeunload', function () {
+        if (notificationManager) {
+            notificationManager.destroy();
+        }
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const pageType = document.documentElement.getAttribute("data-page-type");
+
+        const accountingBtn = document.getElementById("accounting-btn");
+        const homeBtn = document.getElementById("home-btn");
+
+        if (pageType === "accounting") {
+            // Show Home button, hide Accounting button
+            homeBtn.style.display = "flex";
+            accountingBtn.style.display = "none";
+        } else {
+            // Show Accounting button, hide Home button
+            homeBtn.style.display = "none";
+            accountingBtn.style.display = "flex";
+        }
+    });
+</script>
+{% endblock %}

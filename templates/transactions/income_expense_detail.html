@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ object.type|capfirst }} Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-sm-6">
+                <h3>{{ object.type|capfirst }} Detail</h3>
+            </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'core:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'transactions:'|add:object.type|add:'_list' %}">{{ object.type|capfirst }} List</a></li>
+                    <li class="breadcrumb-item active">Detail</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header">
+            <h5>{{ object.type|capfirst }} Information</h5>
+            <div class="card-header-right">
+                <a href="{% url 'transactions:'|add:object.type|add:'_update' pk=object.pk %}" class="btn btn-primary btn-sm">Edit</a>
+                <a href="{% url 'transactions:'|add:object.type|add:'_delete' pk=object.pk %}" class="btn btn-danger btn-sm">Delete</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td><strong>Type:</strong></td>
+                            <td>{{ object.get_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Amount:</strong></td>
+                            <td>₹{{ object.amount }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Date:</strong></td>
+                            <td>{{ object.date }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Party:</strong></td>
+                            <td>{{ object.party.name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Category:</strong></td>
+                            <td>{{ object.category.name|default:"-" }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td><strong>Voucher Number:</strong></td>
+                            <td>{{ object.transaction.voucher_number|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Payment Method:</strong></td>
+                            <td>{{ object.payment_method|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reference Number:</strong></td>
+                            <td>{{ object.reference_number|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>
+                                {% if object.is_active %}
+                                    <span class="badge badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            {% if object.description %}
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <h6>Description:</h6>
+                    <p>{{ object.description|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if object.attachment %}
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <h6>Attachment:</h6>
+                    <a href="{{ object.attachment.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fa fa-file"></i> Download Attachment
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'transactions:'|add:object.type|add:'_list' %}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

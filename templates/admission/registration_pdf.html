@@ -1,0 +1,230 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
+    <title>OXDU Registration Form</title>
+
+    <style>
+        body{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+        }
+        p{
+            font-size: 14px !important; 
+        }
+        *{
+            padding: 0;
+            margin: 0;
+        }
+        .registration-from-card{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-1.png'%}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+        }
+        .registration-from-card-2{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-2.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+        .registration-from-card-3{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-3.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+
+        .registration-from-card-4{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-4.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+
+        .registration-from-card-5{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-5.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+
+        .registration-from-card-6{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-6.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+
+        .registration-from-card-7{
+            padding: 0 !important;
+            margin: 0 !important;
+            background-image: url("{% static 'app/assets/images/oxdu_admission/form-7.png' %}");
+            background-repeat: no-repeat;
+            background-size: contain;
+            background-position: center;
+            page-break-before: always;
+        }
+
+        .card {
+            width: 1200px;
+            height: 1400px;
+            max-width: 100%;
+            min-height: 100%;
+            position: relative;
+        }
+
+        img.registration-img {
+            height: 180px;
+            width: 145px;
+            position: absolute;
+            left: 77.1%;
+            top: 21.3%;
+            border-radius: 2px;
+            background-size: cover;
+            z-index: 9999 !important;
+            object-fit: cover !important;
+        }
+        .parent-signature{
+            position: absolute;
+            top: 76.2%;
+            left: 12.5%;
+        }
+
+        .student-signature{
+            position: absolute;
+            top: 62%;
+            left: 12.5%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PAGE 1 -->
+    <div class="registration-from-card">
+        <div class="card">
+            {% if photo_url %}
+                <img class="registration-img" src="{{ photo_url }}" alt="">
+            {% endif %}
+
+            <p class="first_name" style="position: absolute; top: 20.5%; left: 15%;">{{instance.first_name|default:""}}</p>
+            <p class="last_name" style="position: absolute; top: 20.5%; left: 46%;">{{instance.last_name|default:""}}</p>
+            <p class="contact_number" style="position: absolute; top: 23.4%; left: 15%;">{{instance.contact_number|default:""}}</p>
+            <p class="whatsapp_number" style="position: absolute; top: 23.4%; left: 47%;">{{instance.whatsapp_number|default:""}}</p>
+            <p class="qualifications" style="position: absolute; top: 27.6%; left: 15.5%;">{{instance.qualifications|default:""}}</p>
+            <p class="passout_year" style="position: absolute; top: 30.9%; left: 16.5%;">{{instance.passout_year|default:""}}</p>
+            <p class="cgpa_or_percentage" style="position: absolute; top: 30.9%; left: 56.5%;">{{instance.cgpa_or_percentage|default:""}}</p>
+            <p class="personal_email" style="position: absolute; top: 34.7%; left: 16.5%;">{{instance.personal_email|default:""}}</p>
+
+            <p class="date_of_birth" style="position: absolute; top: 38.5%; left: 16.5%;">{{instance.date_of_birth|date:"d M Y"|default:""}}</p>
+
+            {% if instance.gender == "MALE" %}
+                <p style="position:absolute; top: 38.5%; left: 49.7%;">✔</p>
+            {% endif %}
+            {% if instance.gender == "FEMALE" %}
+                <p style="position:absolute; top: 38.5%; left: 56%;">✔</p>
+            {% endif %}
+            {% if instance.gender == "OTHER" %}
+                <p style="position:absolute; top: 38.5%; left: 63.7%;">✔</p>
+            {% endif %}
+
+            <p class="religion" style="position: absolute; top: 43%; left: 13.5%;">{{instance.religion|default:""}}</p>
+            <p class="marital_status" style="position: absolute; top: 43%; left: 45.5%;">{{instance.marital_status|default:""}}</p>
+            <p class="blood_group" style="position: absolute; top: 43%; left: 72.5%;">{{instance.blood_group|default:""}}</p>
+
+            <p class="home_address" style="position: absolute; top: 47.6%; left: 17%;">{{instance.home_address|slice:":110"|default:""}}</p>
+            <p class="home_address" style="position: absolute; top: 51.3%; left: 6.8%;">{{instance.home_address|slice:"110:"|default:""}}</p>
+
+            <p class="city" style="position: absolute; top: 54.8%; left: 10.5%;">{{instance.city|default:""}}</p>
+            <p class="district" style="position: absolute; top: 54.8%; left: 50%;">{{instance.district|default:""}}</p>
+            <p class="state" style="position: absolute; top: 58.4%; left: 11%;">{{instance.state|default:""}}</p>
+            <p class="pin_code" style="position: absolute; top: 58.4%; left: 50.6%;">{{instance.pin_code|default:""}}</p>
+
+        </div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div class="registration-from-card-2">
+        <div class="card">
+            <p style="position:absolute; top:8.8%; left:18.5%;">{{instance.course|default:""}}</p>
+            <p style="position:absolute; top:21.5%; left:16.5%;">{{instance.joining_date|default:""}}</p>
+            <p style="position:absolute; top:21.5%; left:55.5%;">{{instance.admission_date|default:""}}</p>
+            <p style="position:absolute; top:25%; left:20.5%;">{{instance.course_start_date|default:""}}</p>
+            <p style="position:absolute; top:25%; left:55%;">{{instance.batch|default:""}}</p>
+            <p style="position:absolute; top:28.5%; left:16.5%;">{{instance.other_details|default:""}}</p>
+            <p style="position:absolute; top:32%; left:13%;">{{instance.care_of|default:""}}</p>
+            <p style="position:absolute; top:35.5%; left:14.5%;">{{instance.fee_type|default:""}}</p>
+            <p style="position:absolute; top:39%; left:18%;">{{instance.installment_type|default:""}}</p>
+            <p style="position:absolute; top:42.5%; left:19%;">{{instance.discount_amount|default:""}}</p>
+            <p style="position:absolute; top:46%; left:22%;">{{instance.admission_fee_amount|default:""}}</p>
+            <p style="position:absolute; top:49.5%; left:16.5%;">{{instance.admission_fee_payment_type|default:""}}</p>
+        </div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div class="registration-from-card-3">
+        <div class="card">
+        </div>
+    </div>
+
+    <!-- PAGE 4 -->
+    <div class="registration-from-card-4">
+        <div class="card">
+        </div>
+    </div>
+
+    <!-- PAGE 5 -->
+    <div class="registration-from-card-5">
+        <div class="card">
+        </div>
+    </div>
+
+    <!-- PAGE 6 -->
+    <div class="registration-from-card-6">
+        <div class="card">
+        </div>
+    </div>
+
+    <!-- PAGE 7 -->
+    <div class="registration-from-card-7">
+        <div class="card">
+
+            <div class="student-signature">
+                {% if instance.signature %}
+                <img src="{{instance.signature.url}}" alt="" width="160px" height="60px">
+                {% endif %}
+            </div>
+            <div class="parent-signature">
+                {% if instance.parent_signature %}
+                <img src="{{instance.parent_signature.url}}" alt="" width="160px" height="60px">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

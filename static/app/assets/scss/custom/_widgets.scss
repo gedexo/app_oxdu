@@ -1,0 +1,101 @@
+/* Start:: widgets */
+.card-custom-icon {
+    position: absolute;
+    inset-inline-end: 25px;
+    inset-block-start: 15px;
+    width: 60px;
+    height: 60px;
+}
+.icon.icon-shape {
+    width: 2.2rem;
+    height: 2.2rem;
+    line-height: 2.454rem;
+    text-align: center;
+    font-size: 12px;
+}
+.list-icons {
+    .svg-icon2, .svg-icon {
+        width: 60px;
+        height: 60px;
+    }
+}
+.media {
+    display: flex;
+    align-items: flex-start;
+    margin-block-start: 15px;
+    zoom: 1;
+    overflow: hidden;
+}
+.media-body {
+    flex: 1;
+    vertical-align: top;
+}
+.social-widgets {
+    .social {
+        i {
+            font-size: 2.5rem;
+        }
+    }
+}
+#rejected, #projects {
+    .apexcharts-radialbar-track.apexcharts-track {
+        path {
+        stroke: rgba(var(--danger-rgb), 0.4);
+        }
+    }
+}
+#shortlist, #users111 {
+    .apexcharts-radialbar-track.apexcharts-track {
+        path {
+        stroke: rgba(var(--success-rgb), 0.4);
+        }
+    }
+}
+#total-app, #shares {
+    .apexcharts-radialbar-track.apexcharts-track {
+        path {
+        stroke: rgba(var(--primary-rgb), 0.4);
+        }
+    }
+}
+.widget-line-list li {
+	display: inline-block;
+	font-size: 16px;
+	line-height: 27px;
+	padding: 5px 20px 0 15px;
+	list-style-type: none;
+}
+#spark1, #spark2, #spark3 {
+.apexcharts-grid line {
+    stroke: transparent;
+}
+}
+.widget-line p {
+    font-size: 16px;
+}
+.chart-circle-value {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-start: 3px;
+    inset-inline-end: 0;
+    margin-inline-start: auto;
+    margin-inline-end: auto;
+    inset-block-end: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    line-height: 1;
+    font-size: 25px;
+}
+.chart-circle {
+    display: block;
+    height: 7rem;
+    width: 6.35rem;
+    position: relative;
+    margin: 0 auto;
+}
+#CryptoChart, #CryptoChart1, #CryptoChart2, #CryptoChart3 {
+    margin-block-end: -1px;
+}
+/* End:: widgets */

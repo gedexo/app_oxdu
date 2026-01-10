@@ -1,0 +1,20 @@
+/* Start:: input_group */
+.input-group-text {
+    border-color: $input-border;
+    font-size: 0.875rem;
+    border-radius: 0.3125rem;
+    background-color: rgba(var(--light-rgb), .1);
+    color: $default-text-color;
+    letter-spacing: 0;
+    .form-control {
+        border: 0;
+        border-start-start-radius: 0;
+        border-end-start-radius: 0;
+    }
+}
+.list-group-transparent .list-group-item.active {
+    background-color: rgba(var(--primary-rgb), 0.05) !important;
+    color: $primary !important;
+    font-weight: 500;
+}
+/* End:: input_group */

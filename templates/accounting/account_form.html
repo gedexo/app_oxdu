@@ -1,0 +1,131 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load static i18n crispy_forms_tags %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .form-section-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e9ecef;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+<div class="container-fluid">
+
+<div class="accounting-header mb-4">
+    <h2>{{ title|default:"Account Form" }}</h2>
+    <p>Create or update an account in the chart of accounts</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- ACCOUNT INFO -->
+            <div class="form-section">
+                <div class="form-section-title">Account Information</div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.name|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.code|as_crispy_field }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.alias_name|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.branch|as_crispy_field }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.under|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.ledger_type|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- CREDIT INFO -->
+            <div class="form-section">
+                <div class="form-section-title">Credit Settings</div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.credit_limit|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.credit_days|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.credit_bill|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    Save Account
+                </button>
+                <a href="{% url 'accounting:account_list' %}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+</div>
+</div>
+{% endblock %}
+
+
+{% block javascript %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const branchField = document.getElementById("id_branch");
+    const underField = document.getElementById("id_under");
+
+    branchField.addEventListener("change", function () {
+        underField.disabled = true;
+        underField.innerHTML = '<option>Loading...</option>';
+
+        fetch(`/accounting/ajax/groups/?branch=${this.value}`)
+            .then(res => res.json())
+            .then(data => {
+                underField.innerHTML = '<option value="">---------</option>';
+                data.forEach(group => {
+                    underField.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+                });
+                underField.disabled = false;
+            });
+    });
+});
+</script>
+
+{% endblock %}

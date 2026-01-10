@@ -1,0 +1,482 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags humanize %}
+{% block title %}Staff Feedback Report: {{app_settings.site_title}}{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+}
+.chart-container canvas { width: 100% !important; height: 100% !important; }
+.card.h-100 { height: 100%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="page-header d-flex d-block justify-content-between mb-3">
+            <div class="page-leftheader"><div class="page-title">{{ title|title }}</div></div>
+            <div class="page-rightheader">
+                <div class="btn-list">
+                    <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" title="Print"><i class="fe fe-printer"></i></a>
+                    <a class="btn btn-light3" href="{% url 'masters:feedback_list' %}" title="View All Feedback"><i class="fe fe-list"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters (no dates) -->
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <form method="get" class="row g-3">
+                            <div class="col-md-4">
+                                <label for="branch" class="form-label">Branch</label>
+                                <select name="branch" id="branch" class="form-select">
+                                    <option value="">All Branches</option>
+                                    {% for branch in branches %}
+                                    <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="employee_type" class="form-label">Feedback Type</label>
+                                <select name="employee_type" id="employee_type" class="form-select">
+                                    {% for val, label in employee_types %}
+                                    <option value="{{ val }}" {% if selected_employee_type == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div>
+                                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                                    <a href="{% url 'masters:feedback_report' %}" class="btn btn-outline-secondary">Reset</a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# JSON payloads for charts #}
+        {{ teacher_chart_data|json_script:"teacher-chart-data" }}
+        {{ fao_chart_data|json_script:"fao-chart-data" }}
+        {{ answer_distribution|json_script:"answer-dist-data" }}
+
+        <!-- Summary Cards -->
+        <div class="row mb-3">
+            <div class="col-lg-3 col-md-6">
+                <div class="card custom-card"><div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3"><span class="avatar avatar-md bg-primary-transparent rounded-circle"><i class="fe fe-message-square fs-20"></i></span></div>
+                        <div><p class="text-muted mb-0">Total Feedbacks</p><h4 class="mb-0">{{ total_feedbacks|intcomma }}</h4></div>
+                    </div>
+                </div></div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card custom-card"><div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3"><span class="avatar avatar-md bg-success-transparent rounded-circle"><i class="fe fe-users fs-20"></i></span></div>
+                        <div><p class="text-muted mb-0">Total Students</p><h4 class="mb-0">{{ total_students|intcomma }}</h4></div>
+                    </div>
+                </div></div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card custom-card"><div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3"><span class="avatar avatar-md bg-info-transparent rounded-circle"><i class="fe fe-star fs-20"></i></span></div>
+                        <div><p class="text-muted mb-0">Average Rating</p><h4 class="mb-0">{{ overall_avg_rating|floatformat:1 }}/5.0</h4></div>
+                    </div>
+                </div></div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card custom-card"><div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3"><span class="avatar avatar-md bg-warning-transparent rounded-circle"><i class="fe fe-users fs-20"></i></span></div>
+                        <div><p class="text-muted mb-0">Staff Members</p><h4 class="mb-0">{{ total_staff|intcomma }}</h4></div>
+                    </div>
+                </div></div>
+            </div>
+        </div>
+
+        <!-- Overall charts row -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="card custom-card"><div class="card-header"><div class="card-title">Overall Rating Distribution</div></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="ratingPieChart"></canvas></div>
+                        <div class="mt-3">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light"><tr><th>Rating</th><th>Count</th><th>Percentage</th></tr></thead>
+                                <tbody>
+                                    {% for dist in answer_distribution %}
+                                    <tr>
+                                        <td><span class="badge bg-{% if dist.value == 1 %}success{% elif dist.value == 2 %}info{% elif dist.value == 3 %}warning{% elif dist.value == 4 %}secondary{% else %}danger{% endif %}">{{ dist.value }} Star{{ dist.value|pluralize }}</span></td>
+                                        <td>{{ dist.count|intcomma }}</td>
+                                        <td>{{ dist.percentage|floatformat:1 }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card custom-card"><div class="card-header"><div class="card-title">Feedback Type Distribution</div></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="feedbackTypePieChart"></canvas></div>
+                        <div class="mt-3">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light"><tr><th>Type</th><th>Count</th><th>Avg Rating</th></tr></thead>
+                                <tbody>
+                                    {% for stat in feedback_type_stats %}
+                                    <tr>
+                                        <td><span class="badge bg-primary">{{ stat.type|title }}</span></td>
+                                        <td>{{ stat.total_feedbacks|intcomma }}</td>
+                                        <td><span class="badge bg-{% if stat.avg_rating >= 4 %}success{% elif stat.avg_rating >= 3 %}warning{% else %}danger{% endif %}">{{ stat.avg_rating|floatformat:1 }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Faculty (teacher) section #}
+        {% if show_teacher and teacher_stats %}
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card custom-card"><div class="card-header"><div class="card-title">Faculty Performance</div></div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            {% for stat in teacher_stats %}
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-1 text-primary">{{ stat.name }}</h6>
+                                                <small class="text-muted">Course: {{ stat.employee.course.name|default:"-" }}</small><br>
+                                                <small class="text-muted">Branch: {{ stat.employee.branch.name|default:"-" }}</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="mb-1"><strong>{{ stat.total_feedbacks|intcomma }}</strong><br><small class="text-muted">Feedbacks</small></div>
+                                                <div><span class="badge bg-{% if stat.avg_rating >= 4 %}success{% elif stat.avg_rating >= 3 %}warning{% else %}danger{% endif %}">{{ stat.avg_rating|floatformat:1 }}/5.0</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="chart-container">
+                                            <canvas id="teacherChart{{ forloop.counter }}"></canvas>
+                                        </div>
+
+                                        <div class="mt-3 small d-flex justify-content-between">
+                                            <div>★1 <span class="badge bg-success rounded-pill ms-2">{{ stat.rating_1 }}</span></div>
+                                            <div>★2 <span class="badge bg-info rounded-pill ms-2">{{ stat.rating_2 }}</span></div>
+                                            <div>★3 <span class="badge bg-warning rounded-pill ms-2">{{ stat.rating_3 }}</span></div>
+                                            <div>★4 <span class="badge bg-secondary rounded-pill ms-2">{{ stat.rating_4 }}</span></div>
+                                            <div>★5 <span class="badge bg-danger rounded-pill ms-2">{{ stat.rating_5 }}</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif show_teacher and not teacher_stats %}
+        <div class="row mb-3"><div class="col-12"><div class="alert alert-info">No faculty feedback available for selected filters.</div></div></div>
+        {% endif %}
+
+        {# FAO section #}
+        {% if show_fao and fao_stats %}
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card custom-card"><div class="card-header"><div class="card-title">Front Office (FAO) Performance</div></div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            {% for stat in fao_stats %}
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-1 text-primary">{{ stat.name }}</h6>
+                                                <small class="text-muted">Branch: {{ stat.employee.branch.name|default:"-" }}</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="mb-1"><strong>{{ stat.total_feedbacks|intcomma }}</strong><br><small class="text-muted">Feedbacks</small></div>
+                                                <div><span class="badge bg-{% if stat.avg_rating >= 4 %}success{% elif stat.avg_rating >= 3 %}warning{% else %}danger{% endif %}">{{ stat.avg_rating|floatformat:1 }}/5.0</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="chart-container">
+                                            <canvas id="faoChart{{ forloop.counter }}"></canvas>
+                                        </div>
+
+                                        <div class="mt-3 small d-flex justify-content-between">
+                                            <div>★1 <span class="badge bg-success rounded-pill ms-2">{{ stat.rating_1 }}</span></div>
+                                            <div>★2 <span class="badge bg-info rounded-pill ms-2">{{ stat.rating_2 }}</span></div>
+                                            <div>★3 <span class="badge bg-warning rounded-pill ms-2">{{ stat.rating_3 }}</span></div>
+                                            <div>★4 <span class="badge bg-secondary rounded-pill ms-2">{{ stat.rating_4 }}</span></div>
+                                            <div>★5 <span class="badge bg-danger rounded-pill ms-2">{{ stat.rating_5 }}</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif show_fao and not fao_stats %}
+        <div class="row mb-3"><div class="col-12"><div class="alert alert-info">No FAO feedback available for selected filters.</div></div></div>
+        {% endif %}
+
+        <!-- Staff type comparison -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card custom-card">
+                    <div class="card-header"><div class="card-title">Staff Type Performance Comparison</div></div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height:140px;"><canvas id="staffPerformanceChart"></canvas></div>
+                        <div class="mt-3">
+                            <table class="table table-bordered">
+                                <thead class="table-light"><tr><th>Staff Type</th><th>Total Staff</th><th>Total Feedbacks</th><th>Unique Students</th><th>Average Rating</th><th>Response Rate</th></tr></thead>
+                                <tbody>
+                                    {% for stat in staff_type_stats %}
+                                    <tr>
+                                        <td>{{ stat.staff_type|title }}</td>
+                                        <td>{{ stat.total_staff|intcomma }}</td>
+                                        <td>{{ stat.total_feedbacks|intcomma }}</td>
+                                        <td>{{ stat.total_students|intcomma }}</td>
+                                        <td><span class="badge bg-{% if stat.avg_rating >= 4 %}success{% elif stat.avg_rating >= 3 %}warning{% else %}danger{% endif %}">{{ stat.avg_rating|floatformat:1 }}/5.0</span></td>
+                                        <td>
+                                            <div class="progress progress-sm"><div class="progress-bar bg-primary" style="width: {{ stat.response_rate|floatformat:0 }}%"></div></div>
+                                            <small>{{ stat.response_rate|floatformat:1 }}%</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent feedbacks -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card custom-card"><div class="card-header"><div class="card-title">Recent Feedbacks</div></div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light"><tr><th>Student</th><th>Branch</th><th>Course</th><th>Staff Type</th><th>Question</th><th>Rating</th><th>Answer</th><th>Date</th></tr></thead>
+                                <tbody>
+                                    {% for feedback in recent_feedbacks %}
+                                    <tr>
+                                        <td>{{ feedback.student }}</td>
+                                        <td>{{ feedback.student.branch.name|default:"-" }}</td>
+                                        <td>{{ feedback.student.course.name|default:"-" }}</td>
+                                        <td><span class="badge bg-primary">{{ feedback.question.feedback_type|title }}</span></td>
+                                        <td>{{ feedback.question.question|truncatewords:8 }}</td>
+                                        <td><span class="badge bg-{% if feedback.answer.answer_value == 1 %}success{% elif feedback.answer.answer_value == 2 %}info{% elif feedback.answer.answer_value == 3 %}warning{% elif feedback.answer.answer_value == 4 %}secondary{% else %}danger{% endif %}">{{ feedback.answer.answer_value }}/5</span></td>
+                                        <td>{{ feedback.answer.answer }}</td>
+                                        <td>{{ feedback.created|date:"M d, Y" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="8" class="text-center">No recent feedbacks</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit filters
+    const branchEl = document.getElementById('branch');
+    const empTypeEl = document.getElementById('employee_type');
+    if (branchEl) branchEl.addEventListener('change', function() { this.form.submit(); });
+    if (empTypeEl) empTypeEl.addEventListener('change', function() { this.form.submit(); });
+
+    // Parse JSON payloads
+    const teacherData = JSON.parse(document.getElementById('teacher-chart-data').textContent || '[]');
+    const faoData = JSON.parse(document.getElementById('fao-chart-data').textContent || '[]');
+    const answerDist = JSON.parse(document.getElementById('answer-dist-data').textContent || '[]');
+
+    initOverallRatingChart(answerDist);
+    initFeedbackTypeChart();
+    initStaffPerformanceChart();
+    initDynamicCharts(teacherData, 'teacherChart');
+    initDynamicCharts(faoData, 'faoChart');
+});
+
+// helper checks
+function allZero(arr) { return arr.every(v => Number(v) === 0); }
+
+// Colors mapping: 1 is best (green) → 5 is worst (red)
+const RATING_COLORS = ['#198754', '#0dcaf0', '#fd7e14', '#6c757d', '#dc3545']; // 1..5
+
+// Ensure ascending order 1..5 for overall rating chart
+function initOverallRatingChart(answerDist) {
+    const labels = ['1 Star','2 Stars','3 Stars','4 Stars','5 Stars'];
+    const counts = [];
+    for (let r = 1; r <= 5; r++) {
+        const item = answerDist.find(x => Number(x.value) === r);
+        counts.push(item ? Number(item.count || 0) : 0);
+    }
+
+    const ctx = document.getElementById('ratingPieChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: RATING_COLORS,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', reverse: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.raw || 0;
+                            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                            const pct = total > 0 ? ((val/total)*100).toFixed(1) : '0.0';
+                            return `${ctx.label}: ${val} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initFeedbackTypeChart() {
+    const ctx = document.getElementById('feedbackTypePieChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for stat in feedback_type_stats %}'{{ stat.type|title }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for stat in feedback_type_stats %}{{ stat.total_feedbacks }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: ['#0d6efd','#6f42c1','#d63384','#20c997','#fd7e14'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', reverse: false } }
+        }
+    });
+}
+
+function initStaffPerformanceChart() {
+    const ctx = document.getElementById('staffPerformanceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [{% for stat in staff_type_stats %}'{{ stat.staff_type|title }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [
+                { label: 'Average Rating', data: [{% for stat in staff_type_stats %}{{ stat.avg_rating }}{% if not forloop.last %},{% endif %}{% endfor %}], backgroundColor:'#198754', yAxisID:'y' },
+                { label: 'Response Rate (%)', data: [{% for stat in staff_type_stats %}{{ stat.response_rate }}{% if not forloop.last %},{% endif %}{% endfor %}], type:'line', tension:0.3, borderColor:'#0baccc', backgroundColor:'#0dcaf0', yAxisID:'y1' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { min: 0, max: 5, title: { display: true, text: 'Average Rating' } },
+                y1: { min: 0, max: 100, position: 'right', grid: { drawOnChartArea: false } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            if (ctx.dataset.yAxisID === 'y') return ctx.dataset.label + ': ' + (ctx.parsed.y || 0).toFixed(1) + '/5';
+                            return ctx.dataset.label + ': ' + (ctx.parsed.y || 0).toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initDynamicCharts(dataArray, prefixId) {
+    // For rating charts we ensure labels & data are in order 1..5 and color mapping is 1->green .. 5->red
+    for (let i = 0; i < dataArray.length; i++) {
+        const canvasId = prefixId + (i + 1);
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) continue;
+
+        // ratings should be [rating_1, rating_2, rating_3, rating_4, rating_5]
+        const ratings = (dataArray[i].ratings || [0,0,0,0,0]).map(v => Number(v) || 0);
+        const hasData = !allZero(ratings);
+        const chartData = hasData ? ratings : [1]; // placeholder single slice if no data
+        const labels = hasData ? ['1 Star','2 Stars','3 Stars','4 Stars','5 Stars'] : ['No Data'];
+        const bg = hasData ? RATING_COLORS : ['#e9ecef'];
+
+        new Chart(canvas.getContext('2d'), {
+            type: 'pie',
+            data: { labels: labels, datasets: [{ data: chartData, backgroundColor: bg, borderWidth: 2, borderColor: '#fff' }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false, reverse: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (!hasData) return 'No feedback';
+                                const val = ctx.raw || 0;
+                                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                                const pct = total > 0 ? ((val/total)*100).toFixed(1) : '0.0';
+                                return `${ctx.label}: ${val} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% load i18n crispy_forms_tags %}
+
+<div class="offcanvas offcanvas-end" id="offcanvasFilter" aria-labelledby="offcanvasFilterLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasFilterLabel">Filter Data</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <form action="" method="get">
+            <div class="modal-body">
+                <div class="row">
+                   {% for field in filter.form %}
+                    <div class="col-12">
+                        <div class="form-group">
+                            {{ field.errors }}
+                            {{ field|as_crispy_field }}
+                            {% if field.name == "course" %} 
+                                <script>document.getElementById("id_{{ field.name }}").dataset.name="course"</script>
+                            {% elif field.name == "branch" %}
+                                <script>document.getElementById("id_{{ field.name }}").dataset.name="branch"</script>
+                            {% elif field.name == "batch" %}
+                                <script>document.getElementById("id_{{ field.name }}").dataset.name="batch"</script>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="reset" class="btn btn-white me-auto border">{% translate "Reset" %}</button>
+                <a href="javascript:void(0);" class="btn btn-outline-white border" data-bs-dismiss="modal">
+                    {% translate "Cancel" %}</a>
+                <button type="submit" class="btn btn-primary">{% translate "Apply" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const courseSelect = document.getElementById("id_course");
+    const branchSelect = document.getElementById("id_branch");
+    const batchSelect = document.getElementById("id_batch");
+
+    function updateBatches(selectedBatch = null) {
+        const courseId = courseSelect.value;
+        const branchId = branchSelect.value;
+
+        if (!courseId || !branchId) {
+            batchSelect.innerHTML = '<option value="">All</option>';
+            return;
+        }
+
+        fetch(`/admission/ajax/get-batches/?course_id=${courseId}&branch_id=${branchId}`)
+        .then(res => res.json())
+        .then(data => {
+            batchSelect.innerHTML = '<option value="">All</option>'; // 👈 Add “All” option first
+
+            data.batches.forEach(batch => {
+                const option = document.createElement("option");
+                option.value = batch.id;
+                option.textContent = batch.batch_name;
+                if (selectedBatch && selectedBatch == batch.id) {
+                    option.selected = true;
+                }
+                batchSelect.appendChild(option);
+            });
+        });
+    }
+
+    // Update batches when course or branch changes
+    courseSelect.addEventListener("change", () => updateBatches());
+    branchSelect.addEventListener("change", () => updateBatches());
+
+    // Initialize batch select on page load with selected batch
+    const initialBatch = batchSelect.dataset.selected;
+    updateBatches(initialBatch);
+});
+</script>

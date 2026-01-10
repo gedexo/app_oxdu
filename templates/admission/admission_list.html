@@ -1,0 +1,515 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader"><div class="page-title">{{title|title}}</div></div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          <button class="btn-refresh-soft" 
+                  data-fee-refresh 
+                  data-url="{% url 'admission:bulk_refresh_fee' %}">
+              <i class="fe fe-refresh-cw"></i> 
+              Refresh Fee Structure
+          </button>
+
+
+          {% if can_add and new_link %}<a href="{{ new_link }}" class="btn btn-light3"><i class="fe fe-plus"></i>New</a>{% endif %}
+          {% if can_bulk_add %}<button class="btn bg-bulkstage text-white" data-bs-toggle="modal" data-bs-target="#bulkStageConfirmModal"><i class="fe fe-users me-1"></i> Bulk Update</button>{% endif %}
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter"><i class="fe fe-filter"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage Cards -->
+    <div class="row mb-4 g-2">
+      {% for card in stage_cards %}
+        <div class="col-6 col-md-4 col-lg-3 col-xl-2">
+          <a href="{{ card.url }}" class="text-decoration-none">
+            <div class="stage-card-wrapper {% if request.GET.stage_status == card.key %}active{% endif %} stage-{{ card.key }}">
+              <div class="card custom-card h-100 mb-0">
+                <div class="card-body p-3">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="stage-icon-avatar">
+                      {% if card.key == 'active' %}<i class="fe fe-user-check"></i>
+                      {% elif card.key == 'placed' %}<i class="fe fe-briefcase"></i>
+                      {% elif card.key == 'internship' %}<i class="fe fe-book-open"></i>
+                      {% elif card.key == 'dropped' %}<i class="fe fe-user-x"></i>
+                      {% elif card.key == 'on_hold' %}<i class="fe fe-pause-circle"></i>
+                      {% else %}<i class="fe fe-layers"></i>{% endif %}
+                    </div>
+                    <div class="stage-count">
+                        <h4 class="mb-0 fw-bold">{{ card.count|default:"0" }}</h4>
+                    </div>
+                  </div>
+                  <div class="stage-label text-truncate text-muted fw-medium small text-uppercase ls-1">
+                    {{ card.label }}
+                  </div>
+                </div>
+                <div class="active-indicator"></div>
+              </div>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+    
+    <!-- Table -->
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        <div class="card custom-card">
+          {% if table.paginated_rows %}
+          <div class="card-body">
+            <div class="row justify-content-between">
+              <div class="col-lg-6">
+                <div class="d-flex align-items-center">
+                  <span>Show</span>
+                  <div class="d-flex ms-2 mx-2">
+                    <div class="form-group mb-0">
+                      <select name="table_pagination" id="select-table_pagination" class="form-control wd-150" data-trigger>
+                        <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                        <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                        <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                        <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                    </select>
+
+                    </div>
+                  </div>
+                  <span>entries</span>
+                </div>
+              </div>
+              <div class="col col-auto">
+                <form action="" id="table-search">
+                  <div class="form-group w-100">
+                      <div class="input-icon" >
+                        <span class="input-icon-addon">
+                          <i class="fe fe-search"></i>
+                      </span>
+                          <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                      </div>
+                  </div>
+              </form>
+              
+            </div>
+             
+            </div>
+            {% render_table table %}
+            <nav class="mt-4">
+              {% if table.page and table.paginator.num_pages > 1 %}
+              <ul class="pagination justify-content-end mb-0">
+                {% if table.page.has_previous %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Prev</a>
+                </li>
+                {% endif %}
+
+                {% for p in table.page|table_page_range:table.paginator %}
+                <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                  {% if p == '...' %}
+                  <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                  {% else %}
+                  <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+
+                {% if table.page.has_next %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Next</a>
+                </li>
+                {% endif %}
+              </ul>
+              {% endif %}
+            </nav>
+
+
+          </div>
+          {% else %}
+          <div class="card-body">
+            {{title|title}} {% translate "list is empty." %}
+            {% if can_add %}<a href="{{new_link}}">{% translate "Add New One" %}</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Remark History Modal -->
+<div class="modal fade" id="remarkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="remarkModalTitle">Student Remarks</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="remarkTabs">
+                    <li class="nav-item"><button class="nav-link active" id="latest-tab" data-bs-toggle="tab" data-bs-target="#latest-remark" type="button">Latest Remark</button></li>
+                    <li class="nav-item"><button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#remark-history" type="button">Remark History</button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="latest-remark"><div id="remarkModalBody" class="p-2"></div></div>
+                    <div class="tab-pane fade" id="remark-history">
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-light"><tr><th>Date</th><th>Stage</th><th>Remark</th><th>Action</th></tr></thead>
+                            <tbody id="historyTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Warning Modal -->
+<div class="modal fade" id="warningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-danger">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="fe fe-alert-triangle me-2"></i>Warning</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center p-4">
+          <h4 id="warningModalHeader" class="mb-3 fw-bold">Alert</h4>
+          <p id="warningModalBody" class="text-muted"></p>
+          <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+</div>
+
+<!-- Stage Change Modal -->
+<div class="modal fade" id="stageConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title text-white">Confirm Change</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="stageChangeForm">
+          <div class="mb-3"><label class="form-label required">Remark</label><textarea id="remarkInput" class="form-control" rows="3" required></textarea></div>
+          <div id="placementFields" style="display:none;">
+            <hr>
+            <div class="mb-3"><label class="form-label required">Source</label><select id="placementSource" class="form-select">{% for v, l in placement_sources %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+            <div class="mb-2"><label class="form-label required">Company</label><input type="text" id="placedCompanyName" class="form-control"></div>
+            <div class="mb-2"><label class="form-label">Position</label><input type="text" id="placedPosition" class="form-control"></div>
+          </div>
+          <input type="hidden" id="stageAdmissionId"><input type="hidden" id="stageNewValue">
+        </form>
+      </div>
+      <div class="modal-footer"><button type="button" id="confirmStageBtn" class="btn btn-primary w-100">Confirm</button></div>
+    </div>
+  </div>
+</div>
+
+
+{% include "admission/partials/fee_refresh_modal.html" %}
+
+{% include 'app/partials/admission_filter.html' %}
+{% endblock content %}
+
+{% block javascript %}
+<script src="{% static 'app/js/fee_refresh.js' %}"></script>
+
+<script>
+// Initialize Modals
+const remarkModalObj = new bootstrap.Modal(document.getElementById("remarkModal"));
+const stageModalObj = new bootstrap.Modal(document.getElementById("stageConfirmModal"));
+const warningModalObj = new bootstrap.Modal(document.getElementById("warningModal"));
+
+// Status Options for History Editing
+const STATUS_CHOICES = {
+    'active': 'Active', 'inactive': 'Inactive', 'on_hold': 'On Hold', 'completed': 'Completed',
+    'internship': 'Internship', 'placed': 'Placed', 'dropped': 'Dropped', 'terminated': 'Terminated'
+};
+
+let currentAdmissionId = null;
+let currentHistoryData = [];
+let originalSelectValues = {};
+
+/** 
+ * 1. WARNING MODAL (GLOBAL SCOPE) 
+ */
+window.showWarningModal = function(header, body) {
+    document.getElementById('warningModalHeader').innerText = header;
+    document.getElementById('warningModalBody').innerText = body;
+    warningModalObj.show();
+};
+
+/** 
+ * 2. REMARK MODAL & HISTORY 
+ */
+window.showRemark = function(id, fullname) {
+    currentAdmissionId = id;
+    document.getElementById('remarkModalTitle').innerText = 'Remarks for ' + fullname;
+    bootstrap.Tab.getOrCreateInstance(document.querySelector('#latest-tab')).show();
+    fetchAndRefreshModal();
+    remarkModalObj.show();
+};
+
+function fetchAndRefreshModal() {
+    fetch(`/admission/remark/${currentAdmissionId}/history/`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                currentHistoryData = data.history;
+                // Update Latest Remark Tab
+                let latestHtml = "";
+                if (data.latest_placement_data) {
+                    latestHtml += `<div class="card border mb-3"><div class="card-body py-2"><b>${data.latest_placement_data.company_name}</b> - ${data.latest_placement_data.position}</div></div>`;
+                }
+                latestHtml += `<div class="p-3 border rounded bg-light">${data.latest_remark || 'No remark.'}</div>`;
+                document.getElementById('remarkModalBody').innerHTML = latestHtml;
+                renderHistoryTable();
+            }
+        });
+}
+
+function renderHistoryTable() {
+    const historyBody = document.getElementById('historyTableBody');
+    historyBody.innerHTML = currentHistoryData.map(item => `
+        <tr id="row-${item.id}">
+            <td class="small">${item.date}</td>
+            <td id="status-col-${item.id}"><span class="badge bg-light text-primary border">${item.status}</span></td>
+            <td id="content-${item.id}">
+                ${item.company_name ? `<div class="small"><b>${item.company_name}</b></div>` : ''}
+                <div class="remark-text">${item.remark || ''}</div>
+            </td>
+            <td><button class="btn btn-sm btn-outline-primary" onclick="enableEditRow(${item.id})"><i class="fe fe-edit-2"></i></button></td>
+        </tr>`).join('');
+}
+
+function enableEditRow(historyId) {
+    const item = currentHistoryData.find(h => h.id == historyId);
+    const contentCell = document.getElementById(`content-${historyId}`);
+    const statusCell = document.getElementById(`status-col-${historyId}`);
+    
+    let statusOptions = "";
+    for (const [val, label] of Object.entries(STATUS_CHOICES)) {
+        statusOptions += `<option value="${val}" ${item.status_key === val ? 'selected' : ''}>${label}</option>`;
+    }
+    statusCell.innerHTML = `<select id="edit-status-${historyId}" class="form-select form-select-sm">${statusOptions}</select>`;
+
+    contentCell.innerHTML = `
+        <div class="p-2 border rounded">
+            <textarea id="edit-remark-${historyId}" class="form-control form-control-sm mb-2">${item.remark || ''}</textarea>
+            <div id="dynamic-fields-${historyId}">${(item.status_key === 'placed' || item.status_key === 'internship') ? renderPlacementInputs(historyId, item) : ''}</div>
+            <div class="text-end mt-2">
+                <button class="btn btn-xs btn-success" onclick="saveHistoryEdit(${historyId})">Save</button>
+                <button class="btn btn-xs btn-secondary" onclick="renderHistoryTable()">Cancel</button>
+            </div>
+        </div>`;
+    
+    document.getElementById(`edit-status-${historyId}`).onchange = function() {
+        const div = document.getElementById(`dynamic-fields-${historyId}`);
+        div.innerHTML = (this.value === 'placed' || this.value === 'internship') ? renderPlacementInputs(historyId, item) : '';
+    };
+}
+
+function renderPlacementInputs(id, item) {
+    return `<div class="row g-2">
+        <div class="col-6"><input type="text" id="edit-company-${id}" class="form-control form-control-sm" value="${item.company_name || ''}" placeholder="Company"></div>
+        <div class="col-6"><input type="text" id="edit-position-${id}" class="form-control form-control-sm" value="${item.position || ''}" placeholder="Position"></div>
+    </div>`;
+}
+
+function saveHistoryEdit(historyId) {
+    const payload = { 
+        status: document.getElementById(`edit-status-${historyId}`).value, 
+        remark: document.getElementById(`edit-remark-${historyId}`).value 
+    };
+    if (document.getElementById(`edit-company-${historyId}`)) {
+        payload.company_name = document.getElementById(`edit-company-${historyId}`).value;
+        payload.position = document.getElementById(`edit-position-${historyId}`).value;
+    }
+
+    fetch(`/admission/remark-history/${historyId}/update/`, {
+        method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            if (currentHistoryData[0].id == historyId) location.reload();
+            else fetchAndRefreshModal();
+        }
+    });
+}
+
+/** 
+ * 3. STAGE SELECT LOGIC 
+ */
+document.addEventListener("change", function(e) {
+    if (!e.target.classList.contains("stage-select")) return;
+    const admissionId = e.target.dataset.id;
+    const currentStatus = e.target.dataset.current;
+    const newStatus = e.target.value;
+    if (newStatus === currentStatus) return;
+
+    originalSelectValues[admissionId] = currentStatus;
+    document.getElementById("stageAdmissionId").value = admissionId;
+    document.getElementById("stageNewValue").value = newStatus;
+    document.getElementById("remarkInput").value = "";
+    document.getElementById("placementFields").style.display = (newStatus === "placed" || newStatus === "internship") ? "block" : "none";
+    stageModalObj.show();
+});
+
+document.getElementById("confirmStageBtn").onclick = function() {
+    const admissionId = document.getElementById("stageAdmissionId").value;
+    const newStatus = document.getElementById("stageNewValue").value;
+    const remark = document.getElementById("remarkInput").value;
+    if (!remark) return alert("Remark is required");
+
+    const payload = { stage_status: newStatus, remark: remark };
+    if (newStatus === "placed" || newStatus === "internship") {
+        payload.placed_company_name = document.getElementById('placedCompanyName').value;
+        payload.placed_position = document.getElementById('placedPosition').value;
+        payload.placement_source = document.getElementById('placementSource').value;
+    }
+
+    fetch(`/admission/admission/${admissionId}/update-stage/`, {
+        method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert(data.message);
+    });
+};
+
+document.getElementById("stageConfirmModal").addEventListener('hidden.bs.modal', function () {
+    const id = document.getElementById("stageAdmissionId").value;
+    const select = document.querySelector(`.stage-select[data-id="${id}"]`);
+    if (select && originalSelectValues[id]) select.value = originalSelectValues[id];
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .btn-xs { padding: 0.15rem 0.4rem; font-size: 0.75rem; border-radius: 3px; }
+  .remark-text { font-size: 0.9rem; white-space: pre-wrap; color: #444; }
+  .required:after { content:" *"; color: red; }
+  .progress-xs {
+    height: 7px;
+    border-radius: 10px;
+    background-color: rgba(0,0,0,0.05);
+    box-shadow: none;
+    overflow: visible;
+  }
+  
+  [data-theme-mode="dark"] .progress-xs {
+    background-color: rgba(255,255,255,0.1);
+  }
+
+  .fee-progress-wrapper {
+    padding: 2px 0;
+  }
+
+  /* Container for the card to handle hover and active states */
+  .stage-card-wrapper {
+    transition: all 0.3s ease;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stage-card-wrapper:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Base Icon Styling */
+  .stage-icon-avatar {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    background: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--bs-primary);
+    transition: all 0.3s ease;
+  }
+
+  /* Color Palette for different stages */
+  .stage-active .stage-icon-avatar { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
+  .stage-placed .stage-icon-avatar { background: rgba(25, 135, 84, 0.1); color: #198754; }
+  .stage-internship .stage-icon-avatar { background: rgba(102, 16, 242, 0.1); color: #6610f2; }
+  .stage-dropped .stage-icon-avatar { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+  .stage-on_hold .stage-icon-avatar { background: rgba(255, 193, 7, 0.1); color: #ffc107; }
+
+  /* Label Styling */
+  .stage-label {
+    letter-spacing: 0.5px;
+    font-size: 0.7rem !important;
+  }
+
+  /* Active State (When card is selected) */
+  .stage-card-wrapper.active .card {
+    border: 1px solid var(--bs-primary);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  }
+
+  .stage-card-wrapper.active .active-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--bs-primary);
+  }
+
+  /* Active Specific Colors (overrides) */
+  .stage-card-wrapper.active.stage-placed .active-indicator { background: #198754; }
+  .stage-card-wrapper.active.stage-placed .card { border-color: #198754; }
+  
+  .stage-card-wrapper.active.stage-dropped .active-indicator { background: #dc3545; }
+  .stage-card-wrapper.active.stage-dropped .card { border-color: #dc3545; }
+
+  /* Dark mode compatibility */
+  [data-theme-mode="dark"] .stage-card-wrapper .card {
+    background-color: #1a1c23;
+    border: 1px solid #2e3138;
+  }
+  
+  .ls-1 { letter-spacing: 1px; }
+
+  /* Soft Warning Button */
+.btn-refresh-soft {
+    background-color: #f59e0b; /* Solid orange on hover */
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-refresh-soft:hover {
+    transform: translateY(-2px); /* Slight lift */
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); /* Soft shadow */
+}
+
+/* Icon rotation on hover */
+.btn-refresh-soft:hover i {
+    transform: rotate(180deg);
+    transition: transform 0.5s ease;
+}
+</style>
+{% endblock %}

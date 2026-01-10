@@ -1,0 +1,1981 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+{% block title %}Home: {{app_settings.site_title}}{% endblock %}
+{% block extra_css%}
+<style>
+    .custom-table tbody .attendance-th, .custom-table tbody .attendance-td, .custom-table thead .attendance-th, .custom-table thead .attendance-td {
+        padding: .75rem !important;
+        line-height: 0.462 !important;
+    }
+    
+    .batch-selector {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 400;
+        background: #ffffff;
+        color: #495057;
+        transition: all 0.2s ease;
+        box-shadow: none;
+        min-height: 42px;
+    }
+    
+    .batch-selector:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.15rem rgba(0,123,255,0.15);
+        outline: none;
+    }
+    
+    /* Tab content styling */
+    .tab-pane {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .attendance-table-container {
+        overflow: auto; /* Handle both X and Y scroll */
+        max-width: 100%;
+        max-height: 75vh; /* viewport constraint for vertical sticky */
+        position: relative;
+    }
+
+    /* General Sticky Header */
+    .custom-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #fff; /* Ensure opacity */
+        z-index: 10; /* Above normal body cells */
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4); /* Bottom shadow */
+    }
+    
+    .attendance-day {
+        min-width: 35px;
+        text-align: center;
+    }
+    
+    /* Redundant styles removed */
+    
+    .bg-approved {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+        border: 1px solid rgba(25, 135, 84, 0.3) !important;
+        color: #198754 !important;
+    }
+    
+    .bg-pending {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        border: 1px solid rgba(255, 193, 7, 0.3) !important;
+        color: #ffc107 !important;
+    }
+    
+    .bg-rejected {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+        border: 1px solid rgba(220, 53, 69, 0.3) !important;
+        color: #dc3545 !important;
+    }
+    
+    .leave-cell {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .leave-cell:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .hidden-element {
+        display: none !important;
+    }
+    
+    .batch-filter-container {
+        transition: opacity 0.3s ease, max-height 0.3s ease;
+        opacity: 1;
+        max-height: 100px;
+        overflow: hidden;
+    }
+    
+    .batch-filter-container.hidden-element {
+        opacity: 0;
+        max-height: 0;
+    }
+
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .end-message {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+    }
+
+    .student-row {
+        animation: fadeInUp 0.3s ease-in;
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .bg-warning-transparent {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        border: 1px solid rgba(255, 193, 7, 0.3) !important;
+    }
+
+    .attendance-day.bg-warning-transparent {
+        color: #ffc107 !important;
+    }
+    
+    .filter-row {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .filter-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    /* Sticky Column Definitions - Body Cells (Left Sticky) */
+    .sticky-col-index, .sticky-col-name, .sticky-col-batch, .sticky-col-course, .sticky-col-branch {
+        position: sticky;
+        background-color: white;
+        z-index: 5; /* Above normal body cells (0) */
+        box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Right shadow */
+    }
+
+    /* Sticky Headers (Left AND Top Sticky) - Higher Z-Index */
+    thead th.sticky-col-index, 
+    thead th.sticky-col-name, 
+    thead th.sticky-col-batch, 
+    thead th.sticky-col-course, 
+    thead th.sticky-col-branch {
+        z-index: 20 !important; /* Highest priority: above normal headers (10) and body sticky (5) */
+        top: 0;
+    }
+
+    /* Offsets */
+    .sticky-col-index { left: 0; width: 50px; min-width: 50px; }
+    .sticky-col-name { left: 50px; width: 200px; min-width: 200px; }
+    .sticky-col-batch { left: 250px; width: 120px; min-width: 120px; }
+    .sticky-col-course { left: 370px; width: 120px; min-width: 120px; }
+    .sticky-col-branch { left: 490px; width: 120px; min-width: 120px; }
+
+    .whatsapp-toggle-container {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px 15px;
+        border: 1px solid #e9ecef;
+        margin-bottom: 15px;
+    }
+
+    .whatsapp-toggle-label {
+        font-weight: 600;
+        color: #25d366;
+        margin-bottom: 5px;
+    }
+
+    .whatsapp-toggle-description {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .form-check-input:checked {
+        background-color: #25d366;
+        border-color: #25d366;
+    }
+
+    .form-check-input:focus {
+        border-color: #25d366;
+        box-shadow: 0 0 0 0.2rem rgba(37, 211, 102, 0.25);
+    }
+
+    .form-switch .form-check-input {
+        width: 3em;
+        height: 1.5em;
+    }
+
+    .form-switch .form-check-input:checked {
+        background-color: #25d366;
+        border-color: #25d366;
+    }
+
+    .fe-message-circle.text-success {
+        color: #25d366 !important;
+    }
+    .modal { z-index: 2000; }
+    .modal-backdrop { z-index: 1990; }
+    /* Inactive Student Row Generic Styles - Gray/Muted Theme */
+    .student-row.inactive-student td {
+        background-color: #e9ecef !important;
+        color: #6c757d !important;
+        border: 1px solid #ffc3c3;
+    }
+
+    /* Sticky columns - Distinct Gray */
+    .student-row.inactive-student .sticky-col-index,
+    .student-row.inactive-student .sticky-col-name,
+    .student-row.inactive-student .sticky-col-batch,
+    .student-row.inactive-student .sticky-col-course,
+    .student-row.inactive-student .sticky-col-branch {
+        background-color: #e9ecef !important; /* Bootstrap gray-200 */
+        color: #495057 !important;
+    }
+    
+    .student-row.inactive-student .sticky-col-name a {
+        color: #495057 !important;
+        text-decoration: line-through; /* Strikethrough name */
+    }
+    
+    /* Restore Status Colors in Inactive Rows */
+    /* Present */
+    .student-row.inactive-student td.bg-success-transparent {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+        color: #198754 !important;
+    }
+    
+    /* Absent (Red) - Now clearly visible against Gray */
+    .student-row.inactive-student td.bg-danger-transparent {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+        color: #dc3545 !important;
+    }
+    
+    /* Holiday */
+    .student-row.inactive-student td.bg-warning-transparent {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        color: #ffc107 !important;
+    }
+    
+    /* Leave Statuses */
+    .student-row.inactive-student td.bg-approved {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+        color: #198754 !important;
+    }
+    .student-row.inactive-student td.bg-pending {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        color: #ffc107 !important;
+    }
+    
+    .student-row.inactive-student .summary-cell {
+        background-color: #e9ecef !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-lg-flex d-block">
+        <div class="page-leftheader">
+            <div class="page-title">Attendance</div>
+        </div>
+    </div>
+    <!-- Page Header Close -->
+
+<!-- Start::row-1 -->
+<div class="row">
+    <div class="col-xxl-9 col-md-12 col-lg-12">
+        <div class="row">
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card">
+                <a href="{% url 'admission:admission_list' %}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Students</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{student_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-primary my-auto float-end card-icon" > <i class="fa fa-users "></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card" data-bs-toggle="modal" data-bs-target="#presentModal" style="cursor: pointer;">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Presents (Today)</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{today_present_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-success my-auto float-end card-icon" > <i class="fa fa-check-circle"></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-4 col-md-12">
+                <div class="card custom-card" data-bs-toggle="modal" data-bs-target="#absentModal" style="cursor: pointer;">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Absents (Today)</span>
+                                    <h3 class="mb-0 mt-1 mb-2">{{today_absent_count}}</h3>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="icon1 bg-danger my-auto float-end card-icon" > <i class="fa fa-times-circle"></i> </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+   
+</div>
+<!--End::row-1 -->
+
+<!--Start::row-1 -->
+<div class="row">
+    <div class="col-xl-12 col-md-12 col-lg-12">
+        <div class="card custom-card">
+                <div class="d-flex my-4 align-items-start justify-content-between ">
+                    <div class="ms-2">
+                        <span class="badge bg-light me-2">
+                            <span id="current-date"></span>
+                        </span>
+                        <span class="badge bg-light me-2">
+                            <span id="current-time"></span>
+                        </span>
+                    </div>
+                    <h4 class="mb-0 text-center flex-grow-1">Attendance Table</h4>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        {% if is_mentor %}
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#attendanceEditModal">
+                            <i class="fe fe-edit me-1"></i> Mark Attendance
+                        </button>
+                        {% endif %}
+                        <span class="badge bg-success-transparent me-2">
+                            <i class="fe fe-check-circle text-success fs-12 align-middle"></i> Present
+                        </span>
+                        <span class="badge bg-warning-transparent me-2">
+                            <i class="fe fe-umbrella text-warning fs-12 align-middle"></i> Holiday
+                        </span>
+                        <span class="badge bg-danger-transparent me-2">
+                            <i class="fe fe-x-circle text-danger fs-12 align-middle"></i> Absent
+                        </span>
+                        <span class="badge bg-approved me-2">
+                            <i class="fe fe-x-circle fs-12 align-middle"></i> Approved Leave
+                        </span>
+                        <span class="badge bg-pending me-2">
+                            <i class="fe fe-alert-circle text-warning fs-12 align-middle"></i> Pending Leave
+                        </span>
+                        <span class="badge bg-rejected me-2">
+                            <i class="fe fe-x-circle text-danger fs-12 align-middle"></i> Rejected Leave
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Filter Section -->
+                <div class="mb-4 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 text-muted">
+                            <i class="fe fe-filter me-2"></i>Filter Attendance
+                        </h6>
+                        <div class="text-muted small">
+                            <span id="loadedCount">Loaded: 0 students</span>
+                            <span class="ms-2" id="monthYearDisplay">
+                                {% if selected_month and selected_year %}
+                                    {{ selected_month_name }} {{ selected_year }}
+                                {% else %}
+                                    {{ current_month_name }} {{ current_year }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <form method="GET" id="filterForm">
+                        <div class="row">
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label small text-muted mb-1">Month</label>
+                                <select class="form-select filter-select" name="month" id="monthFilter">
+                                    {% for month_num, month_name in month_choices %}
+                                        <option value="{{ month_num }}" 
+                                            {% if selected_month == month_num %}selected{% elif not selected_month and current_month == month_num %}selected{% endif %}>
+                                            {{ month_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label small text-muted mb-1">Year</label>
+                                <select class="form-select filter-select" name="year" id="yearFilter">
+                                    {% for year_num in year_choices %}
+                                        <option value="{{ year_num }}" 
+                                            {% if selected_year == year_num %}selected{% elif not selected_year and current_year == year_num %}selected{% endif %}>
+                                            {{ year_num }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label small text-muted mb-1">Course</label>
+                                <select class="form-select filter-select" name="course" id="courseFilter">
+                                    <option value="">All Courses</option>
+                                    {% for course in courses %}
+                                        <option value="{{ course.id }}" {% if selected_course == course.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ course.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label small text-muted mb-1">Branch</label>
+                                <select class="form-select filter-select" name="branch" id="branchFilter">
+                                    <option value="">All Branches</option>
+                                    {% for branch in branches %}
+                                        <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ branch.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <!-- Batch Filter -->
+                            <div class="col-md-2 mb-2 batch-filter-container {% if not selected_course and not selected_branch %}hidden-element{% endif %}">
+                                <label class="form-label small text-muted mb-1">Batch</label>
+                                <select class="form-select filter-select" name="batch" id="batchFilter">
+                                    <option value="">All Batches</option>
+                                    {% for batch in filtered_batches %}
+                                        <option value="{{ batch.id }}" {% if selected_batch == batch.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ batch.batch_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mt-2 justify-content-center d-flex align-items-center">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fe fe-filter me-1"></i> Apply
+                                </button>
+                                <a href="{% url 'admission:student_attendance_table' %}" class="btn btn-outline-secondary btn-sm ms-2">
+                                    <i class="fe fe-refresh-cw me-1"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="tab-content" id="batchTabContent">
+                    <!-- All Students Tab -->
+                    <div class="tab-pane fade show active" id="all-students" role="tabpanel">
+                        <div class="attendance-table-container">
+                            <table class="table mb-0 text-nowrap text-md-nowrap table-bordered border custom-table" id="attendanceTable">
+                                <thead>
+                                    <tr>
+                                        <th class="sticky-col-index">#</th>
+                                        <th class="sticky-col-name">Student Name</th>
+                                        <th class="sticky-col-batch">Batch</th>
+                                        <th class="sticky-col-course">Course</th>
+                                        <th class="sticky-col-branch">Branch</th>
+                                        {% for day in days_in_month %}
+                                            <th class="attendance-th attendance-day">{{ day }}</th>
+                                        {% endfor %}
+                                        <th class="summary-cell">Presents</th>
+                                        <th class="summary-cell">Absents</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentsTableBody">
+                                    <!-- Data will be loaded here dynamically via JavaScript -->
+                                </tbody>
+                            </table>
+
+                        </div>
+                        
+                        <!-- Loading Spinner -->
+                        <div class="loading-spinner" id="loadingSpinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading more students...</p>
+                        </div>
+                        
+                        <!-- End of Data Message -->
+                        <div class="end-message" id="endMessage">
+                            <p>All students loaded</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--End::row-1 -->
+
+{% if is_mentor %}
+<!-- Mark Attendance Modal (For MENTORS ONLY) -->
+<div class="modal fade" id="attendanceEditModal" tabindex="-1" aria-labelledby="attendanceEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <!-- Header -->
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white" id="attendanceEditModalLabel">
+          <i class="fe fe-edit me-2"></i> Mark Attendance (Mentor)
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+        <!-- Filter Row -->
+        <div class="filter-row">
+            <div class="row">
+                <!-- Branch Selector for Mentors -->
+                <div class="col-md-3 mb-3">
+                    <label for="attendanceBranch" class="filter-label">Select Branch</label>
+                    <select id="attendanceBranch" class="form-select">
+                        <option value="all">All Branches</option>
+                        {% for branch in branches_for_attendance %}
+                        <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Course Selector for Mentors -->
+                <div class="col-md-3 mb-3">
+                    <label for="attendanceCourse" class="filter-label">Select Course</label>
+                    <select id="attendanceCourse" class="form-select">
+                        <option value="all">All Courses</option>
+                        {% for course in courses_for_attendance %}
+                        <option value="{{ course.id }}">{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Batch Selector -->
+                <div class="col-md-3 mb-3">
+                    <label for="attendanceBatch" class="filter-label">Select Batch</label>
+                    <select id="attendanceBatch" class="form-select">
+                        <option value="all">All Batches</option>
+                        {% for batch in batches_for_attendance %}
+                        <option value="{{ batch.id }}">{{ batch.batch_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Date Selector -->
+                <div class="col-md-3 mb-3">
+                    <label for="attendanceDate" class="filter-label">Select Date</label>
+                    <input type="text" class="form-control" id="attendanceDate" placeholder="Select Date" value="{{ current_date_obj|date:'d/m/Y' }}">
+                </div>
+            </div>
+
+            <!-- WhatsApp Toggle Row - MOVED OUTSIDE the button row -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="whatsappToggle" checked>
+                        <label class="form-check-label ms-2" for="whatsappToggle">
+                            Send WhatsApp notifications to parents for absent students
+                        </label>
+                    </div>
+                    <small class="text-muted">
+                        When enabled, parents will receive WhatsApp messages when their child is marked absent.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Button Row - SEPARATE ROW -->
+            <div class="row mt-3">
+                <div class="col-12 text-center">
+                    <button type="button" class="btn btn-primary me-2" onclick="loadAttendanceData()">
+                        <i class="fe fe-refresh-cw me-1"></i> Load Data
+                    </button>
+
+                    <button type="button" class="btn btn-success" onclick="saveAttendance()" id="saveAttendanceBtn" disabled>
+                        <i class="fe fe-save me-1"></i> Save Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Holiday Alert -->
+        <div id="holidayAlert" class="alert alert-warning d-none">
+            <i class="fe fe-umbrella me-2"></i>
+            <strong>Holiday Detected:</strong> This date is a holiday. Attendance cannot be marked.
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="table-responsive">
+            <table id="attendanceEditTable" class="table table-bordered text-nowrap">
+                <thead class="table-light">
+                    <tr>
+                        <th class="sticky-col-index">#</th>
+                        <th class="sticky-col-name">Student Name</th>
+                        <th class="sticky-col-batch">Batch</th>
+                        <th class="sticky-col-course">Course</th>
+                        <th class="sticky-col-branch">Branch</th>
+                        <th>Status</th>
+                        <th>SMS Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceEditTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            Select branch, course, batch and date, then click "Load Data" to begin. Students will default to "Absent."
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Present Students Modal -->
+<div class="modal fade" id="presentModal" tabindex="-1" aria-labelledby="presentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="presentModalLabel">Present Students - Today</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="presentModalContent">
+          <div class="text-muted">Loading present students...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Absent Students Modal -->
+<div class="modal fade" id="absentModal" tabindex="-1" aria-labelledby="absentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="absentModalLabel">Absent Students - Today</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="absentModalContent">
+          <div class="text-muted">Loading absent students...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Leave Request Modal -->
+<div class="modal fade" id="leaveModal" tabindex="-1" aria-labelledby="leaveModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow-lg rounded-4 border-0">
+      
+      <!-- Modal Header -->
+      <div class="modal-header text-white bg-primary rounded-top-4" id="modalHeader">
+        <h5 class="modal-title fw-bold" id="leaveModalLabel">
+          <i class="fe fe-file-text me-2"></i> Leave Request Details
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="modal-body p-4">
+        <!-- Student & Date Row -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <p class="mb-2 text-muted small fw-semibold">STUDENT</p>
+            <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+              <i class="fe fe-user"></i>
+              <span class="fw-medium text-dark" id="modal-student">-</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-2 text-muted small fw-semibold">DATE</p>
+            <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+              <i class="fe fe-calendar"></i>
+              <span class="fw-medium text-dark" id="modal-date">-</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Subject -->
+        <div class="mb-4">
+          <p class="mb-2 text-muted small fw-semibold">SUBJECT</p>
+          <div class="d-flex align-items-center gap-2 p-3 border rounded bg-light-subtle">
+            <i class="fe fe-book"></i>
+            <span class="fw-medium text-dark" id="modal-subject">-</span>
+          </div>
+        </div>
+        
+        <!-- Reason -->
+        <div class="mb-4">
+          <p class="mb-2 text-muted small fw-semibold">REASON</p>
+          <div class="p-3 border rounded bg-light-subtle">
+            <div class="d-flex gap-2">
+              <i class="fe fe-message-square mt-1"></i>
+              <div class="flex-grow-1">
+                <p class="text-dark mb-0" id="modal-reason">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Attachment Section -->
+        <div class="mb-4" id="attachmentSection">
+          <p class="mb-2 text-muted small fw-semibold">ATTACHMENT</p>
+          <div class="d-flex align-items-center gap-3 p-3 border rounded bg-light-subtle" id="attachmentContent">
+            <span class="text-muted">No attachment</span>
+          </div>
+        </div>
+        
+        <!-- Status -->
+        <div class="mb-0">
+          <p class="mb-2 text-muted small fw-semibold">STATUS</p>
+          <div id="modal-status">
+            <!-- Status badge will be loaded here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">
+          <i class="fe fe-x me-1"></i> Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+{% endblock %}
+{% block javascript %}
+<script>
+class AttendanceTableManager {
+    constructor() {
+        this.currentPage = 1;
+        this.isLoading = false;
+        this.hasMore = true;
+        this.filters = {};
+        this.totalLoaded = 0;
+        this.rowCounter = 0;
+        this.currentMonth = {{ current_month }};
+        this.currentYear = {{ current_year }};
+        this.scrollHandler = this.handleScroll.bind(this);
+
+        this.initializeEventListeners();
+        this.loadInitialData();
+        this.initializeDateTime();
+    }
+
+    initializeEventListeners() {
+        window.addEventListener('scroll', this.scrollHandler);
+
+        const filterForm = document.getElementById('filterForm');
+        if (filterForm) {
+            filterForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.resetAndReload();
+            });
+        }
+
+        this.initializeLeaveModal(); // one-time guard applied inside
+        this.initializeModals();
+        this.initializeFilterListeners();
+    }
+
+    initializeFilterListeners() {
+        const courseFilter = document.getElementById('courseFilter');
+        const branchFilter = document.getElementById('branchFilter');
+        const monthFilter = document.getElementById('monthFilter');
+        const yearFilter = document.getElementById('yearFilter');
+
+        if (courseFilter) courseFilter.addEventListener('change', () => this.handleFilterChange());
+        if (branchFilter) branchFilter.addEventListener('change', () => this.handleFilterChange());
+        if (monthFilter) monthFilter.addEventListener('change', () => this.handleFilterChange());
+        if (yearFilter) yearFilter.addEventListener('change', () => this.handleFilterChange());
+
+        this.toggleBatchFilter();
+    }
+
+    initializeDateTime() {
+        this.updateDateTime();
+        setInterval(() => this.updateDateTime(), 1000);
+    }
+
+    updateDateTime() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        const timeStr = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+
+        const currentDateEl = document.getElementById('current-date');
+        const currentTimeEl = document.getElementById('current-time');
+
+        if (currentDateEl) currentDateEl.textContent = dateStr;
+        if (currentTimeEl) currentTimeEl.textContent = timeStr;
+    }
+
+    handleFilterChange() {
+        this.toggleBatchFilter();
+
+        this.filters = {
+            month: document.getElementById('monthFilter')?.value || this.currentMonth,
+            year: document.getElementById('yearFilter')?.value || this.currentYear,
+            course: document.getElementById('courseFilter')?.value || '',
+            branch: document.getElementById('branchFilter')?.value || '',
+            batch: document.getElementById('batchFilter')?.value || ''
+        };
+
+        this.updateMonthYearDisplay();
+
+        if (this.filters.course && this.filters.branch) {
+            this.loadBatches();
+        }
+    }
+
+    async loadBatches() {
+        const courseId = this.filters.course;
+        const branchId = this.filters.branch;
+        const batchFilter = document.getElementById('batchFilter');
+
+        if (!batchFilter) return;
+
+        try {
+            batchFilter.disabled = true;
+            batchFilter.innerHTML = '<option value="">Loading batches...</option>';
+
+            const params = new URLSearchParams();
+            if (courseId) params.append('course_id', courseId);
+            if (branchId) params.append('branch_id', branchId);
+
+            const response = await fetch(`/admission/ajax/get-batches/?${params}`);
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.batches && data.batches.length > 0) {
+                batchFilter.innerHTML = '<option value="">All Batches</option>';
+                data.batches.forEach(batch => {
+                    const option = document.createElement('option');
+                    option.value = batch.id;
+                    option.textContent = batch.batch_name;
+                    batchFilter.appendChild(option);
+                });
+
+                if (this.filters.batch) {
+                    const batchExists = Array.from(batchFilter.options).some(option =>
+                        option.value === this.filters.batch
+                    );
+                    if (batchExists) {
+                        batchFilter.value = this.filters.batch;
+                    } else {
+                        this.filters.batch = '';
+                        batchFilter.value = '';
+                    }
+                }
+            } else {
+                batchFilter.innerHTML = '<option value="">No batches found</option>';
+                this.filters.batch = '';
+            }
+        } catch (error) {
+            console.error('Error loading batches:', error);
+            batchFilter.innerHTML = '<option value="">Error loading batches</option>';
+            this.filters.batch = '';
+        } finally {
+            batchFilter.disabled = false;
+        }
+    }
+
+    updateMonthYearDisplay() {
+        const monthYearDisplay = document.getElementById('monthYearDisplay');
+        if (monthYearDisplay) {
+            const monthSelect = document.getElementById('monthFilter');
+            const year = this.filters.year || this.currentYear;
+
+            if (monthSelect) {
+                const selectedOption = monthSelect.options[monthSelect.selectedIndex];
+                const monthName = selectedOption.textContent;
+                monthYearDisplay.textContent = `${monthName} ${year}`;
+            }
+        }
+    }
+
+    toggleBatchFilter() {
+        const courseFilter = document.getElementById('courseFilter');
+        const branchFilter = document.getElementById('branchFilter');
+        const batchFilterContainer = document.querySelector('.batch-filter-container');
+
+        if (courseFilter && branchFilter && batchFilterContainer) {
+            if (courseFilter.value && branchFilter.value) {
+                batchFilterContainer.classList.remove('hidden-element');
+            } else {
+                batchFilterContainer.classList.add('hidden-element');
+                const batchFilter = document.getElementById('batchFilter');
+                if (batchFilter) {
+                    batchFilter.value = '';
+                    batchFilter.innerHTML = '<option value="">All Batches</option>';
+                }
+            }
+        }
+    }
+
+    async loadInitialData() {
+        this.currentPage = 1;
+        this.totalLoaded = 0;
+        this.rowCounter = 0;
+        this.hasMore = true;
+
+        const tableBody = document.getElementById('studentsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="38" class="text-center text-muted py-4">Loading students...</td></tr>';
+        }
+
+        this.hideEndMessage();
+        this.hideLoadingSpinner();
+
+        this.filters = {
+            month: document.getElementById('monthFilter')?.value || this.currentMonth,
+            year: document.getElementById('yearFilter')?.value || this.currentYear,
+            course: document.getElementById('courseFilter')?.value || '',
+            branch: document.getElementById('branchFilter')?.value || '',
+            batch: document.getElementById('batchFilter')?.value || ''
+        };
+
+        this.updateMonthYearDisplay();
+
+        if (this.filters.course && this.filters.branch) {
+            await this.loadBatches();
+        }
+
+        this.updateTableHeaders(this.filters.month, this.filters.year);
+
+        await this.loadMoreData();
+    }
+
+    async resetAndReload() {
+        this.currentPage = 1;
+        this.totalLoaded = 0;
+        this.rowCounter = 0;
+        this.hasMore = true;
+
+        const tableBody = document.getElementById('studentsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = '<tr><td colspan="38" class="text-center text-muted py-4">Loading students...</td></tr>';
+        }
+
+        this.hideEndMessage();
+        this.hideLoadingSpinner();
+
+        this.filters = {
+            month: document.getElementById('monthFilter')?.value || this.currentMonth,
+            year: document.getElementById('yearFilter')?.value || this.currentYear,
+            course: document.getElementById('courseFilter')?.value || '',
+            branch: document.getElementById('branchFilter')?.value || '',
+            batch: document.getElementById('batchFilter')?.value || ''
+        };
+
+        this.updateMonthYearDisplay();
+
+        if (this.filters.course && this.filters.branch) {
+            await this.loadBatches();
+        }
+        
+        this.updateTableHeaders(this.filters.month, this.filters.year);
+
+        await this.loadMoreData();
+    }
+
+    async loadMoreData() {
+        if (this.isLoading || !this.hasMore) return;
+
+        this.isLoading = true;
+        this.showLoadingSpinner();
+
+        try {
+            const params = new URLSearchParams({
+                page: this.currentPage,
+                per_page: 50
+            });
+
+            if (this.filters.month) params.append('month', this.filters.month);
+            if (this.filters.year) params.append('year', this.filters.year);
+            if (this.filters.course) params.append('course', this.filters.course);
+            if (this.filters.branch) params.append('branch', this.filters.branch);
+            if (this.filters.batch) params.append('batch', this.filters.batch);
+
+            const response = await fetch(`/admission/api/attendance-data/?${params}`);
+
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.renderStudents(data.data || []);
+                this.currentPage++;
+                this.hasMore = data.pagination?.has_next || false;
+
+                if (!this.hasMore) this.showEndMessage();
+            } else {
+                this.showError('Failed to load data: ' + (data.error || 'Unknown error'));
+                this.hasMore = false;
+            }
+        } catch (error) {
+            this.showError('Network error: ' + error.message);
+            this.hasMore = false;
+        } finally {
+            this.isLoading = false;
+            this.hideLoadingSpinner();
+        }
+    }
+
+    handleScroll() {
+        if (this.isLoading || !this.hasMore) return;
+
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+
+        const scrollThreshold = 100;
+        const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+        if (distanceFromBottom <= scrollThreshold) {
+            this.loadMoreData();
+        }
+    }
+
+    renderStudents(students) {
+        const tableBody = document.getElementById('studentsTableBody');
+        if (!tableBody) return;
+
+        if (this.totalLoaded === 0 && tableBody.innerHTML.includes('Loading students')) {
+            tableBody.innerHTML = '';
+        }
+
+        if (students.length === 0 && this.totalLoaded === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="38" class="text-center text-muted py-4">
+                        <i class="fe fe-users me-2"></i>No students found matching the current filters.
+                    </td>
+                </tr>
+            `;
+            this.updateLoadedCount();
+            this.hasMore = false;
+            return;
+        }
+
+        students.forEach((student) => {
+            this.rowCounter++;
+            const row = this.createStudentRow(student, this.rowCounter);
+            tableBody.appendChild(row);
+        });
+
+        this.totalLoaded += students.length;
+        this.updateLoadedCount();
+
+        // Do not re-register leave modal clicks here (guarded anyway)
+        this.initializeTooltips();
+    }
+
+    createStudentRow(student, rowNumber) {
+        const row = document.createElement('tr');
+        row.className = 'student-row';
+        
+        const isInactive = student.stage_status && student.stage_status !== 'active';
+        if (isInactive) {
+            row.classList.add('inactive-student');
+        }
+        
+        row.innerHTML = `
+            <td class="sticky-col-index">${rowNumber}</td>
+            <td class="fw-semibold sticky-col-name">
+                <a href="${student.profile_url || '#'}" class="text-decoration-none">
+                    ${student.fullname || 'Unknown Student'}
+                </a>
+                ${isInactive ? '<span class="badge bg-secondary ms-1" style="font-size: 0.6rem;">Inactive</span>' : ''}
+                ${student.admission_number ? `<br><small class="text-muted">${student.admission_number}</small>` : ''}
+            </td>
+            <td class="text-muted sticky-col-batch">${student.batch_name || 'No Batch'}</td>
+            <td class="text-muted sticky-col-course">${student.course_name || 'N/A'}</td>
+            <td class="text-muted sticky-col-branch">${student.branch_name || 'N/A'}</td>
+            ${this.createDailyAttendanceCells(student)}
+            <td class="text-success fw-bold summary-cell">${student.total_present || 0}</td>
+            <td class="text-danger fw-bold summary-cell">${student.total_absent || 0}</td>
+        `;
+        return row;
+    }
+
+    createDailyAttendanceCells(student) {
+        let cells = '';
+        const dailyAttendance = student.daily_attendance || {};
+        const daysInMonth = Object.keys(dailyAttendance).sort((a, b) => a - b);
+        const month = this.filters.month || this.currentMonth;
+        const year = this.filters.year || this.currentYear;
+
+        daysInMonth.forEach(day => {
+            const dayNum = parseInt(day);
+            const attendance = dailyAttendance[dayNum];
+            let cellClass = 'attendance-day';
+            let icon = '';
+            let tooltip = '';
+            let extraAttrs = '';
+
+            if (attendance && attendance.has_data) {
+                const status = attendance.status;
+                const leaveStatus = attendance.leave_status;
+                const isHoliday = attendance.is_holiday;
+                const isAutoHoliday = attendance.is_auto_holiday;
+                const holidayName = attendance.holiday_name;
+
+                if (isHoliday) {
+                    cellClass += ' bg-warning-transparent';
+                    icon = '<span class="fe fe-umbrella text-warning"></span>';
+                    tooltip = isAutoHoliday
+                        ? `🏖️ Auto Holiday: ${holidayName} on ${attendance.date}`
+                        : `🎉 Holiday: ${holidayName} on ${attendance.date}`;
+                } else if (status === 'Present') {
+                    cellClass += ' bg-success-transparent';
+                    icon = '<span class="fe fe-check-circle text-success"></span>';
+                    tooltip = `Present on ${attendance.date}`;
+                } else if (status === 'Absent') {
+                    if (leaveStatus) {
+                        cellClass += ` bg-${leaveStatus} leave-cell`;
+                        const statusColor = this.getLeaveStatusColor(leaveStatus);
+                        icon = `<span class="fe fe-x-circle text-${statusColor}"></span>`;
+                        tooltip = `Absent with ${leaveStatus} leave on ${attendance.date}`;
+
+                        extraAttrs = `data-student="${this.escapeHtml(student.fullname || '')}" 
+                                      data-date="${attendance.date || `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${year}`}" 
+                                      data-subject="${this.escapeHtml(attendance.leave_subject || 'No Subject')}" 
+                                      data-reason="${this.escapeHtml(attendance.leave_reason || 'No Reason Provided')}" 
+                                      data-status="${leaveStatus.charAt(0).toUpperCase() + leaveStatus.slice(1)}" 
+                                      data-attachment="${attendance.leave_attachment || ''}"`;
+                    } else {
+                        cellClass += ' bg-danger-transparent';
+                        icon = '<span class="fe fe-x-circle text-danger"></span>';
+                        tooltip = `Absent on ${attendance.date}`;
+                    }
+                }
+            } else {
+                icon = '';
+                tooltip = `No attendance record for ${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${year}`;
+
+                const currentDate = new Date(year, month - 1, dayNum);
+                const dayOfWeek = currentDate.getDay();
+                const isSunday = dayOfWeek === 0;
+                const isSecondSaturday = dayOfWeek === 6 && dayNum >= 8 && dayNum <= 14;
+
+                if (isSunday || isSecondSaturday) {
+                    const holidayType = isSunday ? 'Sunday' : 'Second Saturday';
+                    cellClass += ' bg-warning-transparent';
+                    icon = '<span class="fe fe-umbrella text-warning"></span>';
+                    tooltip = `🏖️ Auto Holiday: ${holidayType} on ${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${year}`;
+                }
+            }
+
+            if (tooltip) {
+                extraAttrs += ` data-bs-toggle="tooltip" data-bs-title="${this.escapeHtml(tooltip)}" data-bs-placement="top"`;
+            }
+
+            cells += `<td class="${cellClass}" ${extraAttrs}>${icon}</td>`;
+        });
+
+        return cells;
+    }
+    
+
+
+    updateTableHeaders(month, year) {
+        const headerRow = document.querySelector('#attendanceTable thead tr');
+        if (!headerRow) return;
+        
+        const daysInMonth = new Date(year, month, 0).getDate();
+        
+        let headerHtml = `
+            <th class="sticky-col-index">#</th>
+            <th class="sticky-col-name">Student Name</th>
+            <th class="sticky-col-batch">Batch</th>
+            <th class="sticky-col-course">Course</th>
+            <th class="sticky-col-branch">Branch</th>
+        `;
+        
+        for (let d = 1; d <= daysInMonth; d++) {
+            headerHtml += `<th class="attendance-th attendance-day">${d.toString().padStart(2, '0')}</th>`;
+        }
+        
+        headerHtml += `
+            <th class="summary-cell">Presents</th>
+            <th class="summary-cell">Absents</th>
+        `;
+        
+        headerRow.innerHTML = headerHtml;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    getLeaveStatusColor(leaveStatus) {
+        const colors = {
+            'approved': 'success',
+            'pending': 'warning',
+            'rejected': 'danger'
+        };
+        return colors[leaveStatus] || 'secondary';
+    }
+
+    showLoadingSpinner() {
+        const spinner = document.getElementById('loadingSpinner');
+        if (spinner) spinner.style.display = 'block';
+    }
+
+    hideLoadingSpinner() {
+        const spinner = document.getElementById('loadingSpinner');
+        if (spinner) spinner.style.display = 'none';
+    }
+
+    showEndMessage() {
+        const endMessage = document.getElementById('endMessage');
+        if (endMessage) endMessage.style.display = 'block';
+    }
+
+    hideEndMessage() {
+        const endMessage = document.getElementById('endMessage');
+        if (endMessage) endMessage.style.display = 'none';
+    }
+
+    showError(message) {
+        const tableBody = document.getElementById('studentsTableBody');
+        if (!tableBody) return;
+
+        if (this.totalLoaded === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="38" class="text-center text-danger py-4">
+                        <i class="fe fe-alert-triangle me-2"></i>${message}
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    updateLoadedCount() {
+        const loadedCount = document.getElementById('loadedCount');
+        if (loadedCount) {
+            loadedCount.textContent = `Loaded: ${this.totalLoaded} students`;
+        }
+    }
+
+    initializeTooltips() {
+        if (typeof bootstrap !== 'undefined') {
+            const existingTooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            existingTooltips.forEach(element => {
+                const tooltipInstance = bootstrap.Tooltip.getInstance(element);
+                if (tooltipInstance) tooltipInstance.dispose();
+            });
+
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                new bootstrap.Tooltip(tooltipTriggerEl, {
+                    trigger: 'hover',
+                    boundary: 'window',
+                    sanitize: false
+                });
+            });
+        }
+    }
+
+    destroy() {
+        window.removeEventListener('scroll', this.scrollHandler);
+        if (this._leaveCellHandler) {
+            document.removeEventListener('click', this._leaveCellHandler);
+            this._leaveCellHandler = null;
+        }
+    }
+
+    // ONE-TIME guarded listener: show leave modal on click
+    initializeLeaveModal() {
+        if (this._leaveCellHandler) return; // prevent multiple bindings
+
+        this._leaveCellHandler = (e) => {
+            const leaveCell = e.target.closest('.leave-cell');
+            if (leaveCell) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showLeaveModal(leaveCell);
+            }
+        };
+
+        document.addEventListener('click', this._leaveCellHandler);
+    }
+
+    showLeaveModal(cell) {
+        const student = cell.getAttribute('data-student') || 'N/A';
+        const date = cell.getAttribute('data-date') || 'N/A';
+        const subject = cell.getAttribute('data-subject') || 'No subject provided';
+        const reason = cell.getAttribute('data-reason') || 'No reason provided';
+        const status = cell.getAttribute('data-status') || 'unknown';
+        const attachment = cell.getAttribute('data-attachment') || '';
+
+        document.getElementById("modal-student").textContent = student;
+        document.getElementById("modal-date").textContent = date;
+        document.getElementById("modal-subject").textContent = subject;
+        document.getElementById("modal-reason").textContent = reason;
+
+        const statusElement = document.getElementById("modal-status");
+        let statusBadgeClass = 'bg-secondary';
+        let headerColor = 'bg-primary';
+        let statusText = status;
+
+        if (status.toLowerCase() === 'approved') {
+            statusBadgeClass = 'bg-approved';
+            headerColor = 'bg-success';
+        } else if (status.toLowerCase() === 'pending') {
+            statusBadgeClass = 'bg-pending';
+            headerColor = 'bg-warning';
+        } else if (status.toLowerCase() === 'rejected') {
+            statusBadgeClass = 'bg-rejected';
+            headerColor = 'bg-danger';
+        }
+
+        statusElement.innerHTML = `<span class="badge ${statusBadgeClass}">${statusText}</span>`;
+        const modalHeader = document.getElementById('modalHeader');
+        modalHeader.className = `modal-header text-white rounded-top-4 ${headerColor}`;
+
+        const attachmentSection = document.getElementById("attachmentSection");
+        const attachmentContent = document.getElementById("attachmentContent");
+
+        if (attachment && attachment !== 'null' && attachment !== 'undefined' && attachment !== '') {
+            const fileName = attachment.split('/').pop() || 'Attachment';
+            const fileExtension = (fileName.split('.').pop() || '').toLowerCase();
+
+            let attachmentHtml = '';
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                attachmentHtml = `
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-primary rounded p-2 text-white">
+                                <i class="fe fe-image fs-6"></i>
+                            </div>
+                            <div>
+                                <p class="mb-1 small fw-medium">${fileName}</p>
+                                <p class="mb-0 text-muted small">Image file</p>
+                            </div>
+                        </div>
+                        <div>
+                            <a href="${attachment}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fe fe-eye me-1"></i> View
+                            </a>
+                            <a href="${attachment}" download class="btn btn-outline-secondary btn-sm ms-1">
+                                <i class="fe fe-download me-1"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+            } else {
+                attachmentHtml = `
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-secondary rounded p-2 text-white">
+                                <i class="fe fe-file fs-6"></i>
+                            </div>
+                            <div>
+                                <p class="mb-1 small fw-medium">${fileName}</p>
+                                <p class="mb-0 text-muted small">Document</p>
+                            </div>
+                        </div>
+                        <div>
+                            <a href="${attachment}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fe fe-external-link me-1"></i> Open
+                            </a>
+                            <a href="${attachment}" download class="btn btn-outline-secondary btn-sm ms-1">
+                                <i class="fe fe-download me-1"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+            attachmentContent.innerHTML = attachmentHtml;
+            attachmentSection.style.display = 'block';
+        } else {
+            attachmentContent.innerHTML = '<span class="text-muted">No attachment provided</span>';
+            attachmentSection.style.display = 'block';
+        }
+
+        const leaveModalElement = document.getElementById('leaveModal');
+
+        // Move modal to <body> to avoid stacking/overflow issues
+        if (leaveModalElement.parentElement !== document.body) {
+            document.body.appendChild(leaveModalElement);
+        }
+
+        // Create or get instance and show — let Bootstrap manage backdrops/body classes
+        const leaveModal = bootstrap.Modal.getOrCreateInstance(leaveModalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        leaveModal.show();
+    }
+
+    initializeModals() {
+        const presentModal = document.getElementById('presentModal');
+        if (presentModal) {
+            presentModal.addEventListener('show.bs.modal', () => {
+                this.loadPresentStudents();
+            });
+        }
+
+        const absentModal = document.getElementById('absentModal');
+        if (absentModal) {
+            absentModal.addEventListener('show.bs.modal', () => {
+                this.loadAbsentStudents();
+            });
+        }
+    }
+
+    async loadPresentStudents() {
+        try {
+            const modalContent = document.getElementById('presentModalContent');
+            modalContent.innerHTML = '<div class="text-muted">Loading present students...</div>';
+
+            const today = new Date();
+            const day = today.getDate();
+            const month = this.filters.month || this.currentMonth;
+            const year = this.filters.year || this.currentYear;
+
+            const monthSelect = document.getElementById('monthFilter');
+            const monthName = monthSelect ? monthSelect.options[monthSelect.selectedIndex].textContent : month;
+
+            const params = new URLSearchParams({
+                month: month,
+                year: year,
+                course: this.filters.course,
+                branch: this.filters.branch,
+                batch: this.filters.batch,
+                status: 'present',
+                today: day.toString()
+            });
+
+            const response = await fetch(`/admission/api/attendance-data/?${params}`);
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.data && data.data.length > 0) {
+                    modalContent.innerHTML = this.renderModalStudents(data.data, 'present');
+                } else {
+                    modalContent.innerHTML = `<div class="text-muted">No present students found for ${day.toString().padStart(2, '0')} ${monthName} ${year}.</div>`;
+                }
+            } else {
+                modalContent.innerHTML = '<div class="text-danger">Error loading present students</div>';
+            }
+        } catch (error) {
+            document.getElementById('presentModalContent').innerHTML = '<div class="text-danger">Error loading present students</div>';
+        }
+    }
+
+    async loadAbsentStudents() {
+        try {
+            const modalContent = document.getElementById('absentModalContent');
+            modalContent.innerHTML = '<div class="text-muted">Loading absent students...</div>';
+
+            const today = new Date();
+            const day = today.getDate();
+            const month = this.filters.month || this.currentMonth;
+            const year = this.filters.year || this.currentYear;
+
+            const params = new URLSearchParams({
+                month: month,
+                year: year,
+                course: this.filters.course,
+                branch: this.filters.branch,
+                batch: this.filters.batch,
+                status: 'absent',
+                today: day.toString()
+            });
+
+            const response = await fetch(`/admission/api/attendance-data/?${params}`);
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.data && data.data.length > 0) {
+                    modalContent.innerHTML = this.renderModalStudents(data.data, 'absent');
+                } else {
+                    modalContent.innerHTML = `<div class="text-muted">No absent students found for ${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}.</div>`;
+                }
+            } else {
+                modalContent.innerHTML = '<div class="text-danger">Error loading absent students</div>';
+            }
+        } catch (error) {
+            document.getElementById('absentModalContent').innerHTML = '<div class="text-danger">Error loading absent students</div>';
+        }
+    }
+
+    renderModalStudents(students, type) {
+        const batches = {};
+        students.forEach(student => {
+            const batchName = student.batch_name || 'No Batch';
+            if (!batches[batchName]) {
+                batches[batchName] = [];
+            }
+            batches[batchName].push(student);
+        });
+
+        let html = '';
+        Object.keys(batches).forEach(batchName => {
+            const batchStudents = batches[batchName];
+            const badgeClass = type === 'present' ? 'text-primary' : 'text-danger';
+
+            html += `
+                <div class="mb-3">
+                    <h6 class="${badgeClass} mb-2">
+                        <i class="fe fe-users me-2"></i>${batchName} (${batchStudents.length} students)
+                    </h6>
+                    <ul class="list-group">
+            `;
+
+            batchStudents.forEach((student, index) => {
+                html += `
+                    <li class="list-group-item">
+                        <a href="${student.profile_url || '#'}" class="text-decoration-none text-dark">
+                            ${index + 1} - ${student.fullname || 'Unknown'} - (${student.admission_number || 'N/A'})
+                        </a>
+                    </li>
+                `;
+            });
+
+            html += `
+                    </ul>
+                </div>
+            `;
+        });
+
+        return html;
+    }
+}
+
+// Initialize flatpickr for date picker
+{% if is_mentor %}
+if (window.flatpickr) {
+    flatpickr("#attendanceDate", {
+        dateFormat: "d/m/Y",
+        defaultDate: "today",
+        maxDate: "today",
+        allowInput: true
+    });
+}
+{% endif %}
+
+// Global functions for mark attendance (ONLY for mentors)
+{% if is_mentor %}
+let attendanceData = {};
+
+function formatDateForAPI(dateString) {
+    if (!dateString) return '';
+    if (dateString.includes('/')) {
+        const [d, m, y] = dateString.split('/');
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    return dateString;
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+function showToast(message, type = 'info') {
+    const existingToasts = document.querySelectorAll('.custom-toast');
+    existingToasts.forEach(toast => toast.remove());
+
+    const toast = document.createElement('div');
+    toast.className = `custom-toast alert alert-${type === 'success' ? 'success' : type === 'danger' ? 'danger' : 'info'} alert-dismissible fade show`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 99999;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(toast);
+
+    if (type !== 'success') {
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 3000);
+    }
+}
+
+function showPersistentToast(message, type = 'success') {
+    showToast(message, type);
+}
+
+async function loadBatchesForModal() {
+    const courseSelect = document.getElementById('attendanceCourse');
+    const branchSelect = document.getElementById('attendanceBranch');
+    const batchSelect = document.getElementById('attendanceBatch');
+
+    if (!courseSelect || !branchSelect || !batchSelect) return;
+
+    const courseId = courseSelect.value;
+    const branchId = branchSelect.value;
+
+    try {
+        batchSelect.disabled = true;
+        batchSelect.innerHTML = '<option value="all">Loading batches...</option>';
+
+        const params = new URLSearchParams();
+        if (courseId) params.append('course_id', courseId);
+        if (branchId) params.append('branch_id', branchId);
+
+        const response = await fetch(`/admission/ajax/get-batches/?${params}`);
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+        const data = await response.json();
+
+        if (data.batches && data.batches.length > 0) {
+            batchSelect.innerHTML = '<option value="all">All Batches</option>';
+            data.batches.forEach(batch => {
+                const option = document.createElement('option');
+                option.value = batch.id;
+                option.textContent = batch.batch_name;
+                batchSelect.appendChild(option);
+            });
+        } else {
+            batchSelect.innerHTML = '<option value="all">No batches found</option>';
+        }
+    } catch (error) {
+        console.error('Error loading batches:', error);
+        batchSelect.innerHTML = '<option value="all">Error loading batches</option>';
+    } finally {
+        batchSelect.disabled = false;
+    }
+}
+
+window.loadAttendanceData = async () => {
+    const dateEl = document.getElementById('attendanceDate');
+    const batchEl = document.getElementById('attendanceBatch');
+    const courseEl = document.getElementById('attendanceCourse');
+    const branchEl = document.getElementById('attendanceBranch');
+    const tbody = document.getElementById('attendanceEditTableBody');
+    const holidayAlert = document.getElementById('holidayAlert');
+    const whatsappToggle = document.getElementById('whatsappToggle');
+
+    const dateStr = formatDateForAPI(dateEl?.value || '');
+    const batchId = batchEl?.value || 'all';
+    const courseId = courseEl?.value || 'all';
+    const branchId = branchEl?.value || 'all';
+
+    if (!dateStr) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Invalid date</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-primary">Loading students...</td></tr>';
+
+    try {
+        let url = `/admission/attendance/data/?date=${dateStr}`;
+        if (batchId !== 'all') url += `&batch_id=${batchId}`;
+        if (courseId !== 'all') url += `&course_id=${courseId}`;
+        if (branchId !== 'all') url += `&branch_id=${branchId}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Check if it's a holiday for the selected branch
+        if (data.is_holiday) {
+            // For branch-specific holidays, check if it applies to current branch
+            if (data.holiday_scope === 'branch' && branchId !== 'all') {
+                // Check if this holiday applies to the selected branch
+                const isHolidayForThisBranch = data.holiday_branches && 
+                    data.holiday_branches.includes(parseInt(branchId));
+                
+                if (!isHolidayForThisBranch) {
+                    // This holiday doesn't apply to the selected branch, so allow attendance
+                    holidayAlert.classList.add('d-none');
+                    if (whatsappToggle) whatsappToggle.disabled = false;
+                    // Continue loading students normally
+                } else {
+                    // Holiday applies to this branch, show alert
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center text-warning">
+                                <i class="fe fe-umbrella me-2"></i>
+                                This date is a holiday (${data.holiday_name || 'Holiday'}). Attendance cannot be marked.
+                            </td>
+                        </tr>
+                    `;
+                    holidayAlert.classList.remove('d-none');
+                    document.getElementById('saveAttendanceBtn')?.setAttribute('disabled', 'true');
+                    document.getElementById('saveAttendanceBtnFooter')?.setAttribute('disabled', 'true');
+                    if (whatsappToggle) whatsappToggle.disabled = true;
+                    return;
+                }
+            } else {
+                // All-branch holiday or no branch selected, show alert
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-warning">
+                            <i class="fe fe-umbrella me-2"></i>
+                            This date is a holiday (${data.holiday_name || 'Holiday'}). Attendance cannot be marked.
+                        </td>
+                    </tr>
+                `;
+                holidayAlert.classList.remove('d-none');
+                document.getElementById('saveAttendanceBtn')?.setAttribute('disabled', 'true');
+                document.getElementById('saveAttendanceBtnFooter')?.setAttribute('disabled', 'true');
+                if (whatsappToggle) whatsappToggle.disabled = true;
+                return;
+            }
+        } else {
+            holidayAlert.classList.add('d-none');
+            if (whatsappToggle) whatsappToggle.disabled = false;
+        }
+
+        if (!data.success || !data.students_by_batch || !Object.keys(data.students_by_batch).length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No students found with the selected filters</td></tr>';
+            return;
+        }
+
+        attendanceData = data.students_by_batch;
+        renderAttendanceTable();
+        document.getElementById('saveAttendanceBtn')?.removeAttribute('disabled');
+        document.getElementById('saveAttendanceBtnFooter')?.removeAttribute('disabled');
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading data</td></tr>`;
+        console.error('Error loading attendance:', e);
+    }
+};
+
+function renderAttendanceTable() {
+    const tbody = document.getElementById('attendanceEditTableBody');
+    if (!tbody) return;
+    if (!attendanceData || Object.keys(attendanceData).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No students found</td></tr>';
+        return;
+    }
+
+    let html = '', i = 1;
+    for (const [batchName, students] of Object.entries(attendanceData)) {
+        html += `<tr class="table-primary"><td colspan="7" class="fw-bold text-center">${batchName} (${students.length} students)</td></tr>`;
+        students.forEach(s => {
+            const st = s.status || 'Absent';
+            const smsStatus = s.sms_sent ? 'Sent' : 'Pending';
+            const smsBadgeClass = s.sms_sent ? 'bg-success' : 'bg-warning';
+
+            const courseName = s.course_name || (s.course && s.course.name) || 'N/A';
+            const branchName = s.branch_name || (s.branch && s.branch.name) || 'N/A';
+
+            html += `
+            <tr data-student-id="${s.id}">
+                <td>${i++}</td>
+                <td>${s.fullname}</td>
+                <td>${s.batch_name}</td>
+                <td>${courseName}</td>
+                <td>${branchName}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" id="present_${s.id}" name="attendance_${s.id}" value="Present" ${st === 'Present' ? 'checked' : ''}>
+                        <label class="btn btn-outline-success btn-sm" for="present_${s.id}">Present</label>
+                        <input type="radio" class="btn-check" id="absent_${s.id}" name="attendance_${s.id}" value="Absent" ${st === 'Absent' ? 'checked' : ''}>
+                        <label class="btn btn-outline-danger btn-sm" for="absent_${s.id}">Absent</label>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${smsBadgeClass}">SMS: ${smsStatus}</span>
+                </td>
+            </tr>`;
+        });
+    }
+    tbody.innerHTML = html;
+    attachRadioListeners();
+}
+
+function attachRadioListeners() {
+    const radios = document.querySelectorAll('input[type="radio"][name^="attendance_"]');
+    radios.forEach(r => {
+        if (r._done) return;
+        r._done = true;
+        r.addEventListener('change', () => {
+            document.getElementById('saveAttendanceBtn')?.removeAttribute('disabled');
+            document.getElementById('saveAttendanceBtnFooter')?.removeAttribute('disabled');
+        });
+    });
+}
+
+window.saveAttendance = async () => {
+    if (window.isSubmitting) return;
+    window.isSubmitting = true;
+
+    const dateEl = document.getElementById('attendanceDate');
+    const batchEl = document.getElementById('attendanceBatch');
+    const courseEl = document.getElementById('attendanceCourse');
+    const branchEl = document.getElementById('attendanceBranch');
+    const whatsappToggle = document.getElementById('whatsappToggle');
+
+    const dateStr = formatDateForAPI(dateEl?.value || '');
+    const batchId = batchEl?.value || 'all';
+    const courseId = courseEl?.value || 'all';
+    const branchId = branchEl?.value || 'all';
+    const sendWhatsApp = whatsappToggle ? whatsappToggle.checked : true;
+
+    if (!dateStr) {
+        showToast('Invalid date', 'danger');
+        window.isSubmitting = false;
+        return;
+    }
+
+    const records = [];
+    let present = 0, absent = 0;
+    for (const [, students] of Object.entries(attendanceData)) {
+        students.forEach(s => {
+            let st = 'Absent';
+            const presentInput = document.getElementById(`present_${s.id}`);
+            if (presentInput?.checked) st = 'Present';
+            if (st === 'Present') present++; else absent++;
+            records.push({ student_id: s.id, status: st });
+        });
+    }
+
+    if (!records.length) {
+        showToast('Nothing to save', 'warning');
+        window.isSubmitting = false;
+        return;
+    }
+
+    const cs = getCookie('csrftoken');
+    const saveBtn = document.getElementById('saveAttendanceBtn');
+    const saveF = document.getElementById('saveAttendanceBtnFooter');
+    if (saveBtn) saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+    if (saveF) saveF.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+    try {
+        const requestData = {
+            date: dateStr,
+            records: records,
+            batch_id: batchId,
+            course_id: courseId,
+            branch_id: branchId,
+            send_whatsapp: sendWhatsApp
+        };
+
+        const res = await fetch('/admission/attendance/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': cs || '' },
+            body: JSON.stringify(requestData)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const whatsappStatus = data.whatsapp_enabled ? 'enabled' : 'disabled';
+            const message = `Attendance saved successfully (WhatsApp ${whatsappStatus})`;
+            showPersistentToast(message, 'success');
+        } else {
+            showToast(data.error || 'Save failed', 'danger');
+        }
+    } catch (e) {
+        showToast('Error saving attendance', 'danger');
+        console.error('Save error:', e);
+    } finally {
+        if (saveBtn) saveBtn.innerHTML = '<i class="fe fe-save me-1"></i>Save Attendance';
+        if (saveF) saveF.innerHTML = '<i class="fe fe-save me-1"></i>Save Changes';
+        window.isSubmitting = false;
+    }
+};
+{% endif %}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function () {
+    console.log("DOM loaded, initializing attendance table...");
+
+    if (document.getElementById('studentsTableBody')) {
+        window.attendanceTableManager = new AttendanceTableManager();
+
+        const courseFilter = document.getElementById('courseFilter');
+        const branchFilter = document.getElementById('branchFilter');
+
+        if (courseFilter && branchFilter) {
+            courseFilter.addEventListener('change', () => window.attendanceTableManager.toggleBatchFilter());
+            branchFilter.addEventListener('change', () => window.attendanceTableManager.toggleBatchFilter());
+            window.attendanceTableManager.toggleBatchFilter();
+        }
+    }
+
+    {% if is_mentor %}
+    // Initialize attendance modal for MENTORS ONLY
+    const attModal = document.getElementById('attendanceEditModal');
+    if (attModal) {
+        attModal.addEventListener('show.bs.modal', () => {
+            attendanceData = {};
+            const t = document.getElementById('attendanceEditTableBody');
+            if (t) t.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Select branch, course, batch and date, then click "Load Data" to begin.</td></tr>';
+            document.getElementById('saveAttendanceBtn')?.setAttribute('disabled', 'true');
+            document.getElementById('saveAttendanceBtnFooter')?.setAttribute('disabled', 'true');
+            document.getElementById('holidayAlert')?.classList.add('d-none');
+        });
+
+        const courseSelect = document.getElementById('attendanceCourse');
+        const branchSelect = document.getElementById('attendanceBranch');
+
+        if (courseSelect) {
+            courseSelect.addEventListener('change', loadBatchesForModal);
+        }
+        if (branchSelect) {
+            branchSelect.addEventListener('change', loadBatchesForModal);
+        }
+    }
+    {% endif %}
+
+    // Initialize tooltips on page load
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (el) {
+            return new bootstrap.Tooltip(el);
+        });
+    }
+});
+</script>
+{% endblock %}

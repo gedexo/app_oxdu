@@ -1,0 +1,1317 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Student Profile | {{ app_settings.site_title }}{% endblock %}
+
+{% block body %}
+<style>
+  body {
+    background: #fafafa !important;
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #1f2937;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  
+  /* Header Section */
+  .profile-header {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 3.5rem 2.5rem;
+    margin-bottom: 3rem;
+    position: relative;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+  }
+  
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+  }
+  
+  .profile-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f8fafc;
+    flex-shrink: 0;
+    border: 2px solid #f1f5f9;
+  }
+  
+  .avatar-fallback {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: -0.025em;
+    flex-shrink: 0;
+  }
+  
+  .avatar-initials {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .header-info {
+    flex: 1;
+  }
+  
+  .student-name {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+  }
+  
+  .student-meta {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+  
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .meta-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+  }
+  
+  /* Stats Grid */
+  .stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 3rem;
+  }
+  
+  .stat-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 1.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #059669);
+    opacity: 0.8;
+  }
+  
+  .stat-card:nth-child(2)::before {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+  }
+  
+  .stat-card:nth-child(3)::before {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+  }
+  
+  .stat-card:nth-child(4)::before {
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  }
+  
+  .stat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+  }
+  
+  .stat-title {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .stat-value {
+    font-size: 1.875rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+  
+  .stat-subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  
+  /* Content Layout */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .info-section {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 2.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  
+  .section-icon {
+    width: 18px;
+    height: 18px;
+    color: #64748b;
+  }
+  
+  .section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+  }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+  }
+  
+  .info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid #f8fafc;
+  }
+  
+  .info-row:last-child {
+    border-bottom: none;
+  }
+  
+  .info-label {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.875rem;
+    min-width: 120px;
+  }
+  
+  .info-value {
+    font-weight: 500;
+    color: #0f172a;
+    text-align: right;
+    flex: 1;
+    max-width: 200px;
+  }
+  
+  /* Calendar Section - COMPACT VERSION */
+  .calendar-section {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .calendar-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  
+  .calendar-nav-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .calendar-nav-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #475569;
+  }
+  
+  .calendar-nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.15rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .calendar-weekday {
+    text-align: center;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.35rem 0.15rem;
+  }
+  
+  .calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.2s;
+    cursor: pointer;
+    min-height: 26px;
+  }
+  
+  .calendar-day.empty {
+    background: transparent;
+    cursor: default;
+  }
+  
+  .calendar-day.normal {
+    background: #f8fafc;
+    color: #64748b;
+  }
+  
+  .calendar-day.today {
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+  }
+  
+  .calendar-day.present {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #dcfce7;
+  }
+  
+  .calendar-day.absent {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+  
+  .calendar-day.late {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fed7aa;
+  }
+  
+  .calendar-day:hover:not(.empty) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .day-status {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    margin-top: 1px;
+  }
+  
+  .day-status.present {
+    background: #22c55e;
+  }
+  
+  .day-status.absent {
+    background: #ef4444;
+  }
+  
+  .day-status.late {
+    background: #f59e0b;
+  }
+  
+  .calendar-legend {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.625rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .legend-color {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+  
+  .legend-present {
+    background: #f0fdf4;
+    border: 1px solid #dcfce7;
+  }
+  
+  .legend-absent {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+  }
+  
+  .legend-late {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #94a3b8;
+  }
+  
+  .empty-state svg {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 0.75rem;
+    opacity: 0.4;
+  }
+  
+  .loading-state {
+    text-align: center;
+    padding: 1.5rem;
+    color: #64748b;
+  }
+  
+  .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e2e8f0;
+    border-top: 2px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 0.75rem;
+  }
+
+  .calendar-day.holiday {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fed7aa;
+  }
+  
+  .legend-holiday {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+  }
+  
+  .day-status.holiday {
+    background: #f59e0b;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @media (max-width: 768px) {
+    .container {
+      padding: 2rem 1rem;
+    }
+    
+    .profile-header {
+      padding: 2.5rem 2rem;
+    }
+    
+    .header-content {
+      flex-direction: column;
+      text-align: center;
+      gap: 2rem;
+    }
+    
+    .student-name {
+      font-size: 1.75rem;
+    }
+    
+    .student-meta {
+      justify-content: center;
+    }
+    
+    .stats-container {
+      grid-template-columns: 1fr;
+    }
+    
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .info-row {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .info-value {
+      text-align: left;
+      max-width: none;
+    }
+    
+    .calendar-section {
+      padding: 1.25rem;
+    }
+    
+    .calendar-grid {
+      gap: 0.1rem;
+    }
+    
+    .calendar-day {
+      font-size: 0.6rem;
+      border-radius: 4px;
+      min-height: 24px;
+    }
+    
+    .calendar-weekday {
+      font-size: 0.575rem;
+      padding: 0.3rem 0.1rem;
+    }
+    
+    .calendar-legend {
+      gap: 0.5rem;
+    }
+    
+    .legend-item {
+      font-size: 0.6rem;
+    }
+  }
+
+  .calendar-day.approved_leave {
+      background: #f0f9ff;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+  }
+
+  .legend-approved-leave {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+  }
+
+  .day-status.approved_leave {
+      background: #0369a1;
+  }
+
+  .stat-subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 0.25rem;
+  }
+
+  .stat-card:nth-child(5)::before {
+    background: linear-gradient(90deg, #10b981, #059669);
+  }
+
+  .stat-card:nth-child(6)::before {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+  }
+
+  .stat-card:nth-child(7)::before {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+  }
+
+  .stat-card:nth-child(8)::before {
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+  }
+
+</style>
+
+{% if request.path != '/' %}
+    <button id="backBtn" title="Go Back"><i class="fe fe-arrow-left"></i></button>
+{% endif %}
+
+<div class="container">
+  <!-- Profile Header -->
+  <div class="profile-header">
+    <div class="header-content">
+      {% if object.photo %}
+        <img class="profile-image" src="{{ object.photo.url }}" alt="Profile Photo">
+      {% else %}
+        <div class="avatar-fallback">
+          <span class="avatar-initials">{{ object.fullname|slice:":2"|upper }}</span>
+        </div>
+      {% endif %}
+      <div class="header-info">
+        <h1 class="student-name">{{ object.fullname }}</h1>
+        <div class="student-meta">
+          <div class="meta-item">
+            <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Admission No: {{ object.admission_number }}</span>
+          </div>
+          <div class="meta-item">
+            <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+            </svg>
+            <span>{{ object.course }}</span>
+          </div>
+          <div class="meta-item">
+            <svg class="meta-icon" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+            </svg>
+            <span>{{ object.branch }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="stats-container">
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #6366f1;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <span class="stat-title">Total Working Days</span>
+      </div>
+      <div class="stat-value">{{ total_working_days }}</div>
+      <div class="stat-subtitle">Days tracked</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #10b981;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <span class="stat-title">Total Present</span>
+      </div>
+      <div class="stat-value">{{ total_present }}</div>
+      <div class="stat-subtitle">{{ present_percentage }}% of working days</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #ef4444;">
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="stat-title">Total Absent</span>
+      </div>
+      <div class="stat-value">{{ total_absent }}</div>
+      <div class="stat-subtitle">{{ absent_percentage }}% of working days</div>
+    </div>
+
+    {% comment %} <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #f59e0b;">
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="stat-title">Total Late</span>
+      </div>
+      <div class="stat-value">{{ total_late }}</div>
+      <div class="stat-subtitle">{{ late_percentage }}% of working days</div>
+    </div> {% endcomment %}
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #10b981;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <span class="stat-title">Approved Leaves</span>
+      </div>
+      <div class="stat-value">{{ total_approved_leaves }}</div>
+      <div class="stat-subtitle">{{ total_approved_leave_days }} days total</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #f59e0b;">
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="stat-title">Pending Leaves</span>
+      </div>
+      <div class="stat-value">{{ total_pending_leaves }}</div>
+      <div class="stat-subtitle">Awaiting approval</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #ef4444;">
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="stat-title">Rejected Leaves</span>
+      </div>
+      <div class="stat-value">{{ total_rejected_leaves }}</div>
+      <div class="stat-subtitle">Not approved</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <div class="stat-icon" style="background: #3b82f6;">
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="stat-title">Attendance Rate</span>
+      </div>
+      <div class="stat-value">{{ attendance_percentage }}%</div>
+      <div class="stat-subtitle">Overall attendance</div>
+    </div>
+
+    {% if absent_dates %}
+      <h3>Absent Days</h3>
+      <ul>
+      {% for date in absent_dates %}
+          <li>{{ date|date:"d M Y" }}</li>
+      {% endfor %}
+      </ul>
+  {% endif %}
+  </div>
+
+  <!-- Content Grid -->
+  <div class="content-grid">
+    <!-- Attendance Detailed Logs -->
+    <div class="info-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+          <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+        </svg>
+        <h2 class="section-title">Attendance Detailed Logs</h2>
+      </div>
+
+      <!-- Conflict Alert -->
+      {% if conflicting_dates %}
+      <div style="background-color: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 1rem; border-radius: 12px; margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <strong style="font-size: 0.95rem;">Data Conflict Detected</strong>
+        </div>
+        <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">The following dates are marked as both <strong>Present</strong> and <strong>Absent</strong>:</p>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          {% for date in conflicting_dates %}
+            <span style="background: white; padding: 2px 8px; border-radius: 4px; border: 1px solid #fca5a5; font-weight: 600; font-size: 0.8rem;">{{ date|date:"d M Y" }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Split Layout for Present/Absent -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        
+        <!-- Absent History Column -->
+        <div class="log-column">
+          <h3 style="font-size: 1rem; color: #dc2626; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="width: 8px; height: 8px; background: #dc2626; border-radius: 50%; display: inline-block;"></span>
+            Absent History ({{ total_absent }})
+          </h3>
+          
+          <div style="background: #fef2f2; border-radius: 12px; border: 1px solid #fee2e2; overflow: hidden;">
+            {% if absent_records_list %}
+              <div style="max-height: 300px; overflow-y: auto;">
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                  <thead style="background: #fee2e2; color: #991b1b; position: sticky; top: 0;">
+                    <tr>
+                      <th style="padding: 0.75rem 1rem; font-weight: 600;">Date</th>
+                      <th style="padding: 0.75rem 1rem; font-weight: 600;">Day</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for record in absent_records_list %}
+                    <tr style="border-bottom: 1px solid #fee2e2;">
+                      <td style="padding: 0.6rem 1rem; color: #1f2937;">
+                        {{ record.register.date|date:"d M Y" }}
+                        {% if record.register.date in conflicting_dates %}
+                          <span style="font-size: 0.7rem; background: #fee2e2; color: #dc2626; padding: 1px 4px; border-radius: 4px; margin-left: 4px;">Conflict</span>
+                        {% endif %}
+                      </td>
+                      <td style="padding: 0.6rem 1rem; color: #6b7280;">{{ record.register.date|date:"l" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div style="padding: 2rem; text-align: center; color: #991b1b;">
+                <p style="font-size: 0.875rem;">No absence records found.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Present History Column -->
+        <div class="log-column">
+          <h3 style="font-size: 1rem; color: #166534; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="width: 8px; height: 8px; background: #166534; border-radius: 50%; display: inline-block;"></span>
+            Present History ({{ total_present }})
+          </h3>
+          
+          <div style="background: #f0fdf4; border-radius: 12px; border: 1px solid #dcfce7; overflow: hidden;">
+            {% if present_records_list %}
+              <div style="max-height: 300px; overflow-y: auto;">
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                  <thead style="background: #dcfce7; color: #166534; position: sticky; top: 0;">
+                    <tr>
+                      <th style="padding: 0.75rem 1rem; font-weight: 600;">Date</th>
+                      <th style="padding: 0.75rem 1rem; font-weight: 600;">Day</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for record in present_records_list %}
+                    <tr style="border-bottom: 1px solid #dcfce7;">
+                      <td style="padding: 0.6rem 1rem; color: #1f2937;">
+                        {{ record.register.date|date:"d M Y" }}
+                        {% if record.register.date in conflicting_dates %}
+                          <span style="font-size: 0.7rem; background: #fee2e2; color: #dc2626; padding: 1px 4px; border-radius: 4px; margin-left: 4px;">Conflict</span>
+                        {% endif %}
+                      </td>
+                      <td style="padding: 0.6rem 1rem; color: #6b7280;">{{ record.register.date|date:"l" }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div style="padding: 2rem; text-align: center; color: #166534;">
+                <p style="font-size: 0.875rem;">No attendance records found.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+    
+    <!-- Personal Information -->
+    <div class="info-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+        </svg>
+        <h2 class="section-title">Personal Information</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Date of Birth</span>
+            <span class="info-value">{{ object.date_of_birth|date:'d M Y' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Gender</span>
+            <span class="info-value">{{ object.get_gender_display }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Blood Group</span>
+            <span class="info-value">{{ object.get_blood_group_display }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Religion</span>
+            <span class="info-value">{{ object.get_religion_display }}</span>
+          </div>
+        </div>
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Personal Email</span>
+            <span class="info-value">{{ object.personal_email }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Contact Number</span>
+            <span class="info-value">{{ object.contact_number }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">WhatsApp</span>
+            <span class="info-value">{{ object.whatsapp_number }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Qualifications</span>
+            <span class="info-value">{{ object.qualifications }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address Information -->
+    <div class="info-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+        </svg>
+        <h2 class="section-title">Address Information</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Home Address</span>
+            <span class="info-value">{{ object.home_address }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">City</span>
+            <span class="info-value">{{ object.city }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">District</span>
+            <span class="info-value">{{ object.district }}</span>
+          </div>
+        </div>
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">State</span>
+            <span class="info-value">{{ object.state }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">PIN Code</span>
+            <span class="info-value">{{ object.pin_code }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Academic Information -->
+    <div class="info-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+        </svg>
+        <h2 class="section-title">Academic Information</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Admission Date</span>
+            <span class="info-value">{{ object.admission_date|date:'d M Y' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Course</span>
+            <span class="info-value">{{ object.course }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Batch</span>
+            <span class="info-value">{{ object.batch }}</span>
+          </div>
+        </div>
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Branch</span>
+            <span class="info-value">{{ object.branch }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Admission No</span>
+            <span class="info-value">{{ object.admission_number }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parent Information -->
+    <div class="info-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h2 class="section-title">Parent Information</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Parent Name</span>
+            <span class="info-value">{{ object.parentfullname }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Parent Contact</span>
+            <span class="info-value">{{ object.parent_contact_number }}</span>
+          </div>
+        </div>
+        <div class="info-group">
+          <div class="info-row">
+            <span class="info-label">Parent WhatsApp</span>
+            <span class="info-value">{{ object.parent_whatsapp_number }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Parent Email</span>
+            <span class="info-value">{{ object.parent_mail_id }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Calendar - COMPACT VERSION -->
+     <div class="calendar-section">
+        <div class="section-header">
+          <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+          </svg>
+          <h2 class="section-title">Attendance Calendar</h2>
+        </div>
+        
+        <div class="calendar-header">
+          <h3 class="calendar-title" id="calendar-title">{{ current_month }} {{ current_year }}</h3>
+          <div class="calendar-nav">
+            <button class="calendar-nav-btn prev-month" id="prev-month">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+              </svg>
+            </button>
+            <button class="calendar-nav-btn next-month" id="next-month">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div class="calendar-grid" id="calendar-grid">
+          <!-- Calendar will be populated by JavaScript -->
+        </div>
+        
+        <div class="calendar-legend">
+          <div class="legend-item">
+              <div class="legend-color legend-present"></div>
+              <span>Present</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color legend-absent"></div>
+              <span>Absent</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color legend-late"></div>
+              <span>Late</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color legend-approved-leave"></div>
+              <span>Approved Leave</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color legend-holiday"></div>
+              <span>Holiday</span>
+          </div>
+          <div class="legend-item">
+              <div class="legend-color" style="background: #3b82f6;"></div>
+              <span>Today</span>
+          </div>
+      </div>
+      </div>
+
+     {% if object.other_details %}
+      <!-- Other Details -->
+      <div class="info-section">
+        <div class="section-header">
+          <svg class="section-icon" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+          </svg>
+          <h2 class="section-title">Other Details</h2>
+        </div>
+        <div style="padding: 1.5rem; background: #fafafa; border-radius: 16px; color: #1f2937; line-height: 1.6;">
+          {{ object.other_details }}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+</div>
+
+{% block javascript %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Calendar data from Django
+    const initialCalendarData = [
+      {% for day in calendar_days %}
+      {
+        date: {% if day.date %}"{{ day.date|date:'Y-m-d' }}"{% else %}null{% endif %},
+        status: "{{ day.status }}",
+        is_today: {{ day.is_today|yesno:"true,false" }}
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+    
+    const initialMonth = "{{ current_month }}";
+    const initialYear = {{ current_year }};
+    const studentId = {{ object.id }};
+    
+    // Calendar navigation functionality
+    const prevBtn = document.getElementById('prev-month');
+    const nextBtn = document.getElementById('next-month');
+    const calendarTitle = document.getElementById('calendar-title');
+    const calendarGrid = document.getElementById('calendar-grid');
+    
+    let currentDate = new Date(initialYear, getMonthNumber(initialMonth), 1);
+    let isLoading = false;
+    
+    // Initialize calendar with initial data
+    renderCalendar(initialCalendarData);
+    
+    function getMonthNumber(monthName) {
+      const months = {
+        'January': 0, 'February': 1, 'March': 2, 'April': 3, 'May': 4, 'June': 5,
+        'July': 6, 'August': 7, 'September': 8, 'October': 9, 'November': 10, 'December': 11
+      };
+      return months[monthName] || 0;
+    }
+    
+    function getMonthName(monthNumber) {
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return months[monthNumber];
+    }
+    
+    function renderCalendar(calendarData) {
+      // Clear existing calendar
+      calendarGrid.innerHTML = '';
+      
+      // Add weekday headers
+      const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      weekdays.forEach(day => {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'calendar-weekday';
+        dayElement.textContent = day;
+        calendarGrid.appendChild(dayElement);
+      });
+      
+      // Check if we have valid calendar data
+      if (!calendarData || calendarData.length === 0) {
+        const emptyElement = document.createElement('div');
+        emptyElement.className = 'empty-state';
+        emptyElement.style.gridColumn = '1 / -1';
+        emptyElement.innerHTML = `
+          <svg fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+          </svg>
+          <p>No attendance data available for this month.</p>
+        `;
+        calendarGrid.appendChild(emptyElement);
+        return;
+      }
+      
+      // Add calendar days
+      calendarData.forEach(day => {
+          const dayElement = document.createElement('div');
+          
+          if (day.date) {
+              const date = new Date(day.date);
+              const today = new Date();
+              const isToday = date.toDateString() === today.toDateString();
+              
+              // Determine CSS class based on status
+              let dayClass = `calendar-day ${isToday ? 'today' : day.status}`;
+              
+              dayElement.className = dayClass;
+              
+              // Create day content
+              let dayContent = `<span>${date.getDate()}</span>`;
+              
+              // Add status indicator for attendance days
+              if (day.status !== 'normal' && day.status !== 'empty' && day.status !== 'holiday' && day.status !== 'approved_leave') {
+                  dayContent += `<div class="day-status ${day.status}"></div>`;
+              }
+              
+              // Add holiday indicator
+              if (day.status === 'holiday') {
+                  dayContent += `<div class="day-status holiday" style="background: #0369a1;"></div>`;
+              }
+              
+              // Add approved leave indicator
+              if (day.status === 'approved_leave') {
+                  dayContent += `<div class="day-status approved_leave" style="background: #0369a1;"></div>`;
+              }
+              
+              dayElement.innerHTML = dayContent;
+              
+              // Build tooltip
+              let tooltip = `${date.toDateString()}`;
+              if (day.status === 'holiday' && day.holiday_info) {
+                  tooltip += ` - Holiday: ${day.holiday_info.name}`;
+                  if (day.holiday_info.is_auto) {
+                      tooltip += ' (Weekend)';
+                  }
+              } else if (day.status === 'approved_leave' && day.holiday_info) {
+                  tooltip += ` - Approved Leave: ${day.holiday_info.reason || 'Leave'}`;
+              } else if (day.status !== 'normal' && day.status !== 'empty') {
+                  tooltip += ` - ${day.status.charAt(0).toUpperCase() + day.status.slice(1)}`;
+              }
+              dayElement.title = tooltip;
+          } else {
+              dayElement.className = 'calendar-day empty';
+          }
+          
+          calendarGrid.appendChild(dayElement);
+      });
+    }
+    
+    function showLoadingState() {
+      calendarGrid.innerHTML = `
+        <div class="loading-state" style="grid-column: 1 / -1;">
+          <div class="loading-spinner"></div>
+          <p>Loading calendar data...</p>
+        </div>
+      `;
+    }
+    
+    async function updateCalendar() {
+      if (isLoading) return;
+      
+      isLoading = true;
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      showLoadingState();
+      
+      try {
+        // Try to fetch calendar data from server
+        const response = await fetch(`/admission/api/student/${studentId}/calendar/?year=${year}&month=${month}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Update calendar title
+          calendarTitle.textContent = `${getMonthName(currentDate.getMonth())} ${year}`;
+          
+          // Render new calendar data
+          renderCalendar(data.calendar_days);
+        } else {
+          throw new Error('API request failed');
+        }
+      } catch (error) {
+        console.error('Error loading calendar:', error);
+        // Fallback: Show message that API is not available
+        calendarGrid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <svg fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <p>Calendar navigation requires API setup. Showing current month only.</p>
+            <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+              Reload Current Month
+            </button>
+          </div>
+        `;
+      } finally {
+        isLoading = false;
+        prevBtn.disabled = false;
+        nextBtn.disabled = false;
+      }
+    }
+    
+    prevBtn.addEventListener('click', function() {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      updateCalendar();
+    });
+    
+    nextBtn.addEventListener('click', function() {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      updateCalendar();
+    });
+  });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var backBtn = document.getElementById("backBtn");
+        if (backBtn) {
+            backBtn.addEventListener("click", function() {
+                window.history.back();
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% endblock body %}

@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 180
+skip-string-normalization = true
+skip-magic-trailing-comma = true
+
+[tool.ruff]
+select = ["E", "F"]
+ignore = []
+line-length = 180

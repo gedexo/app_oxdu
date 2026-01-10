@@ -1,0 +1,559 @@
+<script>
+    window.InvoiceFormScripts = window.InvoiceFormScripts || {};
+
+    $(document).ready(function () {
+
+        const PartyManager = {
+            elements: {
+                categorySelect: $('#id_category'),
+                partySelect: $('#id_party'),
+                mainAccountSelect: $('#id_main_account'),
+                oppositeAccountSelect: $('#id_opposite_account'),
+                fromAccountSelect: $('#id_from_account'),
+                toAccountSelect: $('#id_to_account'),
+                priceSlabField: $('#id_price_slab'),
+                natureOfSupplyField: $('#id_nature_of_supply'),
+                stateField: $('#id_state'),
+                billingAddressField: $('#id_billing_address'),
+                shippingAddressField: $('#id_shipping_address'),
+                outstandingAmountField: $('#id_outstanding_amount'),
+                outstandingTypeField: $('#id_outstanding_type'),
+                dueDateField: $('#id_due_date'),
+                mobile: $('#id_mobile'),
+                relationshipManagerField: $('#id_relationship_manager'),
+                relationshipManagerContactField: $('#id_relationship_manager_contact')
+            },
+
+            infoBoxes: {
+                category: null,
+                party: null,
+                main_account: null,
+                opposite_account: null,
+                from_account: null,
+                to_account: null
+            },
+
+            initialize: function () {
+                this.bindEvents();
+                // Check if values are already selected on page load
+                this.checkInitialValues();
+            },
+
+            checkInitialValues: function () {
+                const accountTypes = ['category', 'party', 'main_account', 'opposite_account', 'from_account', 'to_account'];
+                
+                accountTypes.forEach(type => {
+                    const $element = this.getSelectElement(type);
+                    if ($element && $element.length && $element.val()) {
+                        this.handleAccountChange(type);
+                    }
+                });
+            },
+
+            bindEvents: function () {
+                this.elements.categorySelect.on('change', () => this.handleAccountChange('category'));
+                this.elements.partySelect.on('change', () => this.handleAccountChange('party'));
+                this.elements.mainAccountSelect.on('change', () => this.handleAccountChange('main_account'));
+                this.elements.oppositeAccountSelect.on('change', () => this.handleAccountChange('opposite_account'));
+                this.elements.fromAccountSelect.on('change', () => this.handleAccountChange('from_account'));
+                this.elements.toAccountSelect.on('change', () => this.handleAccountChange('to_account'));
+            },
+
+            getSelectElement: function(type) {
+                const elementMap = {
+                    'category': this.elements.categorySelect,
+                    'party': this.elements.partySelect,
+                    'main_account': this.elements.mainAccountSelect,
+                    'opposite_account': this.elements.oppositeAccountSelect,
+                    'from_account': this.elements.fromAccountSelect,
+                    'to_account': this.elements.toAccountSelect
+                };
+                return elementMap[type];
+            },
+
+            handleAccountChange: function (type) {
+                const $selectElement = this.getSelectElement(type);
+                
+                if (!$selectElement || !$selectElement.length) {
+                    return;
+                }
+
+                const accountId = $selectElement.val();
+
+                if (!accountId) {
+                    this.removeInfoBox(type);
+                    if (type === 'party') {
+                        this.clearAllFields();
+                    }
+                    return;
+                }
+
+                this.fetchAccountDetails(accountId, type);
+            },
+
+            createInfoBoxHTML: function (type) {
+                const boxId = `${type}-outstanding-info`;
+                
+                // Remove existing box for this type
+                $(`#${boxId}`).remove();
+
+                const html = `
+                    <div id="${boxId}" class="mt-2">
+                        <div class="alert alert-info py-2 mb-0">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <span class="fw-medium">
+                                    <span class="me-1">Outstanding:</span>
+                                    <span id="${type}-outstanding-amount" class="fw-bold"></span>
+                                    <i class="fas fa-info-circle ms-1 text-muted" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top" 
+                                       title="Current outstanding amount. Red = Amount due to you, Green = Amount you owe">
+                                    </i>
+                                </span>
+                                
+                                <span class="vr" id="${type}-gst-separator"></span>
+                                
+                                <span id="${type}-party-gst-info" class="text-muted small d-flex align-items-center">
+                                    <i class="fas fa-id-card me-1"></i>
+                                    <span>GST: <span id="${type}-party-gst-no" class="text-dark fw-semibold">-</span></span>
+                                </span>
+                                
+                                <span class="vr d-none" id="${type}-credit-separator"></span>
+                                
+                                <span id="${type}-credit-info" class="d-none text-muted small">
+                                    <i class="fas fa-wallet me-1"></i>Available Credit: 
+                                    <span id="${type}-available-credit" class="fw-semibold"></span>
+                                </span>
+                                
+                                <span class="vr d-none" id="${type}-overdue-separator"></span>
+                                
+                                <span id="${type}-overdue-warning" class="d-none text-danger fw-medium small">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Overdue
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Find the select input and insert after its parent form-group/div
+                const $selectElement = this.getSelectElement(type);
+                const $parent = $selectElement.closest('.form-group, .mb-3, div[id*="div_id"]');
+                
+                if ($parent.length) {
+                    $parent.after(html);
+                } else {
+                    // Fallback: insert after the select itself
+                    $selectElement.parent().after(html);
+                }
+                
+                // Cache the info box
+                this.infoBoxes[type] = {
+                    wrapper: $(`#${boxId}`),
+                    outstandingAmount: $(`#${type}-outstanding-amount`),
+                    partyGstNo: $(`#${type}-party-gst-no`),
+                    partyGstInfo: $(`#${type}-party-gst-info`),
+                    creditInfo: $(`#${type}-credit-info`),
+                    availableCredit: $(`#${type}-available-credit`),
+                    overdueWarning: $(`#${type}-overdue-warning`),
+                    gstSeparator: $(`#${type}-gst-separator`),
+                    creditSeparator: $(`#${type}-credit-separator`),
+                    overdueSeparator: $(`#${type}-overdue-separator`)
+                };
+            },
+
+            removeInfoBox: function (type) {
+                $(`#${type}-outstanding-info`).remove();
+                this.infoBoxes[type] = null;
+            },
+
+            setFocusBasedOnInvoiceType: function () {
+                const invoiceType = $('#id_invoice_type').val();
+
+                setTimeout(() => {
+                    let $targetField = null;
+
+                    if (invoiceType === 'purchase_invoice') {
+                        $targetField = $('#id_bill_no');
+                    } else {
+                        $targetField = $('#id_invoiceitem_set-0-item, input[name*="item"]').first();
+                    }
+
+                    if ($targetField?.length) {
+                        $targetField.focus();
+                        if ($targetField.is('input[type="text"], input[type="number"]')) {
+                            $targetField.select();
+                        }
+                    }
+                }, 200);
+            },
+
+            fetchAccountDetails: function (accountId, type) {
+                $.ajax({
+                    url: `/accounting/account/${accountId}/`,
+                    method: "GET",
+                    success: (response) => {
+                        this.handleAccountResponse(response, type);
+                        if (type === 'party') {
+                            this.setFocusBasedOnInvoiceType();
+                        }
+                    },
+                    error: () => {
+                        this.removeInfoBox(type);
+                        if (type === 'party') {
+                            this.clearAllFields();
+                        }
+                    }
+                });
+            },
+
+            handleAccountResponse: function (response, type) {
+                const result = response?.result || {};
+                
+                if (!result || Object.keys(result).length === 0) {
+                    this.removeInfoBox(type);
+                    if (type === 'party') {
+                        this.clearAllFields();
+                    }
+                    return;
+                }
+
+                const {
+                    ledger_type,
+                    outstanding_balance = 0,
+                    outstanding_balance_formatted = '₹0.00',
+                    outstanding_balance_type = 'DR',
+                    price_slab = null,
+                    nature_of_supply = null,
+                    default_address = null,
+                    default_address_display = null,
+                    shipping_address = null,
+                    shipping_address_display = null,
+                    state = null,
+                    state_display = null,
+                    gst_in = null,
+                    gstin = null,
+                    is_overdue = false,
+                    available_credit = null,
+                    credit_days = null,
+                    mobile = null,
+                    relationship_manager = null,
+                    relationship_manager_contact = null
+                } = result;
+
+                // Create the info box HTML
+                this.createInfoBoxHTML(type);
+
+                // Update outstanding fields (only for party)
+                if (type === 'party') {
+                    this.updateOutstandingFields(outstanding_balance, outstanding_balance_type);
+                }
+
+                if (ledger_type === 'GENERAL') {
+                    this.updateGeneralLedgerDisplay(
+                        outstanding_balance_formatted, 
+                        outstanding_balance_type, 
+                        outstanding_balance,
+                        type
+                    );
+                    if (type === 'party') {
+                        this.clearPartyFields();
+                        this.clearAdditionalFields();
+                    }
+                    return;
+                }
+
+                // Update party-specific fields (only for party)
+                if (type === 'party') {
+                    this.updatePartyFields({
+                        price_slab,
+                        nature_of_supply,
+                        default_address,
+                        default_address_display,
+                        shipping_address,
+                        shipping_address_display,
+                        state,
+                        state_display
+                    });
+
+                    this.updateAdditionalFields(mobile, relationship_manager, relationship_manager_contact);
+                    this.updateDueDate(credit_days);
+                }
+                
+                this.updateOutstandingDisplay({
+                    balance: outstanding_balance,
+                    formattedBalance: outstanding_balance_formatted,
+                    balanceType: outstanding_balance_type,
+                    isOverdue: is_overdue,
+                    availableCredit: available_credit,
+                    gstNumber: gst_in || gstin
+                }, type);
+            },
+
+            updateGeneralLedgerDisplay: function (formattedBalance, balanceType, balance, type) {
+                const box = this.infoBoxes[type];
+                if (!box || !box.outstandingAmount?.length) return;
+
+                const amountClass = balance === 0 ? 'text-muted' : (balanceType === 'DR' ? 'text-danger' : 'text-success');
+                
+                box.outstandingAmount
+                    .text(formattedBalance)
+                    .removeClass('text-success text-danger text-muted')
+                    .addClass(amountClass);
+
+                // Hide all additional info for general ledger
+                if (box.partyGstInfo?.length) box.partyGstInfo.addClass('d-none');
+                if (box.gstSeparator?.length) box.gstSeparator.addClass('d-none');
+                if (box.creditInfo?.length) box.creditInfo.addClass('d-none');
+                if (box.creditSeparator?.length) box.creditSeparator.addClass('d-none');
+                if (box.overdueWarning?.length) box.overdueWarning.addClass('d-none');
+                if (box.overdueSeparator?.length) box.overdueSeparator.addClass('d-none');
+            },
+
+            updatePartyFields: function ({
+                price_slab,
+                nature_of_supply,
+                default_address,
+                default_address_display,
+                shipping_address,
+                shipping_address_display,
+                state,
+                state_display
+            }) {
+                const partyId = this.elements.partySelect.val();
+
+                // Update price slab and nature of supply
+                if (this.elements.priceSlabField.length) {
+                    this.elements.priceSlabField.val(price_slab);
+                }
+                if (this.elements.natureOfSupplyField.length) {
+                    this.elements.natureOfSupplyField.val(nature_of_supply);
+                }
+
+                // Billing Address
+                if (this.elements.billingAddressField.length) {
+                    if (default_address && default_address_display) {
+                        const option = new Option(default_address_display, default_address, true, true);
+                        this.elements.billingAddressField
+                            .empty()
+                            .append(option)
+                            .data("filter-party-id", partyId)
+                            .trigger('change');
+                    } else {
+                        this.elements.billingAddressField
+                            .val(null)
+                            .data("filter-party-id", partyId)
+                            .trigger('change');
+                    }
+                }
+
+                // Shipping Address
+                if (this.elements.shippingAddressField.length) {
+                    if (shipping_address && shipping_address_display) {
+                        const option = new Option(shipping_address_display, shipping_address, true, true);
+                        this.elements.shippingAddressField
+                            .empty()
+                            .append(option)
+                            .data("filter-party-id", partyId)
+                            .trigger('change');
+                    } else {
+                        this.elements.shippingAddressField
+                            .val(null)
+                            .data("filter-party-id", partyId)
+                            .trigger('change');
+                    }
+                }
+
+                // State
+                if (this.elements.stateField.length) {
+                    if (state && state_display) {
+                        const option = new Option(state_display, state, true, true);
+                        this.elements.stateField.empty().append(option).trigger('change');
+                    } else {
+                        this.elements.stateField.val(null).trigger('change');
+                    }
+                }
+            },
+
+            clearPartyFields: function () {
+                if (this.elements.priceSlabField.length) {
+                    this.elements.priceSlabField.val(null);
+                }
+                if (this.elements.natureOfSupplyField.length) {
+                    this.elements.natureOfSupplyField.val(null);
+                }
+                if (this.elements.billingAddressField.length) {
+                    this.elements.billingAddressField.val(null).trigger('change');
+                }
+                if (this.elements.shippingAddressField.length) {
+                    this.elements.shippingAddressField.val(null).trigger('change');
+                }
+                if (this.elements.stateField.length) {
+                    this.elements.stateField.val(null).trigger('change');
+                }
+            },
+
+            updateAdditionalFields: function (mobile, relationship_manager, relationship_manager_contact) {
+                if (this.elements.mobile.length && mobile) {
+                    this.elements.mobile.val(mobile);
+                }
+                if (this.elements.relationshipManagerField.length && relationship_manager) {
+                    this.elements.relationshipManagerField.val(relationship_manager);
+                }
+                if (this.elements.relationshipManagerContactField.length && relationship_manager_contact) {
+                    this.elements.relationshipManagerContactField.val(relationship_manager_contact);
+                }
+            },
+
+            clearAdditionalFields: function () {
+                if (this.elements.mobile.length) {
+                    this.elements.mobile.val('');
+                }
+                if (this.elements.relationshipManagerField.length) {
+                    this.elements.relationshipManagerField.val('');
+                }
+                if (this.elements.relationshipManagerContactField.length) {
+                    this.elements.relationshipManagerContactField.val('');
+                }
+            },
+
+            updateOutstandingFields: function (balance, balanceType) {
+                if (this.elements.outstandingAmountField.length) {
+                    this.elements.outstandingAmountField.val(Math.abs(balance).toFixed(2));
+                }
+                if (this.elements.outstandingTypeField.length) {
+                    this.elements.outstandingTypeField.val(balanceType || 'DR');
+                }
+            },
+
+            clearOutstandingFields: function () {
+                if (this.elements.outstandingAmountField.length) {
+                    this.elements.outstandingAmountField.val('0.00');
+                }
+                if (this.elements.outstandingTypeField.length) {
+                    this.elements.outstandingTypeField.val('DR');
+                }
+            },
+
+            updateDueDate: function (creditDays) {
+                if (creditDays && this.elements.dueDateField.length) {
+                    const dueDate = new Date();
+                    dueDate.setDate(dueDate.getDate() + parseInt(creditDays));
+
+                    const day = String(dueDate.getDate()).padStart(2, '0');
+                    const month = String(dueDate.getMonth() + 1).padStart(2, '0');
+                    const year = dueDate.getFullYear();
+                    const formattedDate = `${day}/${month}/${year}`;
+
+                    this.elements.dueDateField.val(formattedDate).trigger('change');
+                }
+            },
+
+            updateOutstandingDisplay: function ({
+                balance,
+                formattedBalance,
+                balanceType,
+                isOverdue,
+                availableCredit,
+                gstNumber
+            }, type) {
+                const box = this.infoBoxes[type];
+                if (!box || !box.outstandingAmount?.length) return;
+
+                // Show GST info
+                if (box.partyGstInfo?.length) {
+                    box.partyGstInfo.removeClass('d-none');
+                }
+                if (box.gstSeparator?.length) {
+                    box.gstSeparator.removeClass('d-none');
+                }
+
+                // Outstanding amount color
+                let amountClass = 'text-muted';
+                if (balance !== 0) {
+                    amountClass = balanceType === 'DR' 
+                        ? (balance > 0 ? 'text-danger' : 'text-success')
+                        : (balance < 0 ? 'text-danger' : 'text-success');
+                }
+
+                box.outstandingAmount
+                    .text(formattedBalance)
+                    .removeClass('text-success text-danger text-muted')
+                    .addClass(amountClass);
+
+                // GST Number
+                if (box.partyGstNo?.length) {
+                    box.partyGstNo.text(gstNumber || 'Not Registered');
+                }
+
+                // Available Credit
+                if (availableCredit !== null && availableCredit !== undefined) {
+                    const formattedCredit = availableCredit.toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                    if (box.availableCredit?.length) {
+                        box.availableCredit.text(`₹${formattedCredit}`);
+                    }
+                    if (box.creditInfo?.length) {
+                        box.creditInfo.removeClass('d-none');
+                    }
+                    if (box.creditSeparator?.length) {
+                        box.creditSeparator.removeClass('d-none');
+                    }
+                } else {
+                    if (box.creditInfo?.length) {
+                        box.creditInfo.addClass('d-none');
+                    }
+                    if (box.creditSeparator?.length) {
+                        box.creditSeparator.addClass('d-none');
+                    }
+                }
+
+                // Overdue Warning
+                if (isOverdue) {
+                    if (box.overdueWarning?.length) {
+                        box.overdueWarning.removeClass('d-none');
+                    }
+                    if (box.overdueSeparator?.length) {
+                        box.overdueSeparator.removeClass('d-none');
+                    }
+                } else {
+                    if (box.overdueWarning?.length) {
+                        box.overdueWarning.addClass('d-none');
+                    }
+                    if (box.overdueSeparator?.length) {
+                        box.overdueSeparator.addClass('d-none');
+                    }
+                }
+
+                this.initializeTooltips(type);
+            },
+
+            clearAllFields: function () {
+                this.clearOutstandingFields();
+                this.clearAdditionalFields();
+                this.clearPartyFields();
+            },
+
+            initializeTooltips: function (type) {
+                const box = this.infoBoxes[type];
+                if (!box || !box.wrapper?.length) return;
+
+                const tooltipElements = box.wrapper[0]?.querySelectorAll('[data-bs-toggle="tooltip"]');
+                
+                if (tooltipElements?.length) {
+                    [...tooltipElements].forEach(el => {
+                        const existingTooltip = bootstrap.Tooltip.getInstance(el);
+                        if (existingTooltip) {
+                            existingTooltip.dispose();
+                        }
+                        new bootstrap.Tooltip(el);
+                    });
+                }
+            }
+        };
+
+        PartyManager.initialize();
+        window.InvoiceFormScripts.PartyManager = PartyManager;
+    });
+</script>

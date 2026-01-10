@@ -1,0 +1,280 @@
+/* Start:: support_menu */
+.main-support-sidebar {
+    padding: 0;
+    max-height: 100vh;
+    position: relative;
+    overflow: auto;
+}
+.main-client-menu {
+    margin-block-end: 0;
+    border-block-start: 1px solid $default-border;
+    border-end-end-radius: 0.375rem;
+    border-end-start-radius: 0.375rem;
+    border-radius: 0;
+}
+.support-sidebar {
+    height: 100%;
+    background: $menu-bg;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    z-index: 100;
+    border-radius: 0.375rem;
+    transition: all 320ms ease;
+    .slide {
+        margin: 0;
+    }
+    .slide.has-sub {
+        &.open {
+            .side-menu__angle {
+                transform: rotate(90deg) !important;
+            }
+        }
+    }
+    .side-menu__item {
+        border-block-end: 1px solid $default-border;
+        padding: 16px 20px 16px 20px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-size: 14px;
+        color: $default-text-color;
+        font-weight: 500;
+        &.active,
+        &:hover {
+            color: $primary;
+            background-color: transparent;
+            .side-menu__label,.side-menu__angle {
+                color: $primary;
+            }
+            .side-menu__icon {
+                fill: $menu-prime-color;
+            }
+            &:before{
+                color: $primary !important;
+            }
+        }
+    }
+    .slide-menu {
+        &.child1,&.child2,&.child3 {
+            .side-menu__item {
+                &.active {
+                    background-color: transparent;
+                }
+            }
+            .slide .side-menu__item {
+                position: relative;
+                &.active {
+                    &:before {
+                        color: $primary;
+                    }
+                }
+                &:before {
+                    position: absolute;
+                    content: "\ea6e";
+                    font-family: remixicon!important;
+                    font-size: 1rem;
+                    inset-inline-start: 1rem;
+                    font-weight: 500;
+                    color: $default-text-color;
+                }
+            }
+        }
+    } 
+    .slide-menu {
+        padding: 0rem;
+    }
+    .slide-menu {
+        &.child1,
+        &.child2 {
+            .side-menu__item {
+                padding: 0.8rem 2.5rem;
+                opacity: 0.9;
+            }
+        }
+    }
+    .slide-menu {
+        &.child1,
+        &.child2,
+        &.child3 {
+            .side-menu__item {
+                &:hover {
+                    color: $primary;
+                }
+            }
+            li {
+                padding: 0;
+                position: relative;
+            }
+        }
+    }
+    .side-menu__label {
+        white-space: nowrap;
+        color: $default-text-color;
+        position: relative;
+        font-size: 0.85rem;
+        line-height: 1;
+        vertical-align: middle;
+    }
+    .side-menu__icon {
+        margin-inline-end: 0.5rem;
+        width: 1.15rem;
+        height: 1.5rem;
+        font-size: 1rem;
+        text-align: center;
+        color: $primary;
+        fill: $primary;
+        border-radius: $default-radius;
+    }
+    .side-menu__angle {
+        transform-origin: center;
+        position: absolute;
+        inset-inline-end: 0.75rem;
+        font-size: 0.85rem;
+        color: $menu-prime-color;
+        transition: all 320ms ease;
+    }
+    .slide.side-menu__label1 {
+        display: none;
+    }
+    .slide.has-sub .slide-menu {
+        transform: translate(0, 0) !important;
+        visibility: visible !important;
+    }
+}
+.nav ul li {
+    list-style-type: none;
+}
+.nav > ul {
+    padding-inline-start: 0px;
+}
+.slide-menu {
+    display: none;
+}
+.slide.has-sub {
+    display: grid;
+    &.open {
+        > .side-menu__item .side-menu__angle {
+            transform: rotate(90deg);
+        }
+    }
+}
+
+/* Responsive Styles Start */
+
+@media (max-width: 991.98px) {
+    .main-support-sidebar {
+        margin-block-start: 0;
+    }
+    .support-sidebar {
+        inset-block-start: 3.75rem;
+    }
+    .main-menu-btns {
+        display: none;
+    }
+}
+/* Responsive Styles End */
+
+/* RTL Styles End */
+[dir="rtl"] {
+.support-sidebar {
+    .side-menu__angle {
+        transform: scaleX(-1);
+    }
+    .slide-menu {
+        &.child1, &.child2, &.child3 {
+            .slide .side-menu__item:before {
+                transform: scaleX(-1);
+            }
+        }
+    }
+}
+@media (min-width: 992px) {
+    &[data-nav-style="menu-click"][data-nav-layout="horizontal"] {
+    .landing-body {
+            .app-sidebar .slide.has-sub.open .slide-menu.child1::before {
+                transform: rotate(-45deg);
+            }
+        }
+    }
+}
+}
+/* RTL Styles End */
+
+/* Start::client header */
+.client-brand-header {
+    border-block-end: 1px solid $default-border;
+    background-color: var(--header-bg);
+    .brand-header-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .allcategory-input-group {
+        position: relative;
+
+        .allcategory-addon {
+            position: absolute;
+            inset-block-start: 50%;
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-50%);
+            padding: 0px 1rem;
+        }
+
+        .form-control {
+            padding-inline-start: 9rem;
+        }
+    }
+    @media (min-width:992px) {
+        .horizontal-logo {
+            padding: 0.85rem 0 !important;
+        }
+    }
+}
+
+/* End::client header */
+
+/* Start:: Client-related-menu */
+.landing-body.client-related-portal {
+    .app-sidebar .side-menu__item {
+        padding: 1rem;
+    } 
+}
+.landing-body.client-related-portal {
+    .app-sidebar .side-menu__icon {
+        width: auto;
+        height: auto;
+        line-height: 1;
+        padding: 0;
+        color: $primary;
+        font-size: 1.05rem;
+        margin-inline-end: 0.25rem;
+    }
+}
+/* End:: Client-related-menu */
+
+
+.support-sidebar .profile-pic{
+    display: table;
+    margin: 0 auto;
+    padding: 1rem;
+    text-align: center;
+    
+}
+.support-sidebar .main-client-menu .side-menu__item.active {
+    background: $primary-01;
+    color: $primary;
+    border-inline-start: 3px solid $primary;
+}
+.support-sidebar .side-menu__icon {
+    font-size: 18px !important;
+    margin-inline-end: 0.6rem;
+    line-height: 1.2 !important;
+    
+}
+
+/* End:: support_menu */

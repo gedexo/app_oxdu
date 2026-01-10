@@ -1,0 +1,165 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector("form");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", function() {
+        // Disable the submit button
+        submitBtn.disabled = true;
+
+        // Change button content to loading spinner
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    });
+});
+</script>
+
+<script>
+$(document).ready(function () {
+
+    const branchField = $("#id_branch");
+    const partyField = $("#id_party");
+    const categoryField = $("#id_category");
+    const transactionType = "{{ transaction_type }}";
+
+    function resetSelect($select) {
+        $select.empty().append('<option value="">---------</option>');
+        $select.prop("disabled", true);
+        $select.trigger("change.select2");
+    }
+
+    resetSelect(partyField);
+    resetSelect(categoryField);
+
+    branchField.on("change", function () {
+        const branchId = $(this).val();
+
+        if (!branchId) {
+            resetSelect(partyField);
+            resetSelect(categoryField);
+            return;
+        }
+
+        // ✅ ENABLE SELECT2 CORRECTLY
+        partyField.prop("disabled", false);
+        categoryField.prop("disabled", false);
+
+        partyField.trigger("change.select2");
+        categoryField.trigger("change.select2");
+
+        // Load Party (Cash/Bank)
+        $.getJSON(
+            "/transactions/ajax/load-party-accounts/",
+            { branch: branchId },
+            function (data) {
+                resetSelect(partyField);
+                data.forEach(item => {
+                    partyField.append(
+                        new Option(item.name, item.id)
+                    );
+                });
+                partyField.prop("disabled", false);
+                partyField.trigger("change.select2");
+            }
+        );
+
+        // Load Category (Income / Expense)
+        $.getJSON(
+            "/transactions/ajax/load-category-accounts/",
+            { branch: branchId, type: transactionType },
+            function (data) {
+                resetSelect(categoryField);
+                data.forEach(item => {
+                    categoryField.append(
+                        new Option(item.name, item.id)
+                    );
+                });
+                categoryField.prop("disabled", false);
+                categoryField.trigger("change.select2");
+            }
+        );
+    });
+
+});
+</script>
+
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+                {% if transaction_type %}
+                <div class="page-subtitle mt-2">
+                    <span class="badge bg-{% if transaction_type == 'income' %}success{% else %}danger{% endif %} text-uppercase">
+                        {{ transaction_type|title }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action=""
+                                enctype="multipart/form-data">
+                                {% csrf_token %}
+                                {{form|crispy}}
+
+                                {% if formset %}
+                                    {% include formset_html %}
+                                {% endif %}
+
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">
+                                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                                            <button type="button" onclick="history.back()" class="btn btn-outline-info"> <i class="fa fa-cancel"></i> Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                            </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}

@@ -1,0 +1,260 @@
+{% extends 'app/base.html' %}
+{% load static i18n %}
+
+{% block content %}
+<div class="main-content app-content">
+    <div class="container-fluid py-5">
+
+        <!-- 1. Modern Minimalist Metrics (Bento Grid) -->
+        <div class="row mb-5 g-4">
+            <!-- Total Topics -->
+            <div class="col-6 col-lg-3">
+                <div class="card border-0 shadow-sm rounded-4 h-100 transition-up" style="background: #f8f9ff;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="stats-icon bg-primary-subtle text-primary rounded-3 p-2 me-3">
+                                <i class="fe fe-layers fs-4"></i>
+                            </div>
+                            <span class="text-muted fw-semibold small text-uppercase ls-1">Curriculum</span>
+                        </div>
+                        <h2 class="mb-0 fw-bold text-dark">{{ metrics.total }}</h2>
+                        <p class="text-muted small mt-1 mb-0">Total Topics</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed -->
+            <div class="col-6 col-lg-3">
+                <div class="card border-0 shadow-sm rounded-4 h-100 transition-up" style="background: #f6fff9;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="stats-icon bg-success-subtle text-success rounded-3 p-2 me-3">
+                                <i class="fe fe-check-circle fs-4"></i>
+                            </div>
+                            <span class="text-muted fw-semibold small text-uppercase ls-1">Progress</span>
+                        </div>
+                        <h2 class="mb-0 fw-bold text-success">{{ metrics.completed }}</h2>
+                        <p class="text-muted small mt-1 mb-0">Completed</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending -->
+            <div class="col-6 col-lg-3">
+                <div class="card border-0 shadow-sm rounded-4 h-100 transition-up" style="background: #fff8f8;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="stats-icon bg-danger-subtle text-danger rounded-3 p-2 me-3">
+                                <i class="fe fe-x-circle fs-4"></i>
+                            </div>
+                            <span class="text-muted fw-semibold small text-uppercase ls-1">Status</span>
+                        </div>
+                        <h2 class="mb-0 fw-bold text-danger">{{ metrics.pending }}</h2>
+                        <p class="text-muted small mt-1 mb-0">Remaining</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overall Percentage -->
+            <div class="col-6 col-lg-3">
+                <div class="card border-0 shadow-sm rounded-4 h-100 transition-up bg-dark">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="text-white-50 fw-semibold small text-uppercase ls-1">Overall Completion</span>
+                            <i class="fe fe-trending-up text-info fs-4"></i>
+                        </div>
+                        <h2 class="mb-0 fw-bold text-white">{{ metrics.percentage }}%</h2>
+                        <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.1) !important;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ metrics.percentage }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Syllabus Roadmap Section -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom py-4 px-4">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div>
+                        <h4 class="mb-1 fw-bold">Course Curriculum</h4>
+                        <p class="text-muted mb-0 small">Access your lessons and assignments below</p>
+                    </div>
+                    <div class="btn-group rounded-3 overflow-hidden border shadow-sm">
+                        <button class="btn btn-white btn-sm fw-bold px-3" id="expandAll">Expand All</button>
+                        <button class="btn btn-white btn-sm fw-bold px-3 border-start" id="collapseAll">Collapse All</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="accordion accordion-flush" id="syllabusAccordion">
+                    {% for group in grouped_syllabus %}
+                    <div class="accordion-item border-bottom">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-4 px-4 bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#module{{ group.master.id }}">
+                                <div class="d-flex align-items-center w-100">
+                                    <div class="flex-shrink-0 me-3">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center fw-bold text-primary border" style="width: 40px; height: 40px;">
+                                            {{ forloop.counter }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0 fw-bold text-dark">{{ group.master.title }}</h6>
+                                        <div class="small text-muted fw-normal mt-1">
+                                            <span class="me-2"><i class="fe fe-calendar me-1"></i>{{ group.master.month }}</span>
+                                            <span class="me-2">•</span>
+                                            <span><i class="fe fe-book me-1"></i>{{ group.topics|length }} Lessons</span>
+                                        </div>
+                                    </div>
+                                    <div class="accordion-custom-icon ms-auto me-2">
+                                        <i class="fe fe-plus fs-5 text-muted icon-collapsed"></i>
+                                        <i class="fe fe-minus fs-5 text-primary icon-expanded"></i>
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="module{{ group.master.id }}" class="accordion-collapse collapse" data-bs-parent="#syllabusAccordion">
+                            <div class="accordion-body bg-light-subtle p-0">
+                                <div class="list-group list-group-flush px-4 py-3">
+                                    {% for item in group.topics %}
+                                    <div class="list-group-item bg-transparent border-0 px-0 py-2">
+                                        <div class="p-3 bg-white rounded-3 shadow-xs border transition-up">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <!-- Status Icon Logic: Tick for Completed, Cross for Pending -->
+                                                <div class="mt-1">
+                                                    {% if item.status == 'completed' %}
+                                                        <i class="fe fe-check-circle text-success fs-5" title="Completed"></i>
+                                                    {% else %}
+                                                        <i class="fe fe-x-circle text-danger fs-5" title="Pending"></i>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div class="d-flex align-items-center">
+                                                            <h6 class="mb-0 fw-bold {% if item.status == 'completed' %}text-dark{% else %}text-muted{% endif %}">
+                                                                {{ item.title }}
+                                                            </h6>
+                                                            {% if item.status != 'completed' %}
+                                                                <span class="badge bg-danger-subtle text-danger ms-2 fw-normal" style="font-size: 0.65rem;">PENDING</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        <button class="btn btn-sm btn-link text-primary text-decoration-none fw-bold p-0" type="button" data-bs-toggle="collapse" data-bs-target="#detail{{ item.id }}">
+                                                            View Lesson <i class="fe fe-chevron-down ms-1"></i>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <div class="collapse mt-3" id="detail{{ item.id }}">
+                                                        <div class="p-3 border-top pt-3 mt-2">
+                                                            <div class="row g-4">
+                                                                <div class="col-md-7 border-md-end">
+                                                                    <p class="small text-uppercase fw-bold text-primary mb-2 ls-1">Topic Description</p>
+                                                                    <div class="syllabus-content text-dark">
+                                                                        {{ item.description|safe }}
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-5">
+                                                                    <p class="small text-uppercase fw-bold text-danger mb-2 ls-1">Assignments</p>
+                                                                    <div class="p-3 rounded-3 bg-light border-start border-danger border-4">
+                                                                        {{ item.homework|safe|default:"<p class='text-muted small mb-0'>No assignments listed.</p>" }}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-5 text-center">
+                        <i class="fe fe-folder-minus fs-1 text-muted mb-3 d-block"></i>
+                        <h5 class="text-muted">No curriculum data available.</h5>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+    :root {
+        --bs-primary: #4e73df;
+        --bs-font-sans-serif: 'Inter', sans-serif;
+    }
+
+    body { background-color: #fcfcfd; color: #2d3436; font-family: var(--bs-font-sans-serif); }
+
+    /* Remove Bootstrap Default Chevron */
+    .accordion-button::after { display: none !important; }
+
+    /* Custom Toggle Icon Logic */
+    .accordion-button.collapsed .icon-expanded { display: none; }
+    .accordion-button:not(.collapsed) .icon-expanded { display: inline-block; }
+    .accordion-button.collapsed .icon-collapsed { display: inline-block; }
+    .accordion-button:not(.collapsed) .icon-collapsed { display: none; }
+
+    /* Color Helpers */
+    .bg-primary-subtle { background-color: rgba(78, 115, 223, 0.1) !important; }
+    .bg-success-subtle { background-color: rgba(28, 200, 138, 0.1) !important; }
+    .bg-danger-subtle { background-color: rgba(231, 74, 59, 0.1) !important; }
+    .text-danger { color: #e74a3b !important; }
+
+    /* Layout & Cards */
+    .ls-1 { letter-spacing: 0.05rem; }
+    .rounded-4 { border-radius: 1rem !important; }
+    .shadow-xs { box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .stats-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+    .transition-up { transition: all 0.25s ease; }
+    .transition-up:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.05) !important; }
+
+    /* Accordion Styling */
+    .accordion-button:focus { box-shadow: none; }
+    .accordion-button:not(.collapsed) { background-color: #f8faff !important; color: var(--bs-primary); }
+    .bg-light-subtle { background-color: #fbfbfc !important; }
+
+    .syllabus-content { font-size: 0.92rem; line-height: 1.6; color: #4b5563; }
+    
+    @media (min-width: 768px) {
+        .border-md-end { border-right: 1px solid #dee2e6 !important; }
+    }
+
+    @media print {
+        .btn, .btn-group, .d-print-none { display: none !important; }
+        .accordion-collapse { display: block !important; }
+    }
+</style>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const accordionContainer = document.getElementById('syllabusAccordion');
+        const modules = accordionContainer.querySelectorAll('.accordion-collapse');
+
+        document.getElementById('expandAll').addEventListener('click', function() {
+            modules.forEach(el => {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+                bsCollapse.show();
+            });
+        });
+
+        document.getElementById('collapseAll').addEventListener('click', function() {
+            modules.forEach(el => {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+                bsCollapse.hide();
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,472 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<!-- Font: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* 
+     * MODERN STANDARD RECEIPT CSS
+     * Focus: Readability, Grid Alignment, Print fidelity
+     */
+    :root {
+        --doc-bg: #ffffff;
+        --body-bg: #f3f4f6;
+        --text-primary: #111827; /* Gray 900 */
+        --text-secondary: #6b7280; /* Gray 500 */
+        --border-color: #e5e7eb; /* Gray 200 */
+        --primary-brand: #0f172a;
+        --accent-success-bg: #dcfce7;
+        --accent-success-text: #166534;
+    }
+
+    body {
+        background-color: var(--body-bg);
+        font-family: 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .app-content {
+        padding: 2rem 1rem;
+        color: var(--text-primary);
+    }
+
+    /* The Paper Sheet */
+    .receipt-container {
+        background: var(--doc-bg);
+        max-width: 800px; /* Standard A4 proportional width */
+        margin: 0 auto;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .receipt-body {
+        padding: 40px 50px;
+    }
+
+    /* --- Header Section --- */
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .brand-logo {
+        max-height: 40px;
+        width: auto;
+    }
+
+    .document-title {
+        text-align: right;
+    }
+
+    .document-title h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0;
+        color: var(--primary-brand);
+    }
+
+    .status-badge {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    /* Status Colors */
+    .st-paid { background: #dcfce7; color: #15803d; }
+    .st-pending { background: #fef9c3; color: #a16207; }
+    .st-failed { background: #fee2e2; color: #b91c1c; }
+
+
+    /* --- Metadata Strip (Date, ID, etc) --- */
+    .meta-strip {
+        display: flex;
+        justify-content: space-between;
+        background-color: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 15px 20px;
+        margin-bottom: 30px;
+    }
+
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .meta-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .meta-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* --- Address Section --- */
+    .address-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 30px;
+    }
+
+    .addr-col {
+        width: 45%;
+    }
+
+    .addr-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+
+    .addr-body {
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .addr-body strong {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-brand);
+    }
+
+    /* --- Table Section --- */
+    .line-items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+    }
+
+    .line-items-table th {
+        text-align: left;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        font-weight: 600;
+        border-bottom: 2px solid var(--border-color);
+        padding: 10px 0;
+    }
+
+    .line-items-table td {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        vertical-align: top;
+    }
+
+    .line-items-table .text-right { text-align: right; }
+    .line-items-table .item-desc { font-weight: 500; }
+    .line-items-table .item-sub { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+
+    /* --- Totals Section --- */
+    .totals-section {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .totals-table {
+        width: 300px;
+        border-collapse: collapse;
+    }
+
+    .totals-table td {
+        padding: 8px 0;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .totals-table .val {
+        text-align: right;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .totals-table .grand-total td {
+        padding-top: 15px;
+        border-top: 2px solid var(--border-color);
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-brand);
+    }
+
+    /* --- Footer --- */
+    .receipt-footer {
+        margin-top: 50px;
+        padding-top: 20px;
+        border-top: 1px dashed var(--border-color);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+
+    .signature-area {
+        text-align: center;
+        width: 200px;
+    }
+    .signature-line {
+        border-bottom: 1px solid #ccc;
+        height: 40px;
+        margin-bottom: 5px;
+    }
+
+    /* --- Action Bar (No Print) --- */
+    .action-bar {
+        background: #f8fafc;
+        padding: 15px 50px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* --- Print Styles --- */
+    @media print {
+        body { background-color: white; }
+        .app-content { padding: 0; }
+        .receipt-container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
+        .action-bar, .page-header, aside, header, footer { display: none !important; }
+        /* Force background colors for badges */
+        .st-paid { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #dcfce7 !important; }
+        .st-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fef9c3 !important; }
+        .meta-strip { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #f8fafc !important; }
+    }
+</style>
+
+<div class="main-content app-content">
+    <div class="container-fluid p-0">
+
+        <div class="receipt-container" id="receipt-content">
+            
+            <!-- Receipt Internal Body -->
+            <div class="receipt-body">
+                
+                <!-- 1. Brand Header -->
+                <div class="header-row">
+                    <div>
+                        <!-- Use your specific logo path -->
+                        <img src="{% static 'app/assets/images/brand-logos/desktop-white.png' %}" alt="Logo" class="brand-logo">
+                    </div>
+                    <div class="document-title">
+                        <h1>Receipt</h1>
+                        <!-- Dynamic Status Badge -->
+                        <span class="status-badge st-{{object.status|default:'pending'}}">
+                            {{ object.status|default:"Pending" }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 2. Metadata Strip (Key Info) -->
+                <div class="meta-strip">
+                    <div class="meta-item">
+                        <span class="meta-label">Receipt No.</span>
+                        <span class="meta-value">#{{object.receipt_no}}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Date Paid</span>
+                        <span class="meta-value">{{object.date}}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Payment Method</span>
+                        <span class="meta-value">
+                            {{ object.payment_methods.first.payment_type|default:"Online" }}
+                        </span>
+                    </div>
+                    {% if object.razorpay_payment_id %}
+                    <div class="meta-item">
+                        <span class="meta-label">Reference ID</span>
+                        <span class="meta-value">
+                            {% if object.razorpay_payment_id %}
+                                {{ object.razorpay_payment_id|slice:":12" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 3. Addresses (From -> To) -->
+                <div class="address-row">
+                    <div class="addr-col">
+                        <div class="addr-label">Billed To</div>
+                        <div class="addr-body">
+                            <strong>{{object.student.fullname}}</strong>
+                            {% if object.student.communication_address %}
+                                {{object.student.communication_address}}<br>
+                            {% endif %}
+                            <div>{{object.student.personal_email}}</div>
+                            <div>{{object.student.contact_number}}</div>
+                        </div>
+                    </div>
+                    <div class="addr-col text-end">
+                        <div class="addr-label">From</div>
+                        <div class="addr-body">
+                            <strong>Oxdu Integrated Media School</strong>
+                            {{object.student.branch.get_address|default:"Campus Address Here"}}<br>
+                            {{object.student.branch.email|default:"accounts@oxdu.com"}}<br>
+                            {{object.student.branch.contact_number|default:""}}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Line Items Table -->
+                <table class="line-items-table">
+                    <thead>
+                        <tr>
+                            <th width="60%">Description</th>
+                            <th width="20%">Note</th>
+                            <th width="20%" class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment_method in object.payment_methods.all %}
+                        <tr>
+                            <td>
+                                <span class="item-desc">{{object.student.course.name}}</span>
+                                <span class="item-sub">Tuition & Course Fees</span>
+                            </td>
+                            <td style="color: var(--text-secondary); font-size: 0.85rem;">
+                                {{ payment_method.note|default:"-" }}
+                            </td>
+                            <td class="text-right font-weight-bold">₹{{ payment_method.amount }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td>
+                                <span class="item-desc">{{object.student.course.name}}</span>
+                                <span class="item-sub">Payment towards course fee</span>
+                            </td>
+                            <td>-</td>
+                            <td class="text-right">₹{{ object.get_amount }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- 5. Calculation / Totals -->
+                <div class="totals-section">
+                    <table class="totals-table">
+                        <tr>
+                            <td>Course Fee</td>
+                            <td class="val">₹{{object.student.course.fees}}</td>
+                        </tr>
+                        {% if object.student.discount_amount %}
+                        <tr>
+                            <td class="text-success">Discount</td>
+                            <td class="val text-success">- ₹{{object.student.discount_amount}}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td>Net Payable</td>
+                            <td class="val">₹{{object.student.get_current_fee}}</td>
+                        </tr>
+                        <!-- Grand Total -->
+                        <tr class="grand-total">
+                            <td>Amount Paid</td>
+                            <td class="val">₹{{ object.get_amount }}</td>
+                        </tr>
+                        {% if object.get_receipt_balance > 0 %}
+                        <tr>
+                            <td style="padding-top: 8px; font-size: 0.8rem; color: #b91c1c; font-weight: bold;">Balance Due</td>
+                            <td class="val" style="padding-top: 8px; font-size: 0.8rem; color: #b91c1c; font-weight: bold;">₹{{object.get_receipt_balance}}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+
+                <!-- 6. Footer / Notes -->
+                <div class="receipt-footer">
+                    <div style="max-width: 100%;">
+                        <strong>Notes:</strong><br>
+                        {{object.note|default:"Thank you for your payment. For any queries regarding this receipt or your fee details, please contact the Accounts Department."}}
+                    </div>
+                </div>
+
+            </div> <!-- End Body -->
+
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <a href="{{object.get_list_url}}" class="btn btn-light btn-sm">
+                    <i class="ri-arrow-left-line"></i> Back
+                </a>
+                <div class="btn-group">
+                    <button class="btn btn-outline-dark btn-sm" onclick="downloadPDF()">
+                        <i class="ri-file-pdf-line"></i> Download PDF
+                    </button>
+                    <button class="btn btn-dark btn-sm ms-2" onclick="window.print()">
+                        <i class="ri-printer-line"></i> Print
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+    window.jsPDF = window.jspdf.jsPDF;
+
+    function downloadPDF() {
+        const element = document.getElementById('receipt-content');
+        const actionBar = document.querySelector('.action-bar');
+        
+        // Temporarily hide the action bar
+        actionBar.style.display = 'none';
+        element.style.boxShadow = 'none';
+        element.style.borderRadius = '0';
+
+        html2canvas(element, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+            backgroundColor: '#ffffff'
+        }).then((canvas) => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save('Receipt_{{object.receipt_no}}.pdf');
+
+            // Restore styles
+            actionBar.style.display = 'flex';
+            element.style.boxShadow = '';
+            element.style.borderRadius = '8px';
+        });
+    }
+</script>
+
+{% endblock content %}

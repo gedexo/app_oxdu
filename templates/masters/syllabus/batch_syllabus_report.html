@@ -1,0 +1,376 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags extras %}
+
+{% block title %}{{ title|title }} : {{ app_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+      <div class="page-leftheader">
+        <h4 class="page-title">{{ title|title }}</h4>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add and new_link %}
+            <a href="{{ new_link }}" class="btn btn-light3" title="Add New">
+              <i class="fe fe-plus"></i> New
+            </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" title="Print">
+            <i class="fe fe-printer"></i>
+          </a>
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button" title="Filter Data">
+            <i class="fe fe-filter"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- /Page Header -->
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-body">
+
+            {% if table.data %}
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+              <div class="col-md-3">
+                <div class="card bg-primary bg-opacity-10 border-primary">
+                  <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                      <h4 class="mb-1">{{ total_count }}</h4>
+                      <p class="text-primary mb-0">Total Syllabus</p>
+                    </div>
+                    <i class="fe fe-book-open fs-2 text-primary"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card bg-success bg-opacity-10 border-success">
+                  <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                      <h4 class="mb-1">{{ completed_count }}</h4>
+                      <p class="text-success mb-0">Completed</p>
+                    </div>
+                    <i class="fe fe-check-circle fs-2 text-success"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card bg-warning bg-opacity-10 border-warning">
+                  <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                      <h4 class="mb-1">{{ pending_count }}</h4>
+                      <p class="text-warning mb-0">Pending</p>
+                    </div>
+                    <i class="fe fe-clock fs-2 text-warning"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card bg-info bg-opacity-10 border-info">
+                  <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                      <h4 class="mb-1">{{ progress_percentage|default:"0" }}%</h4>
+                      <p class="text-info mb-0">Progress</p>
+                    </div>
+                    <i class="fe fe-trending-up fs-2 text-info"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+             <!-- Batch Selector (optional, for filtering by batch) -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                <form method="get" class="d-flex align-items-center">
+                    <label for="batch" class="me-2 mb-0">Select Batch:</label>
+                    <select name="batch" id="batch" class="form-select me-2" onchange="this.form.submit()">
+                    <option value="">-- All Batches --</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch.id }}" {% if batch.id|stringformat:"s" == selected_batch|stringformat:"s" %}selected{% endif %}>
+                        {{ batch.batch_name }}
+                        </option>
+                    {% endfor %}
+                    </select>
+                    <noscript><button type="submit" class="btn btn-primary">Apply</button></noscript>
+                </form>
+                </div>
+            </div>
+
+
+            <!-- Syllabus Tables Side by Side -->
+            <div class="row">
+              <!-- Completed Syllabus -->
+              <div class="col-md-6">
+                <h5>Completed Syllabus</h5>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
+                    <thead class="theme-table-head">
+                      <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="completed-syllabus-body">
+                      {% for syllabus in completed_syllabus %}
+                      <tr class="table-success" id="syllabus-row-{{ syllabus.id }}">
+                        <td>{{ syllabus.order_id|default:"--" }}</td>
+                        <td>{{ syllabus.title }}</td>
+                        <td><span class="badge bg-success">Completed</span></td>
+                        <td>
+                          <button type="button" class="btn btn-sm btn-outline-success" 
+                                  data-bs-toggle="modal" data-bs-target="#syllabusDetailModal{{ syllabus.id }}">
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                      {% empty %}
+                      <tr><td colspan="5" class="text-center">No completed syllabus</td></tr>
+                      {% endfor %}
+                    </tbody>
+
+                  </table>
+                </div>
+              </div>
+
+              <!-- Pending Syllabus -->
+              <div class="col-md-6">
+                <h5>Pending Syllabus</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                    <thead class="theme-table-head">
+                        <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for syllabus in pending_syllabus %}
+                        <tr class="table-warning" id="syllabus-row-{{ syllabus.id }}">
+                        <td>{{ syllabus.order_id|default:"--" }}</td>
+                        <td>{{ syllabus.title }}</td>
+                        <td>
+                            <span class="badge bg-warning-pending" id="status-badge-{{ syllabus.id }}">Pending</span>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-warning me-1" 
+                                    data-bs-toggle="modal" data-bs-target="#syllabusDetailModal{{ syllabus.id }}">
+                            View Details
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success" 
+                                    onclick="markAsCompleted({{ syllabus.id }}, '{{ selected_batch }}')">
+                            Mark Completed
+                            </button>
+                        </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center">No pending syllabus</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+                </div>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="text-center py-5">
+              <div class="py-4">
+                <i class="fe fe-book-open fs-1 text-muted"></i>
+                <h5 class="mt-3 text-muted">{{ title|title }} {% translate "list is empty." %}</h5>
+              </div>
+              {% if can_add %}
+                <a href="{{ new_link }}" class="btn btn-primary">
+                  <i class="fe fe-plus me-1"></i> {% translate "Add New One" %}
+                </a>
+              {% endif %}
+            </div>
+            {% endif %}
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Syllabus Detail Modals -->
+{% for syllabus in completed_syllabus %}
+<div class="modal fade" id="syllabusDetailModal{{ syllabus.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ syllabus.title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-12 mb-3">
+            <h6>Description:</h6>
+            <p>{{ syllabus.description|safe|default:"No description provided" }}</p>
+          </div>
+        </div>
+        <div class="alert alert-success">
+          <div class="d-flex align-items-center">
+            <i class="fe fe-check-circle me-2 fs-4"></i>
+            <div>
+              <h6 class="mb-1">This syllabus has been completed</h6>
+              <p class="mb-0">You marked this syllabus as completed on {{ syllabus.completed_date|default:"recently" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% for syllabus in pending_syllabus %}
+<div class="modal fade" id="syllabusDetailModal{{ syllabus.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ syllabus.title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-12 mb-3">
+            <h6>Description:</h6>
+            <p>{{ syllabus.description|safe|default:"No description provided" }}</p>
+          </div>
+        </div>
+        <div class="alert alert-warning">
+          <div class="d-flex align-items-center">
+            <i class="fe fe-clock me-2 fs-4"></i>
+            <div>
+              <h6 class="mb-1">This syllabus is pending</h6>
+              <p class="mb-0">You haven't completed this syllabus yet</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% include 'app/partials/filter.html' %}
+{% include 'app/partials/help.html' %}
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Apply theme to tables
+  function applyThemeToTables() {
+    document.querySelectorAll('.theme-table-head').forEach((thead) => {
+      thead.classList.remove('table-dark', 'table-light');
+
+      if (document.documentElement.getAttribute('data-theme-mode') === 'dark') {
+        thead.classList.add('table-dark');
+      } else {
+        thead.classList.add('table-light');
+      }
+    });
+  }
+
+  // Run once on page load
+  applyThemeToTables();
+
+  // Watch for theme changes (data-theme-mode attribute)
+  const observer = new MutationObserver(applyThemeToTables);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme-mode']
+  });
+});
+</script>
+
+<script>
+function markAsCompleted(syllabusId, batchId) {
+  fetch("{% url 'masters:syllabus_status_update' %}", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": "{{ csrf_token }}",
+    },
+    body: JSON.stringify({
+      syllabus_id: syllabusId,
+      batch_id: batchId
+    }),
+  })
+  .then(response => response.json())
+  .then(data => {
+    if(data.success) {
+      const row = document.getElementById(`syllabus-row-${syllabusId}`);
+      const badge = document.getElementById(`status-badge-${syllabusId}`);
+
+      // Update badge and row classes
+      badge.classList.remove('bg-warning-pending');
+      badge.classList.add('bg-success');
+      badge.textContent = 'Completed';
+
+      row.classList.remove('table-warning');
+      row.classList.add('table-success');
+
+      // Remove the "Mark Completed" button
+      const markButton = row.querySelector('.btn-success');
+      if(markButton) markButton.remove();
+
+      // Move the row to Completed Syllabus table
+      const completedTableBody = document.querySelector('#completed-syllabus-body');
+      if (completedTableBody) {
+        completedTableBody.appendChild(row);
+      }
+
+    } else {
+      alert("Error: " + data.error);
+    }
+  })
+  .catch(err => {
+    alert("Something went wrong!");
+    console.error(err);
+  });
+}
+</script>
+
+{% endblock javascript %}
+
+{% block extra_css %}
+<style>
+.bg-warning-pending {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    cursor: pointer;
+}
+
+.bg-warning-pending:hover {
+    background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+}
+
+.table-success {
+    background-color: rgba(40, 167, 69, 0.05) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.05) !important;
+}
+</style>
+{% endblock %}

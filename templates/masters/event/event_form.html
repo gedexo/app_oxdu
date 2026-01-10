@@ -1,0 +1,243 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector("form");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", function() {
+        // Disable the submit button
+        submitBtn.disabled = true;
+        // Change button content to loading spinner
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving & Sending Messages...';
+    });
+
+    // Show/hide branch and course fields based on filter type
+    function toggleFilterFields() {
+        const filterTypeSelect = document.getElementById('id_filter_type');
+        const filterType = filterTypeSelect ? filterTypeSelect.value : 'all';
+        const branchField = document.getElementById('div_id_branch');
+        const courseField = document.getElementById('div_id_course');
+        
+        console.log('Filter type changed to:', filterType);
+        
+        if (filterType === 'all') {
+            if (branchField) branchField.style.display = 'none';
+            if (courseField) courseField.style.display = 'none';
+        } else if (filterType === 'branch') {
+            if (branchField) branchField.style.display = 'block';
+            if (courseField) courseField.style.display = 'none';
+        } else if (filterType === 'course') {
+            if (branchField) branchField.style.display = 'none';
+            if (courseField) courseField.style.display = 'block';
+        } else if (filterType === 'branch_course') {
+            if (branchField) branchField.style.display = 'block';
+            if (courseField) courseField.style.display = 'block';
+        }
+    }
+
+    // Initialize and set up event listener
+    const filterTypeSelect = document.getElementById('id_filter_type');
+    if (filterTypeSelect) {
+        // Initial toggle
+        toggleFilterFields();
+        // Add event listener
+        filterTypeSelect.addEventListener('change', toggleFilterFields);
+    }
+});
+</script>
+{% endblock javascript %}
+
+{% block extra_css %} 
+<style>
+.tox.tox-tinymce {
+    min-height: 50px !important;
+    max-height: 800px;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+#div_id_branch, #div_id_course {
+    display: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                {% if object %}
+                <a href="{% url 'masters:event_list' %}" class="btn btn-primary">
+                    <i class="fe fe-arrow-left"></i> Back to Events
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                            {% csrf_token %}
+                            
+                            {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div class="row">
+
+                                <!-- Event Type -->
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="id_event_type">Event Type *</label>
+                                        {{ form.event_type }}
+                                        {% if form.event_type.errors %}
+                                            <div class="text-danger small">{{ form.event_type.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Filter Type -->
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="id_filter_type">Filter Type *</label>
+                                        {{ form.filter_type }}
+                                        {% if form.filter_type.errors %}
+                                            <div class="text-danger small">{{ form.filter_type.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">
+                                            Choose how to filter the recipients
+                                        </small>
+                                    </div>
+                                </div>
+
+                                 <!-- Branch Field -->
+                                <div class="col-md-3" id="div_id_branch">
+                                    <div class="form-group">
+                                        <label for="id_branch">Branches</label>
+                                        {{ form.branch }}
+                                        {% if form.branch.errors %}
+                                            <div class="text-danger small">{{ form.branch.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">
+                                            Select branches (leave empty for all branches)
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Course Field -->
+                                <div class="col-md-3" id="div_id_course">
+                                    <div class="form-group">
+                                        <label for="id_course">Courses</label>
+                                        {{ form.course }}
+                                        {% if form.course.errors %}
+                                            <div class="text-danger small">{{ form.course.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">
+                                            Select courses (leave empty for all courses)
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Title -->
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="id_title">Title *</label>
+                                        {{ form.title }}
+                                        {% if form.title.errors %}
+                                            <div class="text-danger small">{{ form.title.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- URL -->
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="id_url">URL</label>
+                                        {{ form.url }}
+                                        {% if form.url.errors %}
+                                            <div class="text-danger small">{{ form.url.errors }}</div>
+                                        {% endif %}
+                                        <small class="form-text text-muted">
+                                            Optional event URL
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Image -->
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="id_image">Image *</label>
+                                        {{ form.image }}
+                                        {% if form.image.errors %}
+                                            <div class="text-danger small">{{ form.image.errors }}</div>
+                                        {% endif %}
+                                        {% if object and object.image %}
+                                        <div class="mt-2">
+                                            <small class="text-muted">Current image:</small><br>
+                                            <img src="{{ object.image.url }}" alt="Current event image" style="max-height: 100px;" class="mt-1">
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if formset %}
+                                    <div class="col-md-12 mt-3">
+                                        <h5>Additional Information</h5>
+                                        {% include formset_html %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="card-footer mt-4">
+                                <div class="row">
+                                    <div class="col">
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fe fe-send"></i> Submit
+                                        </button>
+                                        <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                            <i class="fa fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+    </div>
+</div>
+
+{% endblock content %}

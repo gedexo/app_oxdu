@@ -1,0 +1,483 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{title|title}}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add and new_link %}
+          <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+              class="fe fe-plus"></i>New </a>
+          {% endif %}
+          {% if table.paginated_rows %}
+          <a href="{% export_url 'xlsx' %}" class="btn btn-light3" data-bs-toggle="tooltip" data-bs-placement="top"
+            title="Export"> <i class="fe fe-download"></i> </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button"
+            aria-controls="offcanvasFilter" title="Filter Data"> <i class="fe fe-filter"></i> </a>
+
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- employment_type_choices Cards Row -->
+    <div class="row mb-4">
+      {% for key, val in employment_type_choices %}
+        <div class="col-lg-2 col-sm-6 col-md-4 col-xl-5th p-1">
+            <a href="?employment_type={{ key }}" class="text-decoration-none">
+                <div class="stage-card card {% if request.GET.employment_type == key %}active{% endif %}">
+                    <div class="card-body d-flex justify-content-between p-3">
+                        <div class="card-content d-grid align-content-center">
+                            <h5 class="mb-1 fw-semibold">{{ employment_type_counts|get_item:key|default:"0" }}</h5>
+                            <p class="mb-0 text-muted">
+                                {{ val }}
+                            </p>
+                        </div>
+                        <div class="stage-icon mb-3">
+                            {% if key == "PERMANENT" %}
+                            <span class="avatar avatar-lg bg-success-transparent rounded-circle">
+                                <i class="fe fe-user-check fs-20 text-success"></i>
+                            </span>
+                            {% elif key == "PROBATION" %}
+                            <span class="avatar avatar-lg bg-warning-transparent rounded-circle">
+                                <i class="fe fe-clock fs-20 text-warning"></i>
+                            </span>
+                            {% elif key == "CONTRACT" %}
+                            <span class="avatar avatar-lg bg-info-transparent rounded-circle">
+                                <i class="fe fe-file-text fs-20 text-info"></i>
+                            </span>
+                            {% elif key == "TEMPORARY" %}
+                            <span class="avatar avatar-lg bg-secondary-transparent rounded-circle">
+                                <i class="fe fe-calendar fs-20 text-secondary"></i>
+                            </span>
+                            {% elif key == "COMMISSION" %}
+                            <span class="avatar avatar-lg bg-purple-transparent rounded-circle">
+                                <i class="fe fe-dollar-sign fs-20 text-purple"></i>
+                            </span>
+                            {% else %}
+                            <span class="avatar avatar-lg bg-primary-transparent rounded-circle">
+                                <i class="fe fe-user fs-20 text-primary"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+      {% endfor %}
+
+      <div class="col-12">
+        <h3 class="text-center">Employee Salaries</h3>
+      </div>
+
+      {% for key, val in employment_type_choices %}
+        <div class="col-lg-2 col-sm-6 col-md-4 col-xl-2 p-1">
+            <a href="?employment_type={{ key }}" class="text-decoration-none">
+                <div class="stage-card card {% if request.GET.employment_type == key %}active{% endif %}">
+                    <div class="card-body d-flex justify-content-between p-3">
+                        <div class="card-content d-grid align-content-center">
+                            <h5 class="mb-1 fw-semibold">{{ employment_type_salary|get_item:key|default:"0" }}</h5>
+                            <p class="mb-0 text-muted">
+                                {{ val }}
+                            </p>
+                        </div>
+                        <div class="stage-icon mb-3">
+                            {% if key == "PERMANENT" %}
+                            <span class="avatar avatar-lg bg-success-transparent rounded-circle">
+                                <i class="fe fe-user-check fs-20 text-success"></i>
+                            </span>
+                            {% elif key == "PROBATION" %}
+                            <span class="avatar avatar-lg bg-warning-transparent rounded-circle">
+                                <i class="fe fe-clock fs-20 text-warning"></i>
+                            </span>
+                            {% elif key == "CONTRACT" %}
+                            <span class="avatar avatar-lg bg-info-transparent rounded-circle">
+                                <i class="fe fe-file-text fs-20 text-info"></i>
+                            </span>
+                            {% elif key == "TEMPORARY" %}
+                            <span class="avatar avatar-lg bg-secondary-transparent rounded-circle">
+                                <i class="fe fe-calendar fs-20 text-secondary"></i>
+                            </span>
+                            {% elif key == "COMMISSION" %}
+                            <span class="avatar avatar-lg bg-purple-transparent rounded-circle">
+                                <i class="fe fe-dollar-sign fs-20 text-purple"></i>
+                            </span>
+                            {% else %}
+                            <span class="avatar avatar-lg bg-primary-transparent rounded-circle">
+                                <i class="fe fe-user fs-20 text-primary"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+      {% endfor %}
+
+      <div class="col-lg-2 col-sm-6 col-md-4 col-xl-2 p-1">
+          <div class="stage-card card" >
+              <div class="card-body d-flex justify-content-between p-3">
+                  <div class="card-content d-grid align-content-center">
+                      <h5 class="mb-1 fw-semibold">{{total_salary|default:"0"}}</h5>
+                      <p class="mb-0 text-muted">
+                        Total Monthly Salary
+                      </p>
+                  </div>
+
+                  <div class="stage-icon mb-3">
+                    <span class="avatar avatar-lg bg-success-transparent rounded-circle">
+                          <i class="fe fe-user-check fs-20 text-success"></i>
+                      </span>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+  </div>
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+
+      <!-- Rest of your existing table code remains exactly the same -->
+      <div class="col-md-12 mt-4">
+        <div class="card custom-card border-0 shadow-sm">
+          {% if table.paginated_rows %}
+          <div class="card-body">
+            <div class="row justify-content-between">
+              <div class="col-lg-6">
+                <div class="d-flex align-items-center">
+                  <span>Show</span>
+                  <div class="d-flex ms-2 mx-2">
+                    <div class="form-group mb-0">
+                      <select name="table_pagination" id="select-table_pagination" class="form-control wd-150" data-trigger>
+                        <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                        <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                        <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                        <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+                      </select>
+                    </div>
+                  </div>
+                  <span>entries</span>
+                </div>
+              </div>
+              <div class="col col-auto">
+                <form action="" id="table-search">
+                  <div class="form-group w-100">
+                      <div class="input-icon">
+                        <span class="input-icon-addon">
+                          <i class="fe fe-search"></i>
+                        </span>
+                        <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                      </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+            {% render_table table %}
+            <nav class="mt-4">
+              {% if table.page and table.paginator.num_pages > 1 %}
+              <ul class="pagination justify-content-end mb-0">
+                {% if table.page.has_previous %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Prev</a>
+                </li>
+                {% endif %}
+
+                {% for p in table.page|table_page_range:table.paginator %}
+                <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                  {% if p == '...' %}
+                  <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                  {% else %}
+                  <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+
+                {% if table.page.has_next %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="javascript:void(0);">Next</a>
+                </li>
+                {% endif %}
+              </ul>
+              {% endif %}
+            </nav>
+          </div>
+          {% else %}
+          <div class="card-body">
+            {{title|title}} {% translate "list is empty." %}
+            {% if can_add %}<a href="{{new_link}}">{% translate "Add New One" %}</a>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for new_html in includes %}
+  {% include new_html %}
+{% endfor %}
+
+{% include 'app/partials/filter.html' %}
+{% include 'app/partials/help.html' %}
+
+<style>
+  @media (min-width: 1200px) {
+    .col-xl-5th {
+      flex: 0 0 20%;
+      max-width: 20%;
+    }
+  }
+
+  /* Light Theme Styles */
+  .stage-card {
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      background-color: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+      cursor: pointer;
+      margin-bottom: 15px;
+      overflow: hidden;
+      position: relative;
+  }
+
+  .stage-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .stage-card.active {
+      border: 1px solid var(--primary-bg-color);
+      box-shadow: 0 0 0 2px rgba(238, 76, 36, 0.2);
+  }
+
+  .stage-card.active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #ee4c24, #eb135e);
+  }
+
+  .stage-icon .avatar {
+      width: 60px;
+      height: 60px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+  }
+
+  .stage-card:hover .stage-icon .avatar {
+      transform: scale(1.1);
+  }
+
+  /* Text styles for light theme */
+  .stage-count {
+      color: #212529;
+  }
+  
+  .stage-label {
+      color: #6c757d;
+  }
+
+  /* Color variations for different statuses */
+  .stage-card[data-status="active"] .avatar {
+      background-color: rgba(40, 167, 69, 0.1) !important;
+      color: #28a745 !important;
+  }
+
+  .stage-card[data-status="inactive"] .avatar {
+      background-color: rgba(108, 117, 125, 0.1) !important;
+      color: #6c757d !important;
+  }
+
+  .stage-card[data-status="on_hold"] .avatar {
+      background-color: rgba(255, 193, 7, 0.1) !important;
+      color: #ffc107 !important;
+  }
+
+  .stage-card[data-status="completed"] .avatar {
+      background-color: rgba(23, 162, 184, 0.1) !important;
+      color: #17a2b8 !important;
+  }
+
+  .stage-card[data-status="internship"] .avatar {
+      background-color: rgba(102, 16, 242, 0.1) !important;
+      color: #6610f2 !important;
+  }
+
+  .stage-card[data-status="placed"] .avatar {
+      background-color: rgba(32, 201, 151, 0.1) !important;
+      color: #20c997 !important;
+  }
+
+  .stage-card[data-status="dropped"] .avatar {
+      background-color: rgba(220, 53, 69, 0.1) !important;
+      color: #dc3545 !important;
+  }
+
+  .stage-card[data-status="terminated"] .avatar {
+      background-color: rgba(52, 58, 64, 0.1) !important;
+      color: #343a40 !important;
+  }
+
+  /* Dark Theme Overrides */
+  [data-theme-mode="dark"] .stage-card {
+      background-color: #2a3042;
+      border-color: rgba(255, 255, 255, 0.05) !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  [data-theme-mode="dark"] .stage-card:hover {
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme-mode="dark"] .stage-count {
+      color: #f8f9fa;
+  }
+
+  [data-theme-mode="dark"] .stage-label {
+      color: #adb5bd;
+  }
+
+  [data-theme-mode="dark"] .stage-card.active {
+      border-color: #ff6b9e;
+      box-shadow: 0 0 0 2px rgba(255, 107, 158, 0.2);
+  }
+
+  [data-theme-mode="dark"] .stage-card.active::before {
+      background: linear-gradient(90deg, #ff6b6b, #ff6b9e);
+  }
+
+  /* Adjust avatar colors in dark mode */
+  [data-theme-mode="dark"] .stage-card[data-status="active"] .avatar {
+      background-color: rgba(40, 167, 69, 0.2) !important;
+      color: #79df9f !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="inactive"] .avatar {
+      background-color: rgba(108, 117, 125, 0.2) !important;
+      color: #ced4da !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="on_hold"] .avatar {
+      background-color: rgba(255, 193, 7, 0.2) !important;
+      color: #ffd351 !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="completed"] .avatar {
+      background-color: rgba(23, 162, 184, 0.2) !important;
+      color: #6edff6 !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="internship"] .avatar {
+      background-color: rgba(102, 16, 242, 0.2) !important;
+      color: #b185ff !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="placed"] .avatar {
+      background-color: rgba(32, 201, 151, 0.2) !important;
+      color: #79f8d7 !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="dropped"] .avatar {
+      background-color: rgba(220, 53, 69, 0.2) !important;
+      color: #ff6b6b !important;
+  }
+
+  [data-theme-mode="dark"] .stage-card[data-status="terminated"] .avatar {
+      background-color: rgba(52, 58, 64, 0.2) !important;
+      color: #dee2e6 !important;
+  }
+
+  /* Other existing styles */
+  .bg-confirm, .btn-confirm {
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+    border-color: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+  }
+  
+  [data-theme-mode="dark"] .btn-confirm {
+    background: linear-gradient(90deg, #ff6b6b, #ff6b9e) !important;
+    border-color: linear-gradient(90deg, #ff6b6b, #ff6b9e) !important;
+  }
+  
+  .btn-confirm:hover {
+    background: linear-gradient(90deg, #d14320, #d31154) !important;
+    border-color: linear-gradient(90deg, #d14320, #d31154) !important;
+  }
+  
+  [data-theme-mode="dark"] .btn-confirm:hover {
+    background: linear-gradient(90deg, #e05555, #e0558d) !important;
+    border-color: linear-gradient(90deg, #e05555, #e0558d) !important;
+  }
+  
+  .btn-confirm:active, .btn-confirm:focus {
+    background: linear-gradient(90deg, #b93a1c, #ba0f4a) !important;
+    border-color: linear-gradient(90deg, #b93a1c, #ba0f4a) !important;
+    box-shadow: 0 0 0 0.25rem rgba(238, 76, 36, 0.25) !important;
+  }
+  
+  .modal-header.bg-primary {
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+  }
+  
+  [data-theme-mode="dark"] .modal-header.bg-primary {
+    background: linear-gradient(90deg, #ff6b6b, #ff6b9e) !important;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #ee4c24 !important;
+    box-shadow: 0 0 0 0.25rem rgba(238, 76, 36, 0.25) !important;
+  }
+  
+  [data-theme-mode="dark"] .form-control:focus, 
+  [data-theme-mode="dark"] .form-select:focus {
+    border-color: #ff6b9e !important;
+    box-shadow: 0 0 0 0.25rem rgba(255, 107, 158, 0.25) !important;
+  }
+  
+  .form-check-input:checked {
+    background-color: #ee4c24 !important;
+    border-color: #ee4c24 !important;
+  }
+  
+  [data-theme-mode="dark"] .form-check-input:checked {
+    background-color: #ff6b9e !important;
+    border-color: #ff6b9e !important;
+  }
+  
+  .badge.bg-primary {
+    background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+  }
+  
+  [data-theme-mode="dark"] .badge.bg-primary {
+    background: linear-gradient(90deg, #ff6b6b, #ff6b9e) !important;
+  }
+</style>
+{% endblock content %}

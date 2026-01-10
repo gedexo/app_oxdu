@@ -1,0 +1,120 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
+    <title>ID CARD</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Metrophobic&family=Mulish:ital,wght@0,200..1000;1,200..1000&family=Outfit:wght@100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+        body{
+            padding: 0px !important;
+            margin: 0px !important;
+        }
+        
+        *{
+            padding: 0;
+            margin: 0;
+            font-family: "Outfit", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 900;
+            font-style: normal;
+        }
+        .id-card-1{
+            height: 640px;
+            width: 100%;
+            padding: 0px !important;
+            margin: 0px !important;
+            background-image: url("{% static 'app/assets/images/id-card/id_card_1.png'%}");
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+        }
+        .id-card-2{
+            height: 612px;
+            width: 350px;
+            padding: 0px !important;
+            margin: 0px !important;
+            background-image: url("{% static 'app/assets/images/id-card/id_card_2.png'%}");
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+        }
+       
+        .card {
+            max-width: 100%;
+            min-height: 100%;
+            position: relative;
+            
+        }
+        
+        .position{
+            position: absolute;
+            font-size: 15px;
+            font-weight: 500;
+            text-transform: uppercase;
+            
+        }
+        
+        .fullname{
+            position: absolute;
+            font-weight: 800;
+            font-size: 20px;
+            text-transform: uppercase;
+        }
+        .id-no{
+            position: absolute;
+            font-weight: 600;
+            font-size: 17px;
+            color: gray;
+        }
+        .id-card-img {
+            height: 500px;
+            width: 100%;
+            position: absolute !important;
+            left: 6%;
+            top: 19.8%;
+            border-radius: 2px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+    </style>
+</head>
+
+<body>
+    <div class="id-card-1">
+        <div class="card">
+            {% if instance.photo %}
+                <div class="id-card-img" style="background-image: url('{{ instance.photo.url }}');"></div>
+            {% endif %} 
+            <p class="fullname" style="top: 50%; left: 8%; width:70%">{{instance.fullname}}</p>
+            <p class="position" style="top: 54%; left: 8%;">{{instance.designation}}</p>
+            
+        </div>
+        
+    </div>
+
+    <div class="id-card-2">
+        <div class="card">
+            {% if instance.user.usertype == "student" %}
+               <p class="id-no" style="top: 10.5%; left: 8%;">{{instance.admission_number}}</p>
+            {% else %}
+                <p class="id-no" style="top: 10.5%; left: 8%;">{{instance.employee_id}}</p>
+            {% endif %}
+            <p class="id-no" style="top: 21.3%; left: 8.5%;">{{instance.date_of_birth|date:"d/Y/m"}}</p>
+            <p class="id-no" style="top: 30.8%; left: 8.5%;">{{instance.mobile}}</p>
+            <p class="id-no" style="top: 41%; left: 8.5%;">{{instance.guardian_mobile|default:""}}</p>
+            <p class="id-no" style="top: 50%; left: 8.5%;">{{instance.get_blood_group_display}}</p>
+            <p class="id-no" style="top: 59%; left: 15%; display: flex; justify-content: center; width: 70%; text-align: center; font-size: 13px; line-height: 18px;">{{instance.branch.get_address}}</p>
+        </div>
+        
+    </div>
+
+
+</body>
+
+</html>

@@ -1,0 +1,114 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                    {% csrf_token %}
+                                    {{ form|crispy }}
+                                    {{ attendance_formset.management_form }}
+                                
+                                
+                                    <div>
+                                        <hr class="solid">
+                                    </div>
+                                
+                                    <!-- Attendance Table -->
+                                    <table class="table table-bordered" id="student-list">
+                                        <thead>
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th width="65%">Student</th>
+                                                <th width="25%">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for form in attendance_formset.forms %}
+                                                <tr class="form_set_row">
+                                                    {% for hidden in form.hidden_fields %}
+                                                        {{ hidden }}
+                                                    {% endfor %}
+                                                    <td>{{ forloop.counter }}</td>
+                                                    <td>{{ form.student }} {{ form.student.pk  }}</td>
+                                                    <td>{{ form.status }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                
+                                    {% if formset %}
+                                        {% include formset_html %}
+                                    {% endif %}
+                                
+                                    <div class="card-footer">
+                                        <div class="row">
+                                            <div class="col">
+                                                <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                                                <button type="button" onclick="history.back()" class="btn btn-outline-info"> <i class="fa fa-cancel"></i> Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                
+                                    {{ form.management_form }}
+                                    {{ form.media }}
+                                </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+<script>
+    function updateStudents() {
+        let course_id = document.getElementById("id_course").value; // Get selected course ID
+        let url = new URL(window.location.href);
+        url.searchParams.set("course", course_id); // Update URL with course param
+        window.location.href = url.href; // Reload page with selected course
+    }
+</script>
+
+
+{% endblock content %}

@@ -1,0 +1,503 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load static i18n humanize %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+        --bg-color: #f3f4f6;
+        --card-bg: #ffffff;
+        --c-income: #10b981;  /* Emerald 500 */
+        --c-expense: #ef4444; /* Red 500 */
+        --c-balance: #6366f1; /* Indigo 500 */
+        --c-text-main: #111827;
+        --c-text-muted: #6b7280;
+    }
+
+    /* --- Cards --- */
+    .premium-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03), 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+        transition: all 0.3s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.02);
+    }
+    .premium-card::before { 
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; 
+        background: currentColor; opacity: 0.8; 
+    }
+    .premium-card:hover { transform: translateY(-3px); box-shadow: 0 20px 30px -10px rgba(0,0,0,0.08); }
+    
+    .card-content { padding: 1.75rem; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+    
+    .icon-box-modern {
+        width: 48px; height: 48px; border-radius: 12px; display: flex;
+        align-items: center; justify-content: center; font-size: 1.25rem; color: white;
+        background: linear-gradient(135deg, var(--icon-start), var(--icon-end));
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--c-text-muted); margin-bottom: 0.25rem; letter-spacing: 0.5px; }
+    .card-amount { font-size: 1.75rem; font-weight: 700; color: var(--c-text-main); line-height: 1.1; font-family: var(--font-primary); }
+    
+    .trend-pill { 
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 0.75rem; font-weight: 600; padding: 4px 12px; 
+        border-radius: 20px; background: #f9fafb; color: var(--c-text-muted); 
+    }
+
+    /* --- Layout --- */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; }
+    
+    /* Responsive Grid Spans */
+    .col-span-4 { grid-column: span 12; } 
+    .col-span-8 { grid-column: span 12; }
+    .col-span-12 { grid-column: span 12; }
+    
+    @media (min-width: 992px) { 
+        .col-span-4 { grid-column: span 4; } 
+        .col-span-8 { grid-column: span 8; } 
+    }
+
+    .content-panel { 
+        background: white; border-radius: 16px; padding: 1.5rem; 
+        border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+    }
+    .panel-header { 
+        display: flex; justify-content: space-between; align-items: center; 
+        margin-bottom: 1.5rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 1rem; 
+    }
+    .panel-title { font-size: 1.1rem; font-weight: 700; color: var(--c-text-main); margin: 0; }
+
+    /* --- Filter Form --- */
+    .filter-form {
+        background: white; padding: 0.5rem; border-radius: 12px; border: 1px solid #e5e7eb;
+        display: inline-flex; gap: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); align-items: center;
+    }
+    .filter-select { 
+        border: none; background: transparent; font-size: 0.875rem; font-weight: 500; 
+        color: #374151; padding: 0.25rem 0.75rem; cursor: pointer; outline: none;
+    }
+    .filter-select:hover { background-color: #f9fafb; border-radius: 6px; }
+    
+    .filter-btn { 
+        background-color: var(--c-text-main); color: white; border: none; 
+        border-radius: 8px; padding: 6px 16px; font-size: 0.85rem; font-weight: 600; 
+        transition: background 0.2s;
+    }
+    .filter-btn:hover { background-color: #000; }
+    .btn-clear { color: #ef4444; padding: 0 8px; }
+
+    /* --- Table --- */
+    .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .modern-table th { 
+        text-align: left; font-size: 0.75rem; text-transform: uppercase; 
+        color: var(--c-text-muted); font-weight: 600; padding: 0.75rem 1rem; 
+        background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+        position: sticky; top: 0; z-index: 10;
+    }
+    .modern-table td { padding: 0.85rem 1rem; border-bottom: 1px solid #f3f4f6; color: var(--c-text-main); font-size: 0.9rem; }
+    .modern-table tr:last-child td { border-bottom: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+
+        <!-- Main Card Wrapper -->
+        <div class="custom-card card accounting-card">
+            <div class="card-body">
+                
+                <!-- 1. Filter Section -->
+                <div class="row mb-4">
+                    <div class="col-md-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h4 class="mb-0 fw-bold text-dark">Financial Overview</h4>
+                        
+                        <form method="GET" action="." class="filter-form">
+                            <!-- Month Filter -->
+                            <select name="month" class="filter-select">
+                                <option value="">All Months</option>
+                                {% for m in months_list %}
+                                    <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <div style="width: 1px; background: #e5e7eb; height: 20px;"></div>
+
+                            <!-- Year Filter -->
+                            <select name="year" class="filter-select">
+                                {% for y in available_years %}
+                                    <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <button type="submit" class="filter-btn">
+                                <i class="fas fa-filter me-1"></i> Apply
+                            </button>
+                            
+                            {% if selected_month %}
+                            <a href="?year={{ selected_year }}" class="btn-clear" title="Clear Month Filter"><i class="fas fa-times"></i></a>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 2. KPI Cards -->
+                <div class="dashboard-grid mb-4">
+                    <!-- Income Card -->
+                    <div class="col-span-4">
+                        <div class="premium-card" style="color: var(--c-income); --icon-start: #34d399; --icon-end: #059669;">
+                            <div class="card-content">
+                                <div class="card-top">
+                                    <div>
+                                        <div class="card-label">Total Income</div>
+                                        <div class="card-amount">₹{{ total_income|intcomma }}</div>
+                                    </div>
+                                    <div class="icon-box-modern"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                                </div>
+                                <div class="trend-pill">
+                                    <i class="fas fa-chart-line text-success"></i> Gross Revenue
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expense Card -->
+                    <div class="col-span-4">
+                        <div class="premium-card" style="color: var(--c-expense); --icon-start: #f87171; --icon-end: #dc2626;">
+                            <div class="card-content">
+                                <div class="card-top">
+                                    <div>
+                                        <div class="card-label">Total Expense</div>
+                                        <div class="card-amount">₹{{ total_expense|intcomma }}</div>
+                                    </div>
+                                    <div class="icon-box-modern"><i class="fas fa-arrow-down"></i></div>
+                                </div>
+                                <div class="trend-pill">
+                                    <i class="fas fa-receipt text-danger"></i> Operational Costs
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Balance/Profit Card (Dynamic Color) -->
+                    <div class="col-span-4">
+                        <div class="premium-card" 
+                            style="{% if balance < 0 %} color: #ef4444; --icon-start: #f87171; --icon-end: #dc2626;
+                                    {% else %} color: #6366f1; --icon-start: #818cf8; --icon-end: #4f46e5; {% endif %}">
+                            <div class="card-content">
+                                <div class="card-top">
+                                    <div>
+                                        <div class="card-label">{% if balance < 0 %}Net Deficit{% else %}Net Profit{% endif %}</div>
+                                        <div class="card-amount {% if balance < 0 %}text-danger{% else %}text-primary{% endif %}">
+                                            ₹{{ balance|intcomma }}
+                                        </div>
+                                    </div>
+                                    <div class="icon-box-modern">
+                                        {% if balance < 0 %}<i class="fas fa-thumbs-down"></i>{% else %}<i class="fas fa-wallet"></i>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="trend-pill">
+                                    {% if balance < 0 %}
+                                        <i class="fas fa-exclamation-circle text-danger"></i> <span class="text-danger fw-bold ms-1">Loss Margin: {{ profit_margin }}%</span>
+                                    {% else %}
+                                        <i class="fas fa-check-circle text-success"></i> <span class="text-success fw-bold ms-1">Profit Margin: {{ profit_margin }}%</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Charts & Tables Row -->
+                <div class="dashboard-grid mb-4">
+                    <!-- Main Line Chart -->
+                    <div class="col-span-8">
+                        <div class="content-panel h-100">
+                            <div class="panel-header">
+                                <div>
+                                    <h5 class="panel-title">Income vs Expense Trend</h5>
+                                    <small class="text-muted">
+                                        {% if selected_month %}Daily breakdown for {{ selected_month }}{% else %}Monthly breakdown for {{ selected_year }}{% endif %}
+                                    </small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-light text-dark border"><i class="fas fa-circle text-success fs-10 me-1"></i> Income</span>
+                                    <span class="badge bg-light text-dark border"><i class="fas fa-circle text-danger fs-10 me-1"></i> Expense</span>
+                                </div>
+                            </div>
+                            <div style="height: 350px; position: relative; width: 100%;">
+                                <canvas id="lineChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="col-span-4">
+                        <div class="content-panel h-100 p-0 overflow-hidden">
+                            <div class="p-3 px-4 border-bottom bg-light">
+                                <h5 class="panel-title fs-14">Activity Log</h5>
+                            </div>
+                            <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th class="text-end">Income</th>
+                                            <th class="text-end">Expense</th>
+                                            <th class="text-end">Net</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for entry in table_data reversed %}
+                                        <tr>
+                                            <td class="fw-bold">{{ entry.get_date_display }}</td>
+                                            <td class="text-end text-success fs-12">+{{ entry.income|intcomma }}</td>
+                                            <td class="text-end text-danger fs-12">-{{ entry.expense|intcomma }}</td>
+                                            <td class="text-end">
+                                                <span class="badge {% if entry.get_profit_loss >= 0 %}bg-success-transparent text-success{% else %}bg-danger-transparent text-danger{% endif %}">
+                                                    {{ entry.get_profit_loss|intcomma }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted p-5">
+                                                <i class="fas fa-folder-open fs-2 mb-2 d-block opacity-25"></i>
+                                                No financial records found for this period.
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Bottom Chart: Net Profit Analysis -->
+                <div class="dashboard-grid">
+                    <div class="col-span-12">
+                        <div class="content-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h5 class="panel-title">Net Profit/Loss Divergence</h5>
+                                    <small class="text-muted">Visualizing cash flow performance relative to break-even</small>
+                                </div>
+                            </div>
+                            <div style="height: 320px; position: relative;">
+                                <canvas id="divergingChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- End Card Body -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // --------------------------------------------------------
+    // 1. Data Injection from Django
+    // --------------------------------------------------------
+    // 'safe' filter is critical here to render valid JSON
+    const labels = {{ labels|safe }};
+    const incomeData = {{ income_data|safe }};
+    const expenseData = {{ expense_data|safe }};
+
+    // Calculate Net Profit Data for 2nd Chart locally
+    const profitData = incomeData.map((inc, index) => inc - expenseData[index]);
+
+    // Common Chart Options
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: true,
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) label += ': ';
+                        if (context.parsed.y !== null) {
+                            label += '₹' + context.parsed.y.toLocaleString("en-IN");
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { 
+                grid: { display: false }, 
+                ticks: { color: '#9ca3af', font: { size: 11 } } 
+            },
+            y: { 
+                border: { display: false },
+                grid: { color: '#f3f4f6', borderDash: [4, 4] }, 
+                ticks: { color: '#9ca3af', font: { size: 11 } },
+                beginAtZero: true
+            }
+        }
+    };
+
+    // --------------------------------------------------------
+    // 2. Main Line Chart (Income vs Expense)
+    // --------------------------------------------------------
+    const ctxLine = document.getElementById('lineChart').getContext('2d');
+
+    // Create Gradients
+    const gradientIncome = ctxLine.createLinearGradient(0, 0, 0, 350);
+    gradientIncome.addColorStop(0, 'rgba(16, 185, 129, 0.4)'); 
+    gradientIncome.addColorStop(1, 'rgba(16, 185, 129, 0.0)'); 
+
+    const gradientExpense = ctxLine.createLinearGradient(0, 0, 0, 350);
+    gradientExpense.addColorStop(0, 'rgba(239, 68, 68, 0.4)'); 
+    gradientExpense.addColorStop(1, 'rgba(239, 68, 68, 0.0)'); 
+
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#10b981', // Emerald
+                    backgroundColor: gradientIncome,
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#ef4444', // Red
+                    backgroundColor: gradientExpense,
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 6
+                }
+            ]
+        },
+        options: commonOptions
+    });
+
+    // --------------------------------------------------------
+    // 3. Diverging Chart (Net Profit)
+    // --------------------------------------------------------
+    const ctxDiv = document.getElementById('divergingChart').getContext('2d');
+
+    const divergingChart = new Chart(ctxDiv, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Net Profit/Loss',
+                data: profitData,
+                borderWidth: 2,
+                tension: 0.4,
+                fill: { target: 'origin' }, 
+                pointRadius: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        plugins: [{
+            id: 'dynamicGradient',
+            beforeRender: (chart) => {
+                const ctx = chart.ctx;
+                const area = chart.chartArea;
+                const yScale = chart.scales.y;
+                if (!area) return;
+
+                const dataset = chart.data.datasets[0];
+                
+                // 1. Determine Zero Line position
+                const range = yScale.max - yScale.min;
+                const zeroRatio = (yScale.max - 0) / range;
+                
+                // 2. Create Gradient for Fill
+                const gradientFill = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                
+                if (yScale.min >= 0) {
+                    // All positive
+                    gradientFill.addColorStop(0, 'rgba(99, 102, 241, 0.5)');
+                    gradientFill.addColorStop(1, 'rgba(99, 102, 241, 0.05)');
+                    dataset.borderColor = '#6366f1';
+                } else if (yScale.max <= 0) {
+                    // All negative
+                    gradientFill.addColorStop(0, 'rgba(239, 68, 68, 0.05)');
+                    gradientFill.addColorStop(1, 'rgba(239, 68, 68, 0.5)');
+                    dataset.borderColor = '#ef4444';
+                } else {
+                    // Mixed
+                    gradientFill.addColorStop(0, 'rgba(99, 102, 241, 0.5)'); // Top (Positive)
+                    gradientFill.addColorStop(Math.max(0, zeroRatio - 0.05), 'rgba(99, 102, 241, 0.1)');
+                    gradientFill.addColorStop(zeroRatio, 'rgba(255, 255, 255, 0)');
+                    gradientFill.addColorStop(Math.min(1, zeroRatio + 0.05), 'rgba(239, 68, 68, 0.1)');
+                    gradientFill.addColorStop(1, 'rgba(239, 68, 68, 0.5)'); // Bottom (Negative)
+                    
+                    // Stroke Gradient
+                    const strokeGrad = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                    strokeGrad.addColorStop(0, '#6366f1');
+                    strokeGrad.addColorStop(zeroRatio, '#6366f1');
+                    strokeGrad.addColorStop(zeroRatio, '#ef4444');
+                    strokeGrad.addColorStop(1, '#ef4444');
+                    dataset.borderColor = strokeGrad;
+                }
+
+                dataset.backgroundColor = gradientFill;
+            }
+        }],
+        options: {
+            ...commonOptions,
+            scales: {
+                ...commonOptions.scales,
+                y: {
+                    ...commonOptions.scales.y,
+                    // Highlight the zero line
+                    grid: {
+                        color: (ctx) => ctx.tick.value === 0 ? 'rgba(0,0,0,0.3)' : '#f3f4f6',
+                        lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1,
+                        borderDash: (ctx) => ctx.tick.value === 0 ? [] : [4, 4]
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

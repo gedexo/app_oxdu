@@ -1,0 +1,895 @@
+{% load static humanize %}
+
+<!-- Subscription Modal -->
+<div class="subscription-modal-overlay" id="subscriptionModal" style="display: {% if show_subscription_popup %}flex{% else %}none{% endif %};">
+    <div class="subscription-modal">
+        
+        <!-- Header -->
+        <div class="modal-header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div class="header-text">
+                    <h2>Fee Payment Due</h2>
+                    <p>Complete your installment to continue</p>
+                </div>
+            </div>
+            <button class="close-btn" onclick="closeSubscriptionModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="modal-content">
+            {% if current_month_subscription %}
+            
+            <!-- Payment Card -->
+            <div class="payment-card">
+                <div class="payment-header">
+                    <div class="installment-info">
+                        <h3>{{ current_month_subscription.name }}</h3>
+                        <div class="status-badge {% if current_month_subscription.is_overdue %}status-overdue{% elif current_month_subscription.is_current_month_due %}status-due{% else %}status-upcoming{% endif %}">
+                            {% if current_month_subscription.is_overdue %}
+                                <i class="fas fa-exclamation-circle"></i>
+                                Overdue
+                            {% elif current_month_subscription.is_current_month_due %}
+                                <i class="fas fa-clock"></i>
+                                Due
+                            {% else %}
+                                <i class="fas fa-calendar"></i>
+                                Upcoming
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="amount-display">
+                        ₹{{ current_month_subscription.get_due_amount|floatformat:2|intcomma }}
+                    </div>
+                </div>
+
+                <div class="payment-details">
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            <i class="fas fa-calendar-day"></i>
+                            Due Date
+                        </div>
+                        <div class="detail-value {% if current_month_subscription.is_overdue %}overdue{% endif %}">
+                            {{ current_month_subscription.due_date|date:"F j, Y" }}
+                        </div>
+                    </div>
+                    
+                    {% if current_month_subscription.paid_amount > 0 %}
+                    <div class="detail-item">
+                        <div class="detail-label">
+                            <i class="fas fa-check-circle"></i>
+                            Paid Amount
+                        </div>
+                        <div class="detail-value paid">
+                            ₹{{ current_month_subscription.paid_amount|floatformat:2|intcomma }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="detail-item total">
+                        <div class="detail-label">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            Total Amount
+                        </div>
+                        <div class="detail-value">
+                            ₹{{ current_month_subscription.amount|floatformat:2|intcomma }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Urgent Notice -->
+            {% if current_month_subscription.is_overdue %}
+            <div class="urgent-notice">
+                <div class="notice-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="notice-content">
+                    <strong>Immediate Attention Required</strong>
+                    <p>Your course access will be restricted until this payment is completed.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- All Paid State -->
+            <div class="all-paid-state">
+                <div class="success-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="success-content">
+                    <h3>All Fees Paid</h3>
+                    <p>All installments are up to date. Thank you!</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer">
+            {% if current_month_subscription %}
+            <button class="pay-button" id="payNowBtn" onclick="initiateRazorpayPayment({{ current_month_subscription.id }}, {{ current_month_subscription.get_due_amount }})">
+                <i class="fas fa-lock"></i>
+                Pay ₹{{ current_month_subscription.get_due_amount|floatformat:2|intcomma }}
+            </button>
+            
+            <div class="footer-links">
+                <a href="{% url 'admission:student_fee_overview_detail' admission.pk %}" class="view-details">
+                    <i class="fas fa-list"></i>
+                    View all installments
+                </a>
+            </div>
+            
+            <div class="security-badge">    
+                <i class="fas fa-shield-alt"></i>
+                Secured by Razorpay
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modern Fee Payment Modal */
+.subscription-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.modal-footer{
+    display: flow !important;
+}
+
+.subscription-modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 440px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Header */
+.modal-header {
+    background: linear-gradient(90deg, #ee4c24, #eb135e);
+    color: white;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-radius: 16px 16px 0 0;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    backdrop-filter: blur(10px);
+}
+
+.header-text h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: white;
+}
+
+.header-text p {
+    font-size: 14px;
+    margin: 0;
+    opacity: 0.9;
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+    flex-shrink: 0;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* Content */
+.modal-content {
+    padding: 24px;
+}
+
+/* Payment Card */
+.payment-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.payment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.installment-info {
+    flex: 1;
+}
+
+.installment-info h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-overdue {
+    background: #fee;
+    color: #dc3545;
+    border: 1px solid #f5c6cb;
+}
+
+.status-due {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-upcoming {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #bbdefb;
+}
+
+.amount-display {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ee4c24;
+    text-align: right;
+}
+
+.payment-details {
+    space-y: 12px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+}
+
+.detail-item:not(:last-child) {
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-item.total {
+    border-top: 2px solid #dee2e6;
+    border-bottom: none;
+    margin-top: 8px;
+    padding-top: 16px;
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
+.detail-label i {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+}
+
+.detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.detail-value.overdue {
+    color: #dc3545;
+}
+
+.detail-value.paid {
+    color: #28a745;
+}
+
+/* Progress Section */
+.progress-section {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #666;
+}
+
+.progress-header span:last-child {
+    font-weight: 600;
+    color: #333;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ee4c24, #eb135e);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Urgent Notice */
+.urgent-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.notice-icon {
+    color: #856404;
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.notice-content strong {
+    font-size: 14px;
+    color: #856404;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.notice-content p {
+    font-size: 13px;
+    color: #856404;
+    margin: 0;
+    opacity: 0.9;
+}
+
+/* All Paid State */
+.all-paid-state {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 40px 20px;
+    text-align: left;
+}
+
+.success-icon {
+    width: 60px;
+    height: 60px;
+    background: #28a745;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.success-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 4px;
+}
+
+.success-content p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+/* Footer */
+.modal-footer {
+    padding: 0 24px 24px;
+    text-align: center;
+}
+
+.pay-button {
+    width: 100%;
+    background: linear-gradient(90deg, #ee4c24, #eb135e);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.pay-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.pay-button:hover::before {
+    left: 100%;
+}
+
+.pay-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(238, 76, 36, 0.4);
+}
+
+.pay-button:active {
+    transform: translateY(0);
+}
+
+.footer-links {
+    margin-bottom: 16px;
+}
+
+.view-details {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.view-details:hover {
+    color: #ee4c24;
+}
+
+.security-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.security-badge i {
+    color: #28a745;
+}
+
+/* Loading and Success States */
+.pay-button.loading {
+    pointer-events: none;
+}
+
+.pay-button.loading i {
+    animation: spin 1s linear infinite;
+}
+
+.pay-button.success {
+    background: linear-gradient(90deg, #28a745, #20c997);
+    pointer-events: none;
+}
+
+.pay-button.success .success-animation {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pay-button.success .success-animation i {
+    position: relative;
+    z-index: 2;
+}
+
+.pay-button.success .success-animation::before {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border: 2px solid transparent;
+    border-top: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: circleCheck 0.8s ease-in-out;
+    z-index: 1;
+}
+
+.pay-button.success .success-animation::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border: 2px solid transparent;
+    border-top: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: circleCheck 0.8s ease-in-out 0.2s;
+    z-index: 1;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes circleCheck {
+    0% {
+        transform: rotate(0deg);
+        opacity: 1;
+    }
+    50% {
+        transform: rotate(180deg);
+        opacity: 0.7;
+    }
+    100% {
+        transform: rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .subscription-modal {
+        margin: 0;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .subscription-modal-overlay {
+        padding: 0;
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-radius: 0;
+    }
+    
+    .modal-content {
+        padding: 20px;
+    }
+    
+    .payment-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    
+    .amount-display {
+        text-align: left;
+    }
+    
+    .modal-footer {
+        padding: 0 20px 20px;
+    }
+}
+</style>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Close modal function
+function closeSubscriptionModal() {
+    const modal = document.getElementById('subscriptionModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Prevent closing on overlay click
+document.addEventListener('DOMContentLoaded', function() {
+    const overlay = document.getElementById('subscriptionModal');
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                // Uncomment to allow closing on overlay click
+                // closeSubscriptionModal();
+            }
+        });
+    }
+
+    // Prevent ESC key from closing modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.getElementById('subscriptionModal').style.display === 'flex') {
+            e.preventDefault();
+        }
+    });
+});
+
+// Initiate Razorpay Payment
+function initiateRazorpayPayment(feeStructureId, amount) {
+    const payBtn = document.getElementById('payNowBtn');
+    const originalHTML = payBtn.innerHTML;
+    
+    // Show loading state
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    payBtn.disabled = true;
+    payBtn.classList.add('loading');
+
+    // Create order
+    fetch("{% url 'admission:create_razorpay_order' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            fee_structure_id: feeStructureId,
+            amount: amount
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const razorpayKeyId = data.key_id || '{{ razorpay_key_id }}';
+            
+            if (!razorpayKeyId || !razorpayKeyId.startsWith('rzp_')) {
+                throw new Error('Invalid Razorpay key configuration');
+            }
+
+            // Initialize Razorpay
+            const options = {
+                key: razorpayKeyId,
+                amount: data.amount,
+                currency: data.currency,
+                name: "{{ admission.fullname|default:'Student' }}",
+                description: data.description,
+                order_id: data.order_id,
+                handler: function(response) {
+                    // Payment successful - verify it
+                    verifyPayment(response, feeStructureId);
+                },
+                prefill: {
+                    name: "{{ admission.fullname|default:'' }}",
+                    email: "{{ admission.personal_email|default:'' }}",
+                    contact: "{{ admission.contact_number|default:'' }}"
+                },
+                theme: {
+                    color: "#ee4c24"
+                },
+                modal: {
+                    ondismiss: function() {
+                        // User closed payment modal
+                        console.log('Payment cancelled by user');
+                        payBtn.innerHTML = originalHTML;
+                        payBtn.disabled = false;
+                        payBtn.classList.remove('loading');
+                    },
+                    escape: true,
+                    backdropclose: false
+                },
+                retry: {
+                    enabled: true,
+                    max_count: 3
+                },
+                timeout: 900, // 15 minutes timeout
+                // Handle payment failures
+                notes: {
+                    fee_structure_id: feeStructureId.toString()
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            
+            // Handle payment failure
+            rzp.on('payment.failed', function(response) {
+                console.error('Payment failed:', response.error);
+                
+                let errorMessage = 'Payment failed. ';
+                
+                // Provide specific error messages
+                if (response.error.code === 'BAD_REQUEST_ERROR') {
+                    errorMessage += 'Invalid payment request.';
+                } else if (response.error.code === 'GATEWAY_ERROR') {
+                    errorMessage += 'Payment gateway error. Please try again.';
+                } else if (response.error.code === 'SERVER_ERROR') {
+                    errorMessage += 'Server error. Please try again later.';
+                } else if (response.error.description) {
+                    errorMessage += response.error.description;
+                } else {
+                    errorMessage += 'Please try again or use a different payment method.';
+                }
+                
+                alert(errorMessage);
+                
+                payBtn.innerHTML = originalHTML;
+                payBtn.disabled = false;
+                payBtn.classList.remove('loading');
+            });
+            
+            // Open Razorpay checkout
+            rzp.open();
+            
+        } else {
+            // Order creation failed
+            const errorMsg = data.message || 'Failed to create payment order';
+            console.error('Order creation failed:', errorMsg);
+            alert('Error: ' + errorMsg);
+            
+            payBtn.innerHTML = originalHTML;
+            payBtn.disabled = false;
+            payBtn.classList.remove('loading');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error. Please check your internet connection and try again.');
+        
+        payBtn.innerHTML = originalHTML;
+        payBtn.disabled = false;
+        payBtn.classList.remove('loading');
+    });
+}
+
+// Verify Payment
+function verifyPayment(response, feeStructureId) {
+    const payBtn = document.getElementById('payNowBtn');
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    payBtn.disabled = true;
+
+    fetch("{% url 'admission:verify_razorpay_payment' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            fee_structure_id: feeStructureId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Verification request failed');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Show success animation
+            payBtn.innerHTML = '<span class="success-animation"><i class="fas fa-check"></i></span> Payment Successful';
+            payBtn.classList.remove('loading');
+            payBtn.classList.add('success');
+            
+            // Show success message
+            alert('Payment successful! Receipt No: ' + data.receipt_no);
+            
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            // Verification failed
+            console.error('Verification failed:', data.message);
+            alert('Payment verification failed: ' + (data.message || 'Unknown error'));
+            
+            payBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Verification Failed';
+            payBtn.classList.remove('loading');
+            payBtn.style.background = 'linear-gradient(90deg, #dc3545, #c82333)';
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                payBtn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + amount;
+                payBtn.disabled = false;
+                payBtn.style.background = 'linear-gradient(90deg, #ee4c24, #eb135e)';
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Verification error:', error);
+        alert('Payment verification failed. Your payment may have been successful. Please contact support with your transaction details.');
+        
+        payBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Verification Error';
+        payBtn.classList.remove('loading');
+        payBtn.style.background = 'linear-gradient(90deg, #dc3545, #c82333)';
+    });
+}
+</script>

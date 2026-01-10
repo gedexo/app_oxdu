@@ -1,0 +1,272 @@
+{% extends 'app/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ object.student.fullname|default:"Student" }} - Placement Request{% endblock %}
+
+{% block content %}
+<style>
+    .profile-img-lg {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #fff;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .label-text {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 0.2rem;
+    }
+    .value-text {
+        font-weight: 600;
+        color: #343a40;
+        font-size: 1rem;
+    }
+    .link-card {
+        transition: transform 0.2s;
+        border: 1px solid #e9ecef;
+    }
+    .link-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        border-color: #primary; 
+    }
+</style>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="page-title mb-0">Placement Request Details</h4>
+            </div>
+            <div class="btn-list">
+                <a class="btn btn-white shadow-sm" href="javascript:void(0);" onclick="window.print();" data-bs-toggle="tooltip" title="Print">
+                    <i class="fe fe-printer me-1"></i> Print
+                </a>
+                <a class="btn btn-primary shadow-sm" href="{{ object.get_update_url }}">
+                    <i class="fe fe-edit me-1"></i> Edit Request
+                </a>
+                <a class="btn btn-danger shadow-sm" href="{{ object.get_delete_url }}">
+                    <i class="mdi mdi-delete me-1"></i> Delete
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column: Student Profile Overview -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="card custom-card overflow-hidden">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            {% if object.student.photo %}
+                                <img src="{{ object.student.photo.url }}" alt="Student Photo" class="profile-img-lg">
+                            {% else %}
+                                <img src="{% static 'assets/images/users/default.jpg' %}" alt="Default User" class="profile-img-lg">
+                            {% endif %}
+                        </div>
+                        <h4 class="mb-1 fw-bold">{{ object.student.fullname }}</h4>
+                        <p class="text-muted mb-2">{{ object.student.admission_number|default:"No ID" }}</p>
+                        
+                        <!-- Status Badge Logic -->
+                        <div class="mt-3">
+                            {% if object.status == 'Completed' %}
+                                <span class="badge bg-success-transparent rounded-pill px-3 py-2 text-success fs-13">Completed</span>
+                            {% elif object.status == 'Rejected' %}
+                                <span class="badge bg-danger-transparent rounded-pill px-3 py-2 text-danger fs-13">Rejected</span>
+                            {% elif object.status == 'Under Review' %}
+                                <span class="badge bg-warning-transparent rounded-pill px-3 py-2 text-warning fs-13">Under Review</span>
+                            {% else %}
+                                <span class="badge bg-info-transparent rounded-pill px-3 py-2 text-info fs-13">{{ object.status }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card-body border-top">
+                        <h6 class="card-title mb-3">Contact Information</h6>
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <span class="avatar avatar-md bg-light text-primary rounded-circle">
+                                    <i class="fe fe-mail"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <p class="label-text">Email Address</p>
+                                <p class="value-text mb-0">{{ object.student.personal_email|default:"--" }}</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <span class="avatar avatar-md bg-light text-success rounded-circle">
+                                    <i class="fe fe-phone"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <p class="label-text">Phone / WhatsApp</p>
+                                <p class="value-text mb-0">
+                                    {{ object.student.contact_number }} 
+                                    {% if object.student.whatsapp_number %} / {{ object.student.whatsapp_number }} {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <span class="avatar avatar-md bg-light text-warning rounded-circle">
+                                    <i class="fe fe-map-pin"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <p class="label-text">Location</p>
+                                <p class="value-text mb-0">
+                                    {% if object.student.city %}{{ object.student.city }}, {% endif %}
+                                    {{ object.student.state|default:"--" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Academic Summary -->
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">Academic Details</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-muted ps-0">Course</td>
+                                        <td class="fw-bold text-end">{{ object.student.course.name|default:"--" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted ps-0">Batch</td>
+                                        <td class="fw-bold text-end">{{ object.student.batch.name|default:"--" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted ps-0">Passout Year</td>
+                                        <td class="fw-bold text-end">{{ object.student.passout_year|default:"--" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted ps-0">CGPA/%</td>
+                                        <td class="fw-bold text-end">{{ object.student.cgpa_or_percentage|default:"--" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted ps-0">Qualification</td>
+                                        <td class="fw-bold text-end">{{ object.student.qualifications|truncatechars:20|default:"--" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Placement Specifics -->
+            <div class="col-xl-8 col-lg-7">
+                
+                <!-- Quick Links Section -->
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <div class="card custom-card link-card h-100">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="avatar avatar-lg bg-primary-transparent text-primary rounded-circle mb-3">
+                                    <i class="fe fe-file-text fs-24"></i>
+                                </div>
+                                <h6 class="fw-bold">Resume</h6>
+                                <p class="text-muted fs-12 mb-3">Professional CV</p>
+                                {% if object.resume %}
+                                    <a href="{{ object.resume }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-4">View Resume</a>
+                                {% else %}
+                                    <span class="badge bg-light text-muted">Not Provided</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <div class="card custom-card link-card h-100">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="avatar avatar-lg bg-secondary-transparent text-secondary rounded-circle mb-3">
+                                    <i class="fe fe-briefcase fs-24"></i>
+                                </div>
+                                <h6 class="fw-bold">Portfolio</h6>
+                                <p class="text-muted fs-12 mb-3">Work Samples</p>
+                                {% if object.portfolio_link %}
+                                    <a href="{{ object.portfolio_link }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-4">View Portfolio</a>
+                                {% else %}
+                                    <span class="badge bg-light text-muted">Not Provided</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card custom-card link-card h-100">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="avatar avatar-lg bg-info-transparent text-info rounded-circle mb-3">
+                                    <i class="fe fe-monitor fs-24"></i>
+                                </div>
+                                <h6 class="fw-bold">Behance</h6>
+                                <p class="text-muted fs-12 mb-3">Creative Profile</p>
+                                {% if object.behance_link %}
+                                    <a href="{{ object.behance_link }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-4">View Profile</a>
+                                {% else %}
+                                    <span class="badge bg-light text-muted">Not Provided</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Professional Experience -->
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fe fe-star text-warning me-2"></i>Experience & Skills
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if object.experience %}
+                            <div class="bg-light p-3 rounded">
+                                <p class="mb-0" style="white-space: pre-line;">{{ object.experience }}</p>
+                            </div>
+                        {% else %}
+                            <div class="text-center p-4">
+                                <img src="{% static 'assets/images/no-data.svg' %}" alt="No Data" style="height: 80px; opacity: 0.5;">
+                                <p class="text-muted mt-2">No experience details provided.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Placement Success Details (Only show if placed/completed) -->
+                {% if object.status == 'Completed' and object.student.placed_company_name %}
+                <div class="card custom-card border-success border-top border-top-4">
+                    <div class="card-header">
+                        <div class="card-title text-success">
+                            <i class="fe fe-check-circle me-2"></i>Placement Success
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="label-text">Placed Company</p>
+                                <h5 class="fw-bold">{{ object.student.placed_company_name }}</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="label-text">Job Position/Role</p>
+                                <h5 class="fw-bold">{{ object.student.placed_position }}</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        <!-- End Row -->
+
+    </div>
+</div>
+{% endblock content %}

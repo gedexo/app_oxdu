@@ -1,0 +1,53 @@
+{% extends "registration/registration_base.html" %}
+{% load static crispy_forms_tags i18n %}
+
+{% block title %}{% translate "Register for an account" %}{% endblock %}
+
+{% block content %}
+<div class="col-xl-6 bg-white log-image1">
+    <row class="row justify-content-center align-items-center h-100 mx-0">
+        <div class="col-xxl-12 col-xl-10 col-lg-7 col-md-8 col-sm-8 col-12">
+            <div class="container">
+                <div class="customlogin-content p-xl-5 py-2">
+                    <div class="pt-4 pb-2 ps-2">
+                        <a class="header-brand" href="{% url 'core:home' %}">
+                            <img src="{% static 'app/assets/images/brand-logos/desktop-logo.png' %}"
+                                class="header-brand-img custom-logo" alt="Dayonelogo">
+                            <img src="{% static 'app/assets/images/brand-logos/desktop-dark.png' %}"
+                                class="header-brand-img custom-logo-dark" alt="Dayonelogo">
+                        </a>
+                    </div>
+                    <div class="p-4 pt-6">
+                        <h2 class="mb-2">Login</h2>
+                        <p class="text-muted mb-0">Sign In to your account</p>
+                    </div>
+                    <form class="p-4 pt-3 pb-3" id="login" name="login">
+                        {% csrf_token %}
+                        {{form|crispy}}
+                        <div class="submit">
+                            <button type="submit" class="btn btn-primary d-grid">Login</button>
+                        </div>
+                        <div class="text-center mt-3">
+                            <p class="mb-2"><a href="forgot-password-3.html">Forgot Password</a></p>
+                            <p class="text-dark mb-0">Don't have account?<a class="text-primary ms-1 d-inline-flex"
+                                    href="register-3.html">Register</a></p>
+                        </div>
+                    </form>
+                    <div class="border-top-0 pb-6 pt-1">
+                        <div class="text-center">
+                            <span class="avatar avatar-rounded me-2 bg-primary-transparent text-primary"><i
+                                    class="ri-facebook-line fs-17"></i></span>
+                            <span class="avatar avatar-rounded me-2 bg-primary-transparent text-primary"><i
+                                    class="ri-instagram-line fs-17"></i></span>
+                            <span class="avatar avatar-rounded bg-primary-transparent text-primary"><i
+                                    class="ri-twitter-line fs-17"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </row>
+</div>
+
+{% endblock %}
+

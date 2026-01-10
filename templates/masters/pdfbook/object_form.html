@@ -1,0 +1,119 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+  <div class="row">
+    <div class="col-lg-12  col-md-12 col-12 mx-auto">
+      <div class="card">
+        <div class="card-header border-bottom-0">
+          <h5 class="mb-0"> {{ title }}</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-lg-12 col-md-12">
+              <form class="form-horizontal-4" method="post" autocomplete="off" enctype="multipart/form-data" action=""
+                enctype="multipart/form-data">
+                {% csrf_token %}
+                {{form|crispy}}
+                {{ pdfbook_formset.management_form }}
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th width="50%"> Name</th>
+                      <th width="40%"> PDF</th>
+                      <th width=""></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for form in pdfbook_formset.forms %}
+                    <tr class=" form_set_row ">
+                        {% for hidden in form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        {{form.id}}
+                        <td >
+                          {{ form.name }}
+                        </td>
+                      <td >
+                        {{ form.pdf }}
+                      </td>
+                      <td ></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              
+                <div class="my-4 text-end">
+                  <div class="form-group mb-0">
+                    <button type="submit" class="btn btn-success me-2">Save</button>
+                    <button type="button" onclick="history.back()" class="border btn btn-outline-grey">
+                        Cancel</button>
+                  </div>
+                </div>
+                {{ form.management_form }}
+                {{form.media}}
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+</div>
+
+
+{% endblock content %}
+
+{% block css_plugins %}
+
+{% endblock %}
+
+{% block js_plugins %}
+<script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
+<script>
+    $(document).ready(function () {
+        // Your first script for formset
+        $('.form_set_row').formset({
+            addText: '<span>Add Item</span>',
+            deleteText: '<i class="fa-solid fa-xmark" ></i>',
+            prefix: '{{ pdfbook_formset.prefix }}',
+            formCssClass: 'dynamic-formset',
+            added: function (row) {
+              $(row).find('select').addClass('select');
+              $(row).find('select').prop('required');
+              $(row).find('select.select').select2();
+            },
+            removed: function (row) {
+                // Handle additional logic after removing a form
+            }
+        });
+
+      
+    });
+    
+</script>
+
+{% endblock js_plugins %}

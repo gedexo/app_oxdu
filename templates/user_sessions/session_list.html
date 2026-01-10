@@ -1,0 +1,67 @@
+{% extends "app/base.html" %}
+{% load user_sessions i18n %}
+
+{% block content %}
+  {% translate "<em>unknown on unknown</em>" as unknown_on_unknown %}
+  {% translate "<em>unknown</em>" as unknown %}
+
+  <div class="main-content app-content">
+
+    <div class="container-fluid">
+  
+  
+      <!-- Page Header -->
+      <div class="page-header d-flex d-block justify-content-between">
+        <div class="page-leftheader">
+          <div class="page-title">Active Sessions</div>
+        </div>
+        <div class="page-rightheader">
+         
+        </div>
+      </div>
+      <!-- Page Header Close -->
+  
+      <div class="row">
+        <div class="col-md-12">
+          <div class="card custom-card">
+            
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                      <tr>
+                        <th>{% translate "Location" %}</th>
+                        <th>{% translate "Device" %}</th>
+                        <th>{% translate "Last Activity" %}</th>
+                      </tr>
+                    </thead>
+                    {% for object in object_list %}
+                      <tr {% if object.session_key == session_key %}class="active"{% endif %}>
+                        <td>{{ object.ip|location|default_if_none:unknown|safe }} <small>({{ object.ip }})</small></td>
+                        <td>{{ object.user_agent|device|default_if_none:unknown_on_unknown|safe }}</td>
+                        <td>
+                          {% if object.session_key == session_key %}
+                            {% blocktrans with time=object.last_activity|timesince %}{{ time }} ago (this session){% endblocktrans %}
+                          {% else %}
+                            {% blocktrans with time=object.last_activity|timesince %}{{ time }} ago{% endblocktrans %}
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                </table>
+            </div>
+              
+        
+  
+  
+            </div>
+            
+           
+          </div>
+        </div>
+      </div>
+    </div>
+  
+  
+  </div>
+{% endblock %}

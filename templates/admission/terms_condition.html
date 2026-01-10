@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block body %}
+
+<!-- Start::app-content -->
+<div class="terms-condition-section">
+    <div>
+
+
+        <!-- Start::row-1 -->
+        <div class="row page-header">
+           
+            <div class="col-xxl-9 col-md-12 col-lg-9 mx-auto">
+                
+                <div class="panel-body tabs-menu-body hremp-tabs1 p-0 card custom-card registration-form-card">
+
+                    <div class="registration-form-card-sec d-flex justify-content-center" >
+                        <img src="{% static 'app/assets/images/brand-logos/desktop-logo.png' %}" alt="" style="height: 60px;">
+                        {% comment %} <div class="registration-form-content">
+                            <h1>OXDU TECH SCHOOL </h1>
+                            <h4 class="text-center">Terms and Conditions</h4>
+                        </div> {% endcomment %}
+                    </div>
+
+                    <form action="{% url 'admission:terms_condition' pk=pk %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="tab-content">
+                        <div class="tab-pane border-0 active">
+                            <div>
+                                <h4 class="mb-3 fw-bold">Introduction</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-0">Welcome to Oxdu Integrated Media School. By enrolling in our courses, accessing our website, or using our services, you agree to comply with the following terms and conditions. Please read them carefully before proceeding.</p>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Admission & Enrollment</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Admission to our courses is subject to eligibility criteria set by Oxdu Integrated Media School.</p>
+                                            <p class="mb-1">All applicants must submit accurate personal and academic information.</p>
+                                            <p class="mb-1">The school reserves the right to reject applications that do not meet the required standards.</p>
+                                        </div>
+                                        
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Admission & Enrollment</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Course fees must be paid as per the schedule outlined during admission.</p>
+                                            <p class="mb-1">Late payments may incur penalties or result in restricted access to classes.</p>
+                                            <p class="mb-1">Fees are non-refundable except in cases where the school cancels a course.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Course Structure & Curriculum</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">The school reserves the right to modify course content, schedules, and faculty without prior notice.</p>
+                                            <p class="mb-1">AI-integrated and hands-on learning components may be updated to reflect industry advancements.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Code of Conduct</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Students are expected to maintain professionalism and respect towards faculty, staff, and fellow students.</p>
+                                            <p class="mb-1">Any form of misconduct, plagiarism, or academic dishonesty may lead to disciplinary action.</p>
+                                            <p class="mb-1">Attendance requirements must be met to complete the course successfully.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Use of School Resources
+                                </h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Students will have access to software, tools, and online resources provided by the school.</p>
+                                            <p class="mb-1">Unauthorized distribution, modification, or misuse of these resources is strictly prohibited.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Certification & Completion</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Students must fulfill all coursework, assignments, and exams to receive their certificate.</p>
+                                            <p class="mb-1">The school holds the right to withhold certification for non-compliance with academic requirements.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Intellectual Property</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">All course materials, videos, and content provided by the school are the intellectual property of Oxdu Integrated Media School.</p>
+                                            <p class="mb-1">Students may not reproduce, distribute, or commercialize any course material without permission.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Privacy & Data Protection</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Personal information collected during admission is used solely for academic and administrative purposes.</p>
+                                            <p class="mb-1">The school follows strict data protection policies and does not share student information with third parties.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Limitation of Liability</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">Oxdu Integrated Media School is not liable for any loss or damage arising from technical failures, system errors, or interruptions in course delivery.</p>
+                                            <p class="mb-1">The school is not responsible for students' career placements or job guarantees post-course completion.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 class="mb-3 fw-bold">Amendments</h4>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="mb-1">The school reserves the right to update these terms at any time. Continued use of our services constitutes acceptance of any changes.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="form-group mt-4">
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="acceptTerms" required>
+                                            <label class="form-check-label" for="acceptTerms">
+                                                I have read and agree to the Terms and Conditions
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                       
+                        <div class="card-footer text-end">
+                            <button type="button" onclick="history.back()" class="btn btn-danger">Back</button>
+                            <button type="submit" class="btn btn-primary">Save & Next</button>
+                        </div>
+                    </div>
+                </form>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+<!-- End::app-content -->
+{% endblock body %}

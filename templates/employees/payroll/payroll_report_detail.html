@@ -1,0 +1,728 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags humanize %}
+{% block title %}{{employee.get_full_name}} Payroll Report: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title fs-4">{{ title|title }}</div>
+        <div class="text-muted fs-12 mt-1">{{ employee.department }} • {{ employee.employment_type }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add_users %}
+            <a href="{% url 'employees:payroll_create' %}?employee={{ employee.pk }}" class="btn btn-primary">
+              <i class="fe fe-plus-circle me-2"></i>Add Payroll Record
+            </a>
+            <a href="{% url 'employees:payroll_payment_create' %}?employee={{ employee.pk }}" class="btn btn-success">
+              <i class="fe fe-credit-card me-2"></i>Record Payment
+            </a>
+            <a href="{% url 'employees:employee_update' employee.pk %}" class="btn btn-info">
+              <i class="fe fe-edit me-2"></i>Edit Employee
+            </a>
+          {% endif %}
+          <a class="btn btn-light" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print">
+            <i class="fe fe-printer"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- Financial Summary -->
+    <div class="row">
+      <div class="col-xl-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom bg-light">
+            <div class="card-title">Financial Summary</div>
+            <div class="card-options">
+              <a href="javascript:void(0);" class="card-options-collapse" data-bs-toggle="card-collapse">
+                <i class="fe fe-chevron-up"></i>
+              </a>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">Select Month</label>
+                  <select class="form-select" id="month-filter">
+                    <option value="all">All Months</option>
+                    {% for value, name in month_choices %}
+                    <option value="{{ value }}">{{ name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label class="form-label">Select Year</label>
+                  <select class="form-select" id="year-filter">
+                    <option value="all">All Years</option>
+                    {% for year in years %}
+                    <option value="{{ year }}">{{ year }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4 d-flex align-items-end mb-3">
+                <button type="button" class="btn btn-primary me-2" id="apply-filter">
+                  Apply Filter
+                </button>
+                <button type="button" class="btn btn-light" id="reset-filter">
+                  Reset
+                </button>
+              </div>
+            </div>
+            
+            <div class="row mt-4">
+              <div class="col-xl-3 col-md-6">
+                <div class="card card-sm bg-primary bg-opacity-10 border-primary">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="fw-semibold text-muted mb-1">Total Due</h6>
+                        <h3 class="fw-bold mb-0 text-primary" id="total-due">₹{{ total_due|floatformat:2|intcomma }}</h3>
+                        <span class="text-muted small" id="total-due-label">All payroll records</span>
+                      </div>
+                      <div class="flex-shrink-0">
+                        <div class="featured-icon bg-primary text-white">
+                          <i class="fe fe-dollar-sign"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-xl-3 col-md-6">
+                <div class="card card-sm bg-success bg-opacity-10 border-success">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="fw-semibold text-muted mb-1">Total Paid</h6>
+                        <h3 class="fw-bold mb-0 text-success" id="total-paid">₹{{ total_paid|floatformat:2|intcomma }}</h3>
+                        <span class="text-muted small" id="total-paid-label">All payments received</span>
+                      </div>
+                      <div class="flex-shrink-0">
+                        <div class="featured-icon bg-success text-white">
+                          <i class="fe fe-check-circle"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-xl-3 col-md-6">
+                <div class="card card-sm bg-warning bg-opacity-10 border-warning">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="fw-semibold text-muted mb-1">Advance Paid</h6>
+                        <h3 class="fw-bold mb-0 text-warning" id="advance-paid">₹{{ advance_paid|floatformat:2|intcomma }}</h3>
+                        <span class="text-muted small" id="advance-paid-label">Adavnce Paid Amount</span>
+                      </div>
+                      <div class="flex-shrink-0">
+                        <div class="featured-icon bg-warning text-white">
+                          <i class="fe fe-alert-circle"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-xl-3 col-md-6">
+                <div class="card card-sm bg-danger bg-opacity-10 border-danger">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="fw-semibold text-muted mb-1">Pending Due</h6>
+                        <h3 class="fw-bold mb-0 text-danger" id="pending-due">₹{{ pending_due|floatformat:2|intcomma }}</h3>
+                        <span class="text-muted small" id="pending-due-label">Remaining balance</span>
+                      </div>
+                      <div class="flex-shrink-0">
+                        <div class="featured-icon bg-danger text-white">
+                          <i class="fe fe-alert-circle"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payroll Records -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom bg-light justify-content-between">
+            <div class="card-title d-flex align-items-center">
+              <i class="fe fe-file-text me-2 text-primary"></i>
+              Payroll Records
+              <span class="badge bg-primary ms-2" id="payroll-count">{{ payrolls|length }}</span>
+            </div>
+            <div class="d-flex">
+              <input type="text" class="form-control form-control-sm me-2" placeholder="Search records..." id="payroll-search">
+              <button class="btn btn-sm btn-light me-2" id="payroll-column-toggle" data-bs-toggle="dropdown">
+                <i class="fa fa-columns"></i>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end p-3" style="width: 250px;">
+                <h6 class="dropdown-header">Toggle Columns</h6>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="0" id="col-period" checked>
+                  <label class="form-check-label" for="col-period">Period</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="1" id="col-basic" checked>
+                  <label class="form-check-label" for="col-basic">Basic Salary</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="2" id="col-allowances" checked>
+                  <label class="form-check-label" for="col-allowances">Allowances</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="3" id="col-overtime" checked>
+                  <label class="form-check-label" for="col-overtime">Overtime</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="4" id="col-deductions" checked>
+                  <label class="form-check-label" for="col-deductions">Deductions</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="5" id="col-absences" checked>
+                  <label class="form-check-label" for="col-absences">Absences</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="6" id="col-gross" checked>
+                  <label class="form-check-label" for="col-gross">Gross Salary</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="7" id="col-net" checked>
+                  <label class="form-check-label" for="col-net">Net Salary</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input column-toggle" type="checkbox" value="8" id="col-net" checked>
+                  <label class="form-check-label" for="col-net">Remaining Salary</label>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-light" id="export-payroll">
+                <i class="fe fe-download"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered" id="payroll-table">
+                <thead class="table-light">
+                  <tr>
+                    <th>Period</th>
+                    <th>Basic Salary</th>
+                    <th>Allowances</th>
+                    <th>Overtime</th>
+                    <th>Deductions</th>
+                    <th>Absences</th>
+                    <th>Gross Salary</th>
+                    <th>Net Salary</th>
+                    <th>Remaining Salary</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for payroll in payrolls %}
+                  <tr data-year="{{ payroll.payroll_year }}" data-month="{{ payroll.payroll_month }}">
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm bg-primary text-white me-2">{{ payroll.payroll_month|slice:3 }}</span>
+                        <div>
+                          <div class="fw-semibold">{{ payroll.get_payroll_month_display }}, {{ payroll.payroll_year }}</div>
+                          <div class="text-muted small">Working Days: 30</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>₹{{ payroll.basic_salary|floatformat:2|intcomma }}</td>
+                    <td>
+                      ₹{{ payroll.allowances|floatformat:2|intcomma }}
+                      {% if payroll.allowances_description %}
+                      <i class="fe fe-info text-muted ms-1" data-bs-toggle="tooltip" title="{{ payroll.allowances_description }}"></i>
+                      {% endif %}
+                    </td>
+                    <td>₹{{ payroll.overtime|floatformat:2|intcomma }}</td>
+                    <td>
+                      ₹{{ payroll.deductions|floatformat:2|intcomma }}
+                      {% if payroll.deductions_description %}
+                      <i class="fe fe-info text-muted ms-1" data-bs-toggle="tooltip" title="{{ payroll.deductions_description }}"></i>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <span class="badge {% if payroll.absences > 0 %}bg-light text-danger{% else %}bg-light text-success{% endif %}">
+                        {{ payroll.absences }} day{{ payroll.absences|pluralize }}
+                      </span>
+                    </td>
+                    <td><strong>₹{{ payroll.gross_salary|floatformat:2|intcomma }}</strong></td>
+                    <td><strong class="text-primary">₹{{ payroll.net_salary|floatformat:2|intcomma }}</strong></td>
+                    <td><strong class="text-primary">₹{{ payroll.remaining_salary|floatformat:2|intcomma }}</strong></td>
+                    <td>
+                      <span class="badge {% if payroll.status == 'Completed' %}bg-success{% elif payroll.status == 'Pending' %}bg-warning{% else %}bg-info{% endif %}">
+                        {{ payroll.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="btn-list">
+                        <a href="{{ payroll.get_absolute_url }}" class="btn btn-sm btn-icon btn-info" data-bs-toggle="tooltip" title="View Details">
+                          <i class="fe fe-eye"></i>
+                        </a>
+                        {% if can_add_users %}
+                          <a href="{{ payroll.get_update_url }}" class="btn btn-sm btn-icon btn-primary" data-bs-toggle="tooltip" title="Edit">
+                            <i class="fe fe-edit"></i>
+                          </a>
+                          {% if payroll.remaining_salary > 0 %}
+                            <a href="{% url 'employees:payroll_payment_create' %}?employee={{ employee.pk }}&payroll={{ payroll.pk }}" class="btn btn-sm btn-icon btn-success" data-bs-toggle="tooltip" title="Record Payment">
+                              <i class="fe fe-credit-card"></i>
+                            </a>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="10" class="text-center py-4">
+                      <div class="d-flex flex-column align-items-center">
+                        <i class="fe fe-file-text fs-40 text-muted mb-2"></i>
+                        <p class="text-muted">No payroll records found</p>
+                        <a href="{% url 'employees:payroll_create' %}?employee={{ employee.pk }}" class="btn btn-primary btn-sm">
+                          Add Payroll Record
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom bg-light justify-content-between">
+            <div class="card-title d-flex align-items-center">
+              <i class="fe fe-credit-card me-2 text-primary"></i>
+              Payment History
+              <span class="badge bg-primary ms-2" id="payment-count">{{ payments|length }}</span>
+            </div>
+            <div class="d-flex">
+              <input type="text" class="form-control form-control-sm me-2" placeholder="Search payments..." id="payment-search">
+              <button class="btn btn-sm btn-light" id="export-payments">
+                <i class="fe fe-download"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered" id="payment-table">
+                <thead class="table-light">
+                  <tr>
+                    <th>Date</th>
+                    <th>Payroll Period</th>
+                    <th>Amount Paid</th>
+                    <th>Payment Method</th>
+                    <th>Reference Number</th>
+                    <th>Remarks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for payment in payments %}
+                  <tr data-month="{% if payment.payroll %}{{ payment.payroll.payroll_month }}{% else %}0{% endif %}" 
+                      data-year="{% if payment.payroll %}{{ payment.payroll.payroll_year }}{% else %}0{% endif %}">
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm bg-light text-primary me-2">
+                          <i class="fe fe-calendar"></i>
+                        </span>
+                        {{ payment.payment_date }}
+                      </div>
+                    </td>
+                    <td>
+                      {% if payment.payroll %}
+                        {{ payment.payroll.get_payroll_month_display }}, {{ payment.payroll.payroll_year }}
+                      {% else %}
+                        Not specified
+                      {% endif %}
+                    </td>
+                    <td><strong class="text-success">₹{{ payment.amount_paid|floatformat:2|intcomma }}</strong></td>
+                    <td>
+                      <span class="badge bg-light text-dark">
+                        <i class="fe fe-{{ payment.payment_method|lower }} me-1"></i>
+                        {{ payment.get_payment_method_display }}
+                      </span>
+                    </td>
+                    <td>{{ payment.reference_number|default:"-" }}</td>
+                    <td>
+                      {% if payment.remarks %}
+                      <span data-bs-toggle="tooltip" title="{{ payment.remarks }}">
+                        {{ payment.remarks|truncatewords:3 }}
+                      </span>
+                      {% else %}-{% endif %}
+                    </td>
+                    <td>
+                      <div class="btn-list">
+                        <a href="{{ payment.get_absolute_url }}" class="btn btn-sm btn-icon btn-info" data-bs-toggle="tooltip" title="View Details">
+                          <i class="fe fe-eye"></i>
+                        </a>
+                        {% if can_add_users %}
+                          <a href="{{ payment.get_update_url }}" class="btn btn-sm btn-icon btn-primary" data-bs-toggle="tooltip" title="Edit">
+                            <i class="fe fe-edit"></i>
+                          </a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="7" class="text-center py-4">
+                      <div class="d-flex flex-column align-items-center">
+                        <i class="fe fe-credit-card fs-40 text-muted mb-2"></i>
+                        <p class="text-muted">No payment records found</p>
+                        {% if can_add_users %}
+                          <a href="{% url 'employees:payroll_payment_create' %}?employee={{ employee.pk }}" class="btn btn-success btn-sm">
+                            Record Payment
+                          </a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advance Payment History -->
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom bg-light justify-content-between">
+            <div class="card-title d-flex align-items-center">
+              <i class="fe fe-alert-circle me-2 text-primary"></i>
+              Advance Payment History
+              <span class="badge bg-primary ms-2" id="advance-payment-count">{{ advance_payments|length }}</span>
+            </div>
+            <div class="d-flex">
+              <input type="text" class="form-control form-control-sm me-2" placeholder="Search advance payments..." id="advance-payment-search">
+              <button class="btn btn-sm btn-light" id="export-advance-payments">
+                <i class="fe fe-download"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered" id="advance-payment-table">
+                <thead class="table-light">
+                  <tr data-month="{{ payment.payroll.payroll_month }}" data-year="{{ payment.payroll.payroll_year }}">
+                    <th>Date</th>
+                    <th>Payroll Period</th>
+                    <th>Amount Paid</th>
+                    <th>Payment Method</th>
+                    <th>Reference Number</th>
+                    <th>Remarks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for payment in advance_payments %}
+                  <tr data-month="{% if payment.payroll %}{{ payment.payroll.payroll_month }}{% else %}0{% endif %}" 
+                      data-year="{% if payment.payroll %}{{ payment.payroll.payroll_year }}{% else %}0{% endif %}">
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm bg-light text-primary me-2">
+                          <i class="fe fe-calendar"></i>
+                        </span>
+                        {{ payment.payment_date }}
+                      </div>
+                    </td>
+                    <td>
+                      {% if payment.payroll %}
+                        {{ payment.payroll.get_payroll_month_display }}, {{ payment.payroll.payroll_year }}
+                      {% else %}
+                        Not specified
+                      {% endif %}
+                    </td>
+                    <td><strong class="text-danger">₹{{ payment.amount_paid|floatformat:2|intcomma }}</strong></td>
+                    <td>
+                      <span class="badge bg-light text-dark">
+                        <i class="fe fe-{{ payment.payment_method|lower }} me-1"></i>
+                        {{ payment.get_payment_method_display }}
+                      </span>
+                    </td>
+                    <td>{{ payment.reference_number|default:"-" }}</td>
+                    <td>
+                      {% if payment.remarks %}
+                      <span data-bs-toggle="tooltip" title="{{ payment.remarks }}">
+                        {{ payment.remarks|truncatewords:3 }}
+                      </span>
+                      {% else %}-{% endif %}
+                    </td>
+                    <td>
+                      <div class="btn-list">
+                        <a href="{{ payment.get_absolute_url }}" class="btn btn-sm btn-icon btn-info" data-bs-toggle="tooltip" title="View Details">
+                          <i class="fe fe-eye"></i>
+                        </a>
+                        {% if can_add_users %}
+                          <a href="{{ payment.get_update_url }}" class="btn btn-sm btn-icon btn-primary" data-bs-toggle="tooltip" title="Edit">
+                            <i class="fe fe-edit"></i>
+                          </a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="7" class="text-center py-4">
+                      <div class="d-flex flex-column align-items-center">
+                        <i class="fe fe-alert-circle fs-40 text-muted mb-2"></i>
+                        <p class="text-muted">No advance payment records found</p>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  .card {
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9edf4;
+    margin-bottom: 1.5rem;
+  }
+  
+  .card-header.bg-light {
+    background-color: #f9fafc !important;
+    border-bottom: 1px solid #e9edf4 !important;
+  }
+  
+  .featured-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+  }
+  
+  .table th {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: #f9fafc;
+  }
+  
+  .table-hover tbody tr:hover {
+    background-color: rgba(70, 127, 207, 0.04);
+  }
+  
+  .badge {
+    font-weight: 500;
+  }
+  
+  .avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+  
+  #payroll-table td, #payment-table td {
+    vertical-align: middle;
+  }
+  
+  .btn-icon {
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .form-select, .form-control {
+    border: 1px solid #e9edf4;
+  }
+  
+  @media (max-width: 767.98px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .page-rightheader {
+      margin-top: 1rem;
+      width: 100%;
+    }
+    
+    .btn-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  }
+</style>
+{% endblock content %}
+
+{% block javascript %}
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    function updateCounts() {
+        $('#payroll-count').text($('#payroll-table tbody tr:visible').length);
+        $('#payment-count').text($('#payment-table tbody tr:visible').length);
+        $('#advance-payment-count').text($('#advance-payment-table tbody tr:visible').length);
+    }
+
+    updateCounts();
+
+    // Column toggle for payroll table
+    $('.column-toggle').on('change', function() {
+        const colIndex = parseInt($(this).val());
+        $('#payroll-table tr').each(function() {
+            $(this).find('td:eq(' + colIndex + '), th:eq(' + colIndex + ')').toggle();
+        });
+    });
+
+    // Filter function for all tables
+    function filterData() {
+        const year = $('#year-filter').val() || 'all';
+        const month = $('#month-filter').val() || 'all';
+
+        let totalDue = 0, totalPaid = 0, advancePaid = 0;
+
+        // Filter payroll table
+        $('#payroll-table tbody tr').each(function() {
+            const rowYear = $(this).data('year')?.toString() || '';
+            const rowMonth = $(this).data('month')?.toString() || '';
+            const showRow = (year === 'all' || rowYear === year) && (month === 'all' || rowMonth === month);
+            $(this).toggle(showRow);
+
+            if (showRow) {
+                totalDue += parseFloat($(this).find('td:eq(7)').text().replace(/[₹,]/g, '')) || 0;
+            }
+        });
+
+        // Filter payroll payments table
+        $('#payment-table tbody tr').each(function() {
+            const rowYear = $(this).data('year')?.toString() || '';
+            const rowMonth = $(this).data('month')?.toString() || '';
+            const showRow = (year === 'all' || rowYear === year) && (month === 'all' || rowMonth === month);
+            $(this).toggle(showRow);
+
+            if (showRow) {
+                totalPaid += parseFloat($(this).find('td:eq(2)').text().replace(/[₹,]/g, '')) || 0;
+            }
+        });
+
+        // Filter advance payroll payments table
+        $('#advance-payment-table tbody tr').each(function() {
+            const rowYear = $(this).data('year')?.toString() || '';
+            const rowMonth = $(this).data('month')?.toString() || '';
+            const showRow = (year === 'all' || rowYear === year) && (month === 'all' || rowMonth === month);
+            $(this).toggle(showRow);
+
+            if (showRow) {
+                advancePaid += parseFloat($(this).find('td:eq(2)').text().replace(/[₹,]/g, '')) || 0;
+            }
+        });
+
+        const pendingDue = Math.max(totalDue - (totalPaid + advancePaid), 0);
+
+        // Update summary cards
+        $('#total-due').text('₹' + totalDue.toLocaleString('en-IN', {maximumFractionDigits: 2}));
+        $('#total-paid').text('₹' + totalPaid.toLocaleString('en-IN', {maximumFractionDigits: 2}));
+        $('#pending-due').text('₹' + pendingDue.toLocaleString('en-IN', {maximumFractionDigits: 2}));
+        $('#advance-paid').text('₹' + advancePaid.toLocaleString('en-IN', {maximumFractionDigits: 2}));
+
+        const monthName = month !== 'all' ? $('#month-filter option:selected').text() : '';
+        const yearValue = year !== 'all' ? year : '';
+        $('#total-due-label').text(monthName + ' ' + yearValue + ' records');
+        $('#total-paid-label').text(monthName + ' ' + yearValue + ' payments');
+        $('#pending-due-label').text(monthName + ' ' + yearValue + ' balance');
+        $('#advance-paid-label').text(monthName + ' ' + yearValue + ' payments');
+
+        updateCounts();
+    }
+
+    // Apply & reset filters
+    $('#apply-filter').on('click', filterData);
+    $('#reset-filter').on('click', function() {
+        $('#month-filter').val('all');
+        $('#year-filter').val('all');
+        filterData();
+    });
+
+    // Search function
+    function setupSearch(inputId, tableId) {
+        $(inputId).on('keyup', function() {
+            const value = $(this).val().toLowerCase();
+            $(tableId + ' tbody tr').each(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+            });
+            updateCounts();
+        });
+    }
+
+    setupSearch('#payroll-search', '#payroll-table');
+    setupSearch('#payment-search', '#payment-table');
+    setupSearch('#advance-payment-search', '#advance-payment-table');
+
+    // Export tables
+    function exportTable(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const blob = new Blob([table.outerHTML], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    $('#export-payroll').on('click', () => exportTable('payroll-table', 'payroll_records.xls'));
+    $('#export-payments').on('click', () => exportTable('payment-table', 'payment_records.xls'));
+    $('#export-advance-payments').on('click', () => exportTable('advance-payment-table', 'advance_payments.xls'));
+
+    // Initial filter to update counts
+    filterData();
+});
+</script>
+
+{% endblock %}

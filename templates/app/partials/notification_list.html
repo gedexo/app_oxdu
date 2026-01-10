@@ -1,0 +1,45 @@
+<ul class="list-unstyled mb-0" id="header-notification-scroll">
+    {% for notification in unread_notifications %}
+    <li class="dropdown-item">
+        <a href="javascript:void(0);" 
+           class="d-flex text-decoration-none mark-as-read" 
+           data-update-id="{{ notification.id }}"
+           data-redirect-url="{{ notification.get_absolute_url }}">
+            <div class="me-3 flex-shrink-0">
+                {% if notification.image %}
+                <img src="{{ notification.image.url }}" alt="{{ notification.title }}" 
+                     class="rounded-2 notification-image">
+                {% else %}
+                <div class="bg-primary rounded-2 d-flex align-items-center justify-content-center notification-image">
+                    <i class="fe fe-bell text-white fs-14"></i>
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex-grow-1 overflow-hidden">
+                <p class="mb-1 fs-13 text-dark fw-semibold text-truncate">{{ notification.title }}</p>
+                <span class="text-muted fs-11">{{ notification.created|timesince }} ago</span>
+            </div>
+        </a>
+    </li>
+    {% empty %}
+    <li class="dropdown-item text-center py-4">
+        <div class="text-muted">
+            <i class="fe fe-bell fs-24 mb-2 d-block"></i>
+            <p class="mb-0 fs-13">No new notifications</p>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+
+{% if unread_notification_count > 0 %}
+<div class="p-3 empty-header-item border-top">
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="markAllAsRead()">
+            Mark All as Read
+        </button>
+        <a href="{% url 'masters:update_list' %}" class="btn btn-primary btn-sm flex-fill">
+            View All Updates
+        </a>
+    </div>
+</div>
+{% endif %}

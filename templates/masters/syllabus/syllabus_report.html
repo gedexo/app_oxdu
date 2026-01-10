@@ -1,0 +1,750 @@
+  {% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags extras %}
+
+{% block title %}{{ title|title }} : {{ app_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+      <div class="page-leftheader">
+        <h4 class="page-title">{{ title|title }}</h4>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          {% if can_add and new_link %}
+            <a href="{{ new_link }}" class="btn btn-light3" title="Add New">
+              <i class="fe fe-plus"></i> New
+            </a>
+          {% endif %}
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" title="Print">
+            <i class="fe fe-printer"></i>
+          </a>
+          <a class="btn btn-light3" data-bs-toggle="offcanvas" href="#offcanvasFilter" role="button" title="Filter Data">
+            <i class="fe fe-filter"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- /Page Header -->
+
+    <!-- Global Filter Section -->
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Global Filter</h5>
+          </div>
+          <div class="card-body">
+            <div class="filter-section d-flex p-3 bg-light rounded flex-wrap align-items-center">
+              <div class="me-3 d-flex align-items-center mb-2">
+                <label class="me-2 fw-medium" for="globalBranchFilter">Filter by Branch:</label>
+                <select id="globalBranchFilter" class="form-select form-select-sm" style="width:auto;">
+                  <option value="all">All Branches</option>
+                  {% for branch in all_branches %}
+                  <option value="{{ branch.name|slugify }}">{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="d-flex align-items-center mb-2">
+                <label class="me-2 fw-medium" for="globalBatchFilter">Filter by Batch:</label>
+                <select id="globalBatchFilter" class="form-select form-select-sm" style="width:auto;">
+                  <option value="all">All Batches</option>
+                  {% for batch in all_batches %}
+                  <option value="{{ batch.id }}" class="{{ batch.branch.name|slugify }}">{{ batch.batch_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="ms-3 d-flex align-items-center mb-2">
+                <button type="button" id="clearGlobalFilters" class="btn btn-sm btn-outline-secondary">
+                  <i class="fe fe-refresh-cw me-1"></i> Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-body">
+
+            {% if table.data %}
+            <div class="accordion syllabus-accordion" id="syllabusAccordion">
+              {% for syllabus in table.data %}
+              <div class="accordion-item border rounded mb-3">
+                <h2 class="accordion-header" id="heading{{ syllabus.id }}">
+                  <button class="accordion-button collapsed d-flex justify-content-between align-items-center" 
+                          type="button" data-bs-toggle="collapse" 
+                          data-bs-target="#collapse{{ syllabus.id }}" 
+                          aria-expanded="false" 
+                          aria-controls="collapse{{ syllabus.id }}">
+                    <div>
+                      <span class="me-2 fw-bold">{{ syllabus.order_id|default:"--" }}.</span> 
+                      {{ syllabus.title }}
+                    </div>
+                    <div class="badge bg-light text-dark ms-2 syllabus-badge" id="syllabus-badge-{{ syllabus.id }}">
+                      0 completed / 0 pending batches
+                    </div>
+                  </button>
+                </h2>
+
+                <div id="collapse{{ syllabus.id }}" 
+                     class="accordion-collapse collapse" 
+                     aria-labelledby="heading{{ syllabus.id }}" 
+                     data-bs-parent="#syllabusAccordion">
+                  <div class="accordion-body p-4">
+                    <!-- Loading indicator -->
+                    <div class="text-center py-3 syllabus-loading" id="loading-{{ syllabus.id }}" style="display: none;">
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                      </div>
+                      <p class="mt-2">Loading syllabus details...</p>
+                    </div>
+
+                    <!-- Content container -->
+                    <div class="syllabus-content" id="content-{{ syllabus.id }}" style="display: none;">
+                      <!-- Students: Completed / Pending -->
+                      <div class="row">
+                        <div class="col-md-6">
+                          <div class="card card-success mb-4">
+                            <div class="card-header bg-success bg-opacity-10 border-success d-flex justify-content-between align-items-center">
+                              <h6 class="mb-0 text-success">
+                                <i class="fe fe-check-circle me-1"></i>
+                                Completed Students (<span class="completed-students-count" data-syllabus="{{ syllabus.id }}">0</span>)
+                              </h6>
+                              <div>
+                                <!-- Removed Show All button -->
+                                <div></div>
+                              </div>
+                            </div>
+                            <div class="card-body p-0">
+                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-hover align-middle mb-0">
+                                  <thead class="theme-table-head sticky-top bg-white">
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Branch</th>
+                                      <th>Batch</th>
+                                      <th>Course</th>
+                                      <th>AD. No</th>
+                                      <th>Full Name</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="completed-students-table" data-syllabus="{{ syllabus.id }}">
+                                    <!-- Data will be loaded via AJAX -->
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="col-md-6">
+                          <div class="card card-warning mb-4">
+                            <div class="card-header bg-warning bg-opacity-10 border-warning d-flex justify-content-between align-items-center">
+                              <h6 class="mb-0 text-warning">
+                                <i class="fe fe-clock me-1"></i>
+                                Pending Students (<span class="pending-students-count" data-syllabus="{{ syllabus.id }}">0</span>)
+                              </h6>
+                              <div>
+                                <!-- Removed Show All button -->
+                                <div></div>
+                              </div>
+                            </div>
+                            <div class="card-body p-0">
+                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-hover align-middle mb-0">
+                                  <thead class="theme-table-head sticky-top bg-white">
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Branch</th>
+                                      <th>Batch</th>
+                                      <th>Course</th>
+                                      <th>AD. No</th>
+                                      <th>Full Name</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="pending-students-table" data-syllabus="{{ syllabus.id }}">
+                                    <!-- Data will be loaded via AJAX -->
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Batches: Completed / Pending -->
+                      <div class="row mt-4">
+                        <div class="col-md-6">
+                          <div class="card card-success mb-4">
+                            <div class="card-header bg-success bg-opacity-10 border-success d-flex justify-content-between align-items-center">
+                              <h6 class="mb-0 text-success">
+                                <i class="fe fe-check-circle me-1"></i>
+                                Completed Batches (<span class="completed-batches-count" data-syllabus="{{ syllabus.id }}">0</span>)
+                              </h6>
+                              <div>
+                                <!-- Removed Show All button -->
+                                <div></div>
+                              </div>
+                            </div>
+                            <div class="card-body p-0">
+                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-hover align-middle mb-0">
+                                  <thead class="theme-table-head sticky-top bg-white">
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Branch</th>
+                                      <th>Batch Name</th>
+                                      <th>Completion</th>
+                                      <th>Students</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="completed-batches-table" data-syllabus="{{ syllabus.id }}">
+                                    <!-- Data will be loaded via AJAX -->
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                         <div class="col-md-6">
+                          <div class="card card-warning mb-4">
+                            <div class="card-header bg-warning bg-opacity-10 border-warning d-flex justify-content-between align-items-center">
+                              <h6 class="mb-0 text-warning">
+                                <i class="fe fe-clock me-1"></i>
+                                Pending Batches (<span class="pending-batches-count" data-syllabus="{{ syllabus.id }}">0</span>)
+                              </h6>
+                              <div>
+                                <!-- Removed Show All button -->
+                                <div></div>
+                              </div>
+                            </div>
+                            <div class="card-body p-0">
+                              <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-hover align-middle mb-0">
+                                  <thead class="theme-table-head sticky-top bg-white">
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Branch</th>
+                                      <th>Batch Name</th>
+                                      <th>Completion</th>
+                                      <th>Students</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="pending-batches-table" data-syllabus="{{ syllabus.id }}">
+                                    <!-- Data will be loaded via AJAX -->
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+              <div class="py-4">
+                <i class="fe fe-book-open fs-1 text-muted"></i>
+                <h5 class="mt-3 text-muted">{{ title|title }} {% translate "list is empty." %}</h5>
+              </div>
+              {% if can_add %}
+                <a href="{{ new_link }}" class="btn btn-primary">
+                  <i class="fe fe-plus me-1"></i> {% translate "Add New One" %}
+                </a>
+              {% endif %}
+            </div>
+            {% endif %}
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals removed as per requirement -->
+
+{% include 'app/partials/filter.html' %}
+{% include 'app/partials/help.html' %}
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Helper function to mimic Django's slugify
+  String.prototype.slugify = function() {
+    return this.toString().toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/[\s-]+/g, '-') // Collapse whitespace and replace by -
+      .replace(/^-+|-+$/g, ''); // Trim - from start and end
+  };
+
+  // No need to store all data separately since we're showing all items in scrollable tables
+
+  // Global filter elements
+  const globalBranchFilter = document.getElementById('globalBranchFilter');
+  const globalBatchFilter = document.getElementById('globalBatchFilter');
+  const clearGlobalFilters = document.getElementById('clearGlobalFilters');
+
+  // Current filter values
+  let currentBranchFilter = 'all';
+  let currentBatchFilter = 'all';
+
+  // Initialize global filters
+  function initializeGlobalFilters() {
+    if (globalBranchFilter && globalBatchFilter) {
+      // Update batch options when branch changes
+      globalBranchFilter.addEventListener('change', function() {
+        const selectedBranch = this.value;
+        currentBranchFilter = selectedBranch;
+        
+        const batchOptions = globalBatchFilter.options;
+        
+        // Show/hide batch options based on selected branch
+        for (let i = 0; i < batchOptions.length; i++) {
+          const option = batchOptions[i];
+          option.style.display = (option.value === 'all' || option.classList.contains(selectedBranch)) ? '' : 'none';
+        }
+        
+        // Reset batch filter to "all" if current selection is not visible
+        if (selectedBranch !== 'all' && !globalBatchFilter.options[globalBatchFilter.selectedIndex].classList.contains(selectedBranch)) {
+          globalBatchFilter.value = 'all';
+          currentBatchFilter = 'all';
+        }
+        
+        // Apply global filters
+        applyGlobalFilters();
+      });
+
+      globalBatchFilter.addEventListener('change', function() {
+        currentBatchFilter = this.value;
+        applyGlobalFilters();
+      });
+    }
+
+    if (clearGlobalFilters) {
+      clearGlobalFilters.addEventListener('click', function() {
+        globalBranchFilter.value = 'all';
+        globalBatchFilter.value = 'all';
+        currentBranchFilter = 'all';
+        currentBatchFilter = 'all';
+        
+        // Show all batch options
+        const batchOptions = globalBatchFilter.options;
+        for (let i = 0; i < batchOptions.length; i++) {
+          batchOptions[i].style.display = '';
+        }
+        applyGlobalFilters();
+      });
+    }
+
+    // Apply initial filters
+    applyGlobalFilters();
+  }
+
+  // Apply global filters to all accordions
+  function applyGlobalFilters() {
+    const branchValue = globalBranchFilter ? globalBranchFilter.value : 'all';
+    const batchValue = globalBatchFilter ? globalBatchFilter.value : 'all';
+
+    currentBranchFilter = branchValue;
+    currentBatchFilter = batchValue;
+
+    // Loop through all syllabus accordions
+    {% for syllabus in table.data %}
+    updateSyllabusFilter({{ syllabus.id }}, branchValue, batchValue);
+    {% endfor %}
+  }
+
+  // Track loaded syllabi to avoid duplicate requests
+  const loadedSyllabi = new Set();
+  
+  // Load syllabus details via AJAX when accordion is opened
+  function loadSyllabusDetails(syllabusId) {
+    const loadingElement = document.getElementById(`loading-${syllabusId}`);
+    const contentElement = document.getElementById(`content-${syllabusId}`);
+    
+    // Check if content is already loaded
+    if (loadedSyllabi.has(syllabusId)) {
+      return;
+    }
+    
+    // Show loading indicator
+    loadingElement.style.display = 'block';
+    contentElement.style.display = 'none';
+    
+    // Make AJAX request
+    const url = `?action=get_syllabus_details&syllabus_id=${syllabusId}`;
+    fetch(url, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      // Hide loading indicator
+      loadingElement.style.display = 'none';
+      
+      // Mark as loaded
+      loadedSyllabi.add(syllabusId);
+      
+      // Populate the tables with data
+      populateSyllabusData(syllabusId, data);
+      
+      // Show content
+      contentElement.style.display = 'block';
+      
+      // Apply current filters, but ensure all are visible when filters are 'all'
+      if (currentBranchFilter === 'all' && currentBatchFilter === 'all') {
+        // When both filters are 'all', ensure all rows are visible
+        const allRows = document.querySelectorAll(`#collapse${syllabusId} .status-row`);
+        allRows.forEach(row => {
+          row.style.display = '';
+        });
+        
+        // Update counts directly from the data
+        document.querySelector(`.completed-students-count[data-syllabus="${syllabusId}"]`).textContent = data.completed_students ? data.completed_students.length : 0;
+        document.querySelector(`.pending-students-count[data-syllabus="${syllabusId}"]`).textContent = data.pending_students ? data.pending_students.length : 0;
+        document.querySelector(`.completed-batches-count[data-syllabus="${syllabusId}"]`).textContent = data.completed_batches ? data.completed_batches.length : 0;
+        document.querySelector(`.pending-batches-count[data-syllabus="${syllabusId}"]`).textContent = data.pending_batches ? data.pending_batches.length : 0;
+        
+        // Update the main badge
+        document.getElementById(`syllabus-badge-${syllabusId}`).textContent = 
+            `${data.completed_batches ? data.completed_batches.length : 0} completed / ${data.pending_batches ? data.pending_batches.length : 0} pending batches`;
+      } else {
+        // Apply specific filters
+        updateSyllabusFilter(syllabusId, currentBranchFilter, currentBatchFilter);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading syllabus details:', error);
+      loadingElement.style.display = 'none';
+      contentElement.innerHTML = '<div class="alert alert-danger">Error loading syllabus details. Please try again.</div>';
+      contentElement.style.display = 'block';
+    });
+  }
+
+  // Populate syllabus data into tables
+  function populateSyllabusData(syllabusId, data) {
+    // Populate completed students
+    const completedStudentsTable = document.querySelector(`.completed-students-table[data-syllabus="${syllabusId}"]`);
+    if (completedStudentsTable) {
+      completedStudentsTable.innerHTML = '';
+      if (data.completed_students && data.completed_students.length > 0) {
+        data.completed_students.forEach((status, index) => {
+          const row = document.createElement('tr');
+          const branchSlug = status.user && status.user.branch ? status.user.branch.name.slugify() : '';
+          const batchId = status.batch && status.batch.id ? status.batch.id : '';
+          row.className = `status-row student-row ${branchSlug ? `branch-${branchSlug}` : ''} ${batchId ? `batch-${batchId}` : ''}`;
+          if (branchSlug) row.setAttribute('data-branch', branchSlug);
+          if (batchId) row.setAttribute('data-batch', batchId);
+          row.innerHTML = `
+            <td class="row-index">${index + 1}</td>
+            <td>${status.user && status.user.branch ? status.user.branch.name : '-'}</td>
+            <td>${status.batch ? status.batch.batch_name : '-'}</td>
+            <td>${status.course}</td>
+            <td>${status.admission_number}</td>
+            <td>${status.user ? status.user.full_name : ''}</td>
+            <td><span class="badge bg-success">Completed</span></td>
+          `;
+          completedStudentsTable.appendChild(row);
+        });
+      } else {
+        completedStudentsTable.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No completed students</td></tr>';
+      }
+    }
+
+    // Populate pending students
+    const pendingStudentsTable = document.querySelector(`.pending-students-table[data-syllabus="${syllabusId}"]`);
+    if (pendingStudentsTable) {
+      pendingStudentsTable.innerHTML = '';
+      if (data.pending_students && data.pending_students.length > 0) {
+        data.pending_students.forEach((status, index) => {
+          const row = document.createElement('tr');
+          const branchSlug = status.user && status.user.branch ? status.user.branch.name.slugify() : '';
+          const batchId = status.batch && status.batch.id ? status.batch.id : '';
+          row.className = `status-row student-row ${branchSlug ? `branch-${branchSlug}` : ''} ${batchId ? `batch-${batchId}` : ''}`;
+          if (branchSlug) row.setAttribute('data-branch', branchSlug);
+          if (batchId) row.setAttribute('data-batch', batchId);
+          row.innerHTML = `
+            <td class="row-index">${index + 1}</td>
+            <td>${status.user && status.user.branch ? status.user.branch.name : '-'}</td>
+            <td>${status.batch ? status.batch.batch_name : '-'}</td>
+            <td>${status.course}</td>
+            <td>${status.admission_number}</td>
+            <td>${status.user ? status.user.full_name : ''}</td>
+            <td><span class="badge bg-warning-pending">Pending</span></td>
+          `;
+          pendingStudentsTable.appendChild(row);
+        });
+      } else {
+        pendingStudentsTable.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No pending students</td></tr>';
+      }
+    }
+
+    // Populate completed batches
+    const completedBatchesTable = document.querySelector(`.completed-batches-table[data-syllabus="${syllabusId}"]`);
+    if (completedBatchesTable) {
+      completedBatchesTable.innerHTML = '';
+      if (data.completed_batches && data.completed_batches.length > 0) {
+        data.completed_batches.forEach((batch_data, index) => {
+          const row = document.createElement('tr');
+          const branchSlug = batch_data.branch ? batch_data.branch.name.slugify() : '';
+          row.className = `status-row batch-row ${branchSlug ? `branch-${branchSlug}` : ''} batch-${batch_data.batch.id}`;
+          if (branchSlug) row.setAttribute('data-branch', branchSlug);
+          row.setAttribute('data-batch', batch_data.batch.id);
+          row.innerHTML = `
+            <td class="row-index">${index + 1}</td>
+            <td>${batch_data.branch ? batch_data.branch.name : '-'}</td>
+            <td>${batch_data.batch.batch_name}</td>
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                  <div class="progress-bar bg-success" role="progressbar" 
+                      style="width: ${batch_data.completion_percentage}%" 
+                      aria-valuenow="${batch_data.completion_percentage}" 
+                      aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-nowrap">${batch_data.completion_percentage}%</small>
+              </div>
+            </td>
+            <td>
+              <small>${batch_data.completed_students}/${batch_data.total_students}</small>
+            </td>
+            <td><span class="badge bg-success">Completed</span></td>
+          `;
+          completedBatchesTable.appendChild(row);
+        });
+      } else {
+        completedBatchesTable.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No completed batches</td></tr>';
+      }
+    }
+
+    // Populate pending batches
+    const pendingBatchesTable = document.querySelector(`.pending-batches-table[data-syllabus="${syllabusId}"]`);
+    if (pendingBatchesTable) {
+      pendingBatchesTable.innerHTML = '';
+      if (data.pending_batches && data.pending_batches.length > 0) {
+        data.pending_batches.forEach((batch_data, index) => {
+          const row = document.createElement('tr');
+          const branchSlug = batch_data.branch ? batch_data.branch.name.slugify() : '';
+          row.className = `status-row batch-row ${branchSlug ? `branch-${branchSlug}` : ''} batch-${batch_data.batch.id}`;
+          if (branchSlug) row.setAttribute('data-branch', branchSlug);
+          row.setAttribute('data-batch', batch_data.batch.id);
+          row.innerHTML = `
+            <td class="row-index">${index + 1}</td>
+            <td>${batch_data.branch ? batch_data.branch.name : '-'}</td>
+            <td>${batch_data.batch.batch_name}</td>
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                  <div class="progress-bar bg-warning" role="progressbar" 
+                      style="width: ${batch_data.completion_percentage}%" 
+                      aria-valuenow="${batch_data.completion_percentage}" 
+                      aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-nowrap">${batch_data.completion_percentage}%</small>
+              </div>
+            </td>
+            <td>
+              <small>${batch_data.completed_students}/${batch_data.total_students}</small>
+            </td>
+            <td><span class="badge bg-warning-pending">Pending</span></td>
+          `;
+          pendingBatchesTable.appendChild(row);
+        });
+      } else {
+        pendingBatchesTable.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No pending batches</td></tr>';
+      }
+    }
+
+    // Update counts
+    document.querySelector(`.completed-students-count[data-syllabus="${syllabusId}"]`).textContent = data.completed_students ? data.completed_students.length : 0;
+    document.querySelector(`.pending-students-count[data-syllabus="${syllabusId}"]`).textContent = data.pending_students ? data.pending_students.length : 0;
+    document.querySelector(`.completed-batches-count[data-syllabus="${syllabusId}"]`).textContent = data.completed_batches ? data.completed_batches.length : 0;
+    document.querySelector(`.pending-batches-count[data-syllabus="${syllabusId}"]`).textContent = data.pending_batches ? data.pending_batches.length : 0;
+    
+    // Update the main badge with batch counts
+    document.getElementById(`syllabus-badge-${syllabusId}`).textContent = 
+        `${data.completed_batches ? data.completed_batches.length : 0} completed / ${data.pending_batches ? data.pending_batches.length : 0} pending batches`;
+  }
+
+  // Update individual syllabus accordion based on global filters
+  function updateSyllabusFilter(syllabusId, branchValue, batchValue) {
+    // Counters for each section
+    let completedStudentsCount = 0;
+    let pendingStudentsCount = 0;
+    let completedBatchesCount = 0;
+    let pendingBatchesCount = 0;
+
+    // Filter student rows - now showing all in scrollable container
+    const studentRows = document.querySelectorAll(`#collapse${syllabusId} .student-row`);
+    
+    studentRows.forEach((row, index) => {
+      const rowBranch = row.getAttribute('data-branch');
+      const rowBatch = row.getAttribute('data-batch');
+      
+      const showBranch = branchValue === 'all' || rowBranch === branchValue;
+      const showBatch = batchValue === 'all' || (rowBatch && rowBatch === batchValue);
+      
+      const showRow = showBranch && showBatch;
+      
+      // Show/hide rows based on filters
+      if (showRow) {
+        row.style.display = '';
+        
+        // Update counts based on status
+        if (row.querySelector('.bg-success')) {
+          completedStudentsCount++;
+        } else if (row.querySelector('.bg-warning-pending')) {
+          pendingStudentsCount++;
+        }
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Filter batch rows - now showing all in scrollable container
+    const batchRows = document.querySelectorAll(`#collapse${syllabusId} .batch-row`);
+    
+    batchRows.forEach((row, index) => {
+      const rowBranch = row.getAttribute('data-branch');
+      const rowBatch = row.getAttribute('data-batch');
+      
+      const showBranch = branchValue === 'all' || rowBranch === branchValue;
+      const showBatch = batchValue === 'all' || (rowBatch && rowBatch === batchValue);
+      
+      const showRow = showBranch && showBatch;
+      
+      // Show/hide rows based on filters
+      if (showRow) {
+        row.style.display = '';
+        
+        // Update counts based on status
+        if (row.querySelector('.bg-success')) {
+          completedBatchesCount++;
+        } else if (row.querySelector('.bg-warning-pending')) {
+          pendingBatchesCount++;
+        }
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Update the counts in the UI
+    document.querySelector(`.completed-students-count[data-syllabus="${syllabusId}"]`).textContent = completedStudentsCount;
+    document.querySelector(`.pending-students-count[data-syllabus="${syllabusId}"]`).textContent = pendingStudentsCount;
+    document.querySelector(`.completed-batches-count[data-syllabus="${syllabusId}"]`).textContent = completedBatchesCount;
+    document.querySelector(`.pending-batches-count[data-syllabus="${syllabusId}"]`).textContent = pendingBatchesCount;
+    
+    // Update the main badge with batch counts
+    document.getElementById(`syllabus-badge-${syllabusId}`).textContent = 
+        `${completedBatchesCount} completed / ${pendingBatchesCount} pending batches`;
+  }
+
+  // Removed updateShowAllButtons and updateRowIndexes functions since we're showing all items in scrollable tables
+
+  // Removed modal-related functions since modals are no longer used
+
+  // Add event listeners to accordions for lazy loading
+  document.querySelectorAll('.accordion-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const syllabusId = this.getAttribute('data-bs-target').replace('#collapse', '').replace('/', '');
+      // Load data when accordion is opened
+      setTimeout(() => {
+        loadSyllabusDetails(syllabusId);
+      }, 300); // Small delay to ensure accordion animation completes
+    });
+  });
+
+  // Load data for any accordions that are already open on page load
+  document.querySelectorAll('.accordion-collapse.show').forEach(collapse => {
+    const syllabusId = collapse.id.replace('collapse', '');
+    if (syllabusId) {
+      loadSyllabusDetails(syllabusId);
+    }
+  });
+
+  // Initialize the global filters
+  initializeGlobalFilters();
+});
+</script>
+
+<script>
+function applyThemeToTables() {
+  document.querySelectorAll('.theme-table-head').forEach((thead) => {
+    thead.classList.remove('table-dark', 'table-light');
+
+    if (document.documentElement.getAttribute('data-theme-mode') === 'dark') {
+      thead.classList.add('table-dark');
+    } else {
+      thead.classList.add('table-light');
+    }
+  });
+}
+
+// Run once on page load
+applyThemeToTables();
+
+// Watch for theme changes (data-theme-mode attribute)
+const observer = new MutationObserver(applyThemeToTables);
+observer.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme-mode']
+});
+</script>
+
+{% endblock javascript %}
+
+{% block extra_css %}
+<style>
+.syllabus-accordion .accordion-header .accordion-button{
+    font-size: 15px !important;
+    text-transform: capitalize !important;
+}
+.bg-warning-pending {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    cursor: pointer;
+}
+
+.bg-warning-pending:hover {
+    background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+}
+
+/* Scrollable table styles */
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Button styles - hide show all buttons */
+.show-all-btn {
+    display: none !important;
+}
+</style>
+{% endblock %}

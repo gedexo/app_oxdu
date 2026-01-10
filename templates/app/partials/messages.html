@@ -1,0 +1,20 @@
+{% if messages %}
+    {% for message in messages|slice:":1" %}
+        {% if message.tags == "success" %}
+            <div class="alert alert-outline-success alert-dismissible fade show">
+        {% elif message.tags == "warning" %}
+            <div class="alert alert-outline-warning alert-dismissible fade show">
+        {% elif message.tags == "error" %}
+            <div class="alert alert-outline-danger alert-dismissible fade show">
+        {% elif message.tags == "info" %}
+            <div class="alert alert-outline-info alert-dismissible fade show">
+        {% else %}
+            <div class="alert alert-outline-secondary alert-dismissible fade show">
+        {% endif %}
+            {{ message|safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    {% endfor %}
+{% endif %}

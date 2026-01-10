@@ -1,0 +1,537 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr" loader="enable"  data-header-position="scrollable" data-nav-layout="horizontal" data-theme-mode="light" data-header-styles="light" data-menu-styles="dark" data-toggled="close" loader="disable" data-nav-style="menu-hover" data-page-type="accounting">
+
+<head>
+    {% load static compress %}
+    <!-- Meta Data -->
+    <meta charset="UTF-8">
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=0'>
+    <title>{% block title %}{{app_settings.site_title}}{% endblock %}</title>
+
+    <meta content="{% block description %}{{app_settings.site_title}}{% endblock %}" name="description">
+    <meta content="{{author}}" name="author">
+    <meta name="keywords" content="" />
+
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-config" content="{% static 'static/app/images/favicons/browserconfig.xml' %}?v=1.8">
+    <meta name="theme-color" content="#ffffff">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'app/assets/images/logo/manifest.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{app_settings.favicon}}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{app_settings.favicon}}">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <link rel="manifest" href="{% static 'manifest.json' %}" crossorigin="use-credentials">
+    <meta name="theme-color" content="#da532c">
+
+    <!-- Enable standalone mode on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="OXDU ERP">
+
+    <!-- App icons for iOS -->
+    <link rel="apple-touch-icon" href="{% static 'app/assets/images/logo/manifest-logo-192.png' %}">
+    <link rel="apple-touch-icon" sizes="512x512" href="{% static 'app/assets/images/logo/manifest-logo-512.png' %}">
+
+    <!-- Main Theme Js -->
+    <script src="{% static 'app/assets/js/main.js' %}"></script>
+
+    <!-- Bootstrap Css -->
+    
+    {% compress css %}
+    
+    <link id="style" href="{% static 'app/assets/libs/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'app/assets/libs/flatpickr/flatpickr.min.css' %}">
+    <link href="{% static 'app/assets/css/styles.min.css' %}" rel="stylesheet">
+    <link href="{% static 'app/assets/css/plugins.css' %}?v=1.8" rel="stylesheet" />
+    <link href="{% static 'app/assets/css/icons.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'app/assets/libs/choices.js/public/assets/styles/choices.min.css' %}">
+    {% endcompress %}
+    {% block css_plugins %}{% endblock %}
+    <link href="{% static 'app/css/custom.css' %}?v=1.8.1" rel="stylesheet" />
+    {% block extra_css %}{% endblock %}
+    <script src="{% static 'app/assets/libs/jquery/jquery.min.js' %}?v=1.8"></script>
+    
+</head>
+
+<body data-user-authenticated="{{ user.is_authenticated|yesno:'true,false' }}" 
+      data-user-type="{{ user.usertype|default:'' }}"
+      data-user-id="{{ user.id|default:'' }}"
+      data-is-teacher="{% if user.is_authenticated and user.usertype in 'teacher,mentor' %}true{% else %}false{% endif %}">
+
+    <!-- Add debug element for FCM -->
+    <div id="push-debug" style="font-family: monospace; color: #444; font-size: 12px; position: fixed; bottom: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ccc; max-width: 400px; max-height: 200px; overflow-y: auto; z-index: 9999; display: none;"></div>
+
+    <!-- Loader -->
+    <div id="loader">
+        <img src="{% static 'app/assets/images/media/loader.svg' %}" alt="">
+    </div>
+    <!-- Loader -->
+
+    <div class="page">
+        {% include 'app/partials/header.html' %}
+        <!-- Start::app-sidebar -->
+            {% include "accounting/partials/accounting_sidebar.html" %}
+        {% block content %}
+        <div class="main-content app-content">
+            <div class="container-fluid">
+                <div class="page-header d-lg-flex d-block">
+                    <div class="page-leftheader">
+                        <div class="page-title">Accounting Dashboard</div>
+                    </div>
+
+                </div>
+                
+                <!-- Start::row-2 -->
+                <div class="row">
+                    <div class="col-xl-5 col-lg-4 col-md-6 col-sm-12">
+                        <div class="card custom-card">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="avatar avatar-md bg-primary-transparent text-primary brround me-3">
+                                    <i class="fe fe-dollar-sign fs-16"></i>
+                                </div>
+                                <div>
+                                    <p class="mb-1 fs-12 text-muted">Total Income</p>
+                                    <h4 class="mb-0 fw-semibold">
+                                        ₹{{ total_income|default:0|floatformat:2|intcomma }}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5 col-lg-4 col-md-6 col-sm-12">
+                        <div class="card custom-card">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="avatar avatar-md bg-danger-transparent text-danger brround me-3">
+                                    <i class="fe fe-minus-circle fs-16"></i>
+                                </div>
+                                <div>
+                                    <p class="mb-1 fs-12 text-muted">Total Expense</p>
+                                    <h4 class="mb-0 fw-semibold">
+                                        ₹{{ total_expense|default:0|floatformat:2|intcomma }}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5 col-lg-4 col-md-6 col-sm-12">
+                        <div class="card custom-card">
+                            <div class="card-body d-flex align-items-center">
+                                {% if net_profit >= 0 %}
+                                    <div class="avatar avatar-md bg-success-transparent text-success brround me-3">
+                                        <i class="fe fe-trending-up fs-16"></i>
+                                    </div>
+                                    <div>
+                                        <p class="mb-1 fs-12 text-muted">Net Profit</p>
+                                        <h4 class="mb-0 fw-semibold text-success">
+                                            ₹{{ net_profit|floatformat:2|intcomma }}
+                                        </h4>
+                                    </div>
+                                {% else %}
+                                    <div class="avatar avatar-md bg-danger-transparent text-danger brround me-3">
+                                        <i class="fe fe-trending-down fs-16"></i>
+                                    </div>
+                                    <div>
+                                        <p class="mb-1 fs-12 text-muted">Net Loss</p>
+                                        <h4 class="mb-0 fw-semibold text-danger">
+                                            ₹{{ net_profit|floatformat:2|intcomma }}
+                                        </h4>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5 col-lg-4 col-md-6 col-sm-12">
+                        <div class="card custom-card">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="avatar avatar-md bg-warning-transparent text-warning brround me-3">
+                                    <i class="fe fe-file-text fs-16"></i>
+                                </div>
+                                <div>
+                                    <p class="mb-1 fs-12 text-muted">Total Transactions</p>
+                                    <h4 class="mb-0 fw-semibold">
+                                        {{ total_transactions|default:0|intcomma }}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5 col-lg-4 col-md-6 col-sm-12">
+                        <div class="card custom-card">
+                            <div class="card-body d-flex align-items-center">
+                                <div class="avatar avatar-md bg-info-transparent text-info brround me-3">
+                                    <i class="fe fe-users fs-16"></i>
+                                </div>
+                                <div>
+                                    <p class="mb-1 fs-12 text-muted">Active Accounts</p>
+                                    <h4 class="mb-0 fw-semibold">
+                                        {{ active_accounts|default:0|intcomma }}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::row-2 -->
+                
+            </div>
+        </div>
+        {% endblock %}
+
+        {% if request.path != '/' %}
+            <button id="backBtn" title="Go Back"><i class="fe fe-arrow-left"></i></button>
+        {% endif %}
+
+        <!-- Footer Start -->
+        <footer class="footer mt-auto py-3 shadow-none text-center">
+            <div class="container">
+                <span class="text-muted"> &copy; {% now 'Y' %} ERP - Developed by  <a href="https://gedexo.com/" target="__blank"> Gedexo Technologies</a>.
+                </span>
+            </div>
+        </footer>
+        <!-- Footer End -->
+
+
+    </div>
+
+
+    <!-- Scroll To Top -->
+    <div class="scrollToTop">
+        <span class="arrow"><i class="fe fe-chevrons-up"></i></span>
+    </div>
+    <div id="responsive-overlay"></div>
+    <!-- Scroll To Top -->
+
+    {% compress js %}
+    <script src="{% static 'app/assets/libs/@popperjs/core/umd/popper.min.js' %}"></script>
+    <script src="{% static 'app/assets/libs/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'app/assets/js/defaultmenu.min.js' %}"></script>
+    <script src="{% static 'app/assets/libs/node-waves/waves.min.js' %}"></script>
+    <script src="{% static 'app/assets/js/sticky.js' %}"></script>
+    <script src="{% static 'app/assets/libs/select2/select2.full.min.js' %}?v=1.8"></script>
+    <script src="{% static 'app/assets/libs/flatpickr/flatpickr.min.js' %}"></script>
+    <script src="{% static 'app/assets/libs/choices.js/public/assets/scripts/choices.min.js' %}"></script>
+    <script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
+    <script src="{% static 'app/assets/js/formset/jquery.formset.js' %}"></script>
+
+    {% endcompress %}
+
+    <style>
+        @media (min-width: 1200px) {
+            .col-xl-5 {
+                flex: 0 0 20%;
+                max-width: 20%;
+            }
+        }
+
+        .accounting-header {
+            background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+
+        .accounting-header h2{
+            color: white !important;
+        }
+    </style>
+    {% block js_plugins %}{% endblock %}
+    <!-- Custom JS -->
+    <script src="{% static 'app/assets/js/custom.js' %}"></script>
+    {% block javascript %}{% endblock %}
+    <script>
+        function toggleTheme() {
+        var $html = $("html");
+        if ($html.attr("data-theme-mode") === "dark") {
+            $html.attr("data-theme-mode", "light")
+                .attr("data-header-styles", "light")
+                .attr("data-menu-styles", "light")
+                .removeAttr("data-bg-theme")
+                .css({
+                    "--body-bg-rgb": localStorage.bodyBgRGB,
+                    "--body-bg-rgb2": "",
+                    "--light-rgb": "",
+                    "--form-control-bg": "",
+                    "--input-border": ""
+                });
+            
+            if (!localStorage.getItem("primaryRGB")) {
+                $html.removeAttr("style");
+            }
+
+            $("#switcher-light-theme").prop("checked", true);
+            $("#switcher-menu-light").prop("checked", true);
+            $("#switcher-header-light").prop("checked", true);
+            $("#switcher-background4, #switcher-background3, #switcher-background2, #switcher-background1, #switcher-background").prop("checked", false);
+
+            localStorage.removeItem("dayonedarktheme");
+            localStorage.removeItem("dayoneMenu");
+            localStorage.removeItem("dayoneHeader");
+            localStorage.removeItem("bodylightRGB");
+            localStorage.removeItem("bodyBgRGB");
+
+            if (localStorage.getItem("dayonelayout") !== "horizontal") {
+                $html.attr("data-menu-styles", "dark");
+            }
+        } else {
+            $html.attr("data-theme-mode", "dark")
+                .attr("data-header-styles", "dark")
+                .attr("data-menu-styles", "dark")
+                .css({
+                    "--body-bg-rgb": localStorage.bodyBgRGB
+                });
+
+            if (!localStorage.getItem("primaryRGB")) {
+                $html.removeAttr("style");
+            }
+
+            $("#switcher-dark-theme").prop("checked", true);
+            $("#switcher-menu-dark").prop("checked", true);
+            $("#switcher-header-dark").prop("checked", true);
+            $("#switcher-background4, #switcher-background3, #switcher-background2, #switcher-background1, #switcher-background").prop("checked", false);
+
+            localStorage.setItem("dayonedarktheme", "true");
+            localStorage.setItem("dayoneMenu", "dark");
+            localStorage.setItem("dayoneHeader", "dark");
+            localStorage.removeItem("bodylightRGB");
+            localStorage.removeItem("bodyBgRGB");
+        }
+
+        checkOptions();
+    }
+
+    $(".layout-setting").on("click", toggleTheme);
+
+    function openFullscreen() {
+        var $open = $(".full-screen-open");
+        var $close = $(".full-screen-close");
+        var $elem = $(document.documentElement); // Fullscreen for the whole document
+
+        // Check if we are already in fullscreen mode
+        if (
+            !document.fullscreenElement &&
+            !document.webkitFullscreenElement &&
+            !document.msFullscreenElement
+        ) {
+            // Enter fullscreen mode if not already in fullscreen
+            if ($elem[0].requestFullscreen) {
+                $elem[0].requestFullscreen();
+            } else if ($elem[0].webkitRequestFullscreen) {
+                /* Safari */
+                $elem[0].webkitRequestFullscreen();
+            } else if ($elem[0].msRequestFullscreen) {
+                /* IE11 */
+                $elem[0].msRequestFullscreen();
+            }
+
+            // Update button visibility and set localStorage to remember fullscreen state
+            $close.removeClass("d-none").addClass("d-block");
+            $open.removeClass("d-block").addClass("d-none");
+
+            localStorage.setItem("fullscreen", "true"); // Store fullscreen state in localStorage
+        } else {
+            // Exit fullscreen mode if already in fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                /* IE11 */
+                document.msExitFullscreen();
+            }
+
+            // Update button visibility and set localStorage to remember fullscreen state
+            $close.removeClass("d-block").addClass("d-none");
+            $open.removeClass("d-none").addClass("d-block");
+
+            localStorage.setItem("fullscreen", "false"); // Store fullscreen state in localStorage
+        }
+    }
+
+    </script>
+
+    <script>
+        let deferredPrompt;
+
+        function isIos() {
+            return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+        }
+
+        function isInStandaloneMode() {
+            return ("standalone" in window.navigator) && window.navigator.standalone;
+        }
+
+        function openInstallModal() {
+            document.getElementById("installModal").style.display = "flex";
+
+            // iOS flow
+            if (isIos()) {
+                if (isInStandaloneMode()) {
+                    document.getElementById("installButton").style.display = "none";
+                    document.getElementById("installStatus").innerHTML =
+                        '<i class="fas fa-check-circle"></i> Already installed on your device.';
+                } else {
+                    // Show iOS-specific manual instructions
+                    document.getElementById("installButton").style.display = "none";
+                    document.getElementById("installStatus").innerHTML = `
+                        <p><b>To install this app on iPhone/iPad:</b></p>
+                        <ol>
+                            <li>Open in <b>Safari</b></li>
+                            <li>Tap the <i class="fas fa-share-square"></i> Share button</li>
+                            <li>Choose <b>Add to Home Screen</b></li>
+                        </ol>`;
+                }
+                return;
+            }
+
+            // Android / Desktop flow
+            if (deferredPrompt) {
+                document.getElementById("installButton").style.display = "inline-block";
+                document.getElementById("installStatus").innerHTML = '';
+            } else if (window.matchMedia("(display-mode: standalone)").matches) {
+                document.getElementById("installButton").style.display = "none";
+                document.getElementById("installStatus").innerHTML =
+                    '<i class="fas fa-check-circle"></i> Already installed on your device.';
+            } else {
+                document.getElementById("installButton").style.display = "none";
+                document.getElementById("installStatus").innerHTML =
+                    '<i class="fas fa-info-circle"></i> Install is supported only in Chrome/Edge (Desktop/Android) and Safari (manual on iOS).';
+            }
+        }
+
+        function closeInstallModal() {
+            document.getElementById("installModal").style.display = "none";
+        }
+
+        function installShortcut() {
+            if (!deferredPrompt) {
+                document.getElementById("installStatus").innerHTML =
+                    '<i class="fas fa-info-circle"></i> Follow the instructions above to install.';
+                return;
+            }
+
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === "accepted") {
+                    document.getElementById("installStatus").innerHTML =
+                        '<i class="fas fa-check-circle"></i> Installed successfully!';
+                } else {
+                    document.getElementById("installStatus").innerHTML =
+                        '<i class="fas fa-times-circle"></i> Installation cancelled.';
+                }
+                deferredPrompt = null;
+                document.getElementById("installButton").style.display = "none";
+            });
+        }
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        window.addEventListener("appinstalled", () => {
+            document.getElementById("installStatus").innerHTML =
+                '<i class="fas fa-check-circle"></i> Installed!';
+            document.getElementById("installButton").style.display = "none";
+        });
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var backBtn = document.getElementById("backBtn");
+            if (backBtn) {
+                backBtn.addEventListener("click", function() {
+                    window.history.back();
+                });
+            }
+        });
+    </script>
+
+    <script>
+function copyBrochureLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        const alert = document.createElement('div');
+        alert.className = 'custom-copy-alert';
+        alert.innerHTML = `
+            <div class="alert-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path fill="none" stroke="white" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="alert-text">Link Copied!</div>
+        `;
+        document.body.appendChild(alert);
+
+        setTimeout(() => {
+            alert.classList.add('show');
+        }, 10);
+
+        setTimeout(() => {
+            alert.classList.remove('show');
+            setTimeout(() => alert.remove(), 300);
+        }, 2000);
+    });
+}
+
+// Initialize flatpickr for date inputs in filter
+$(document).ready(function() {
+    function initializeFlatpickr() {
+        // Initialize flatpickr for all potential date input types
+        $('.form-group input[type="date"], .form-group input[name*="date"]').each(function() {
+            if (!$(this).hasClass('flatpickr-input') && !$(this).hasClass('has-flatpickr')) {
+                $(this).addClass('flatpickr-input has-flatpickr');
+                $(this).flatpickr({
+                    dateFormat: 'Y-m-d',
+                    allowInput: true,
+                    clickOpens: true
+                });
+            }
+        });
+    }
+    
+    // Initialize immediately
+    initializeFlatpickr();
+    
+    // Initialize when filter canvas is shown
+    $('#offcanvasFilter').on('shown.bs.offcanvas', function() {
+        setTimeout(initializeFlatpickr, 100);
+    });
+    
+    // Watch for new inputs being added dynamically
+    const observer = new MutationObserver(function(mutations) {
+        let shouldReinitialize = false;
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                        if ($(node).hasClass('form-group') || $(node).find('.form-group').length) {
+                            shouldReinitialize = true;
+                        }
+                    }
+                });
+            }
+        });
+        
+        if (shouldReinitialize) {
+            setTimeout(initializeFlatpickr, 100);
+        }
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+});
+</script>
+
+
+</body>
+
+</html>

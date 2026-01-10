@@ -1,0 +1,121 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{object}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+
+<div class="main-content app-content">
+<div class="container-fluid">
+
+  <!-- Page Header -->
+  <div class="page-header d-flex d-block justify-content-between">
+    <div class="page-leftheader">
+      <div class="page-title">{{ title|title }}</div>
+    </div>
+    <div class="page-rightheader">
+      <div class="btn-list">
+        <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+          data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+          <a class="btn btn-light3" href="{{ object.get_update_url }}"  data-bs-placement="top"
+          data-bs-toggle="tooltip" title="Edit"> <i class="fe fe-edit"></i> </a>
+
+          <a class="btn btn-light3" href="{{ object.get_delete_url }}"  data-bs-placement="top"
+          data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+      </div>
+    </div>
+  </div>
+  <!-- Page Header Close -->
+
+  <!-- Start::row-1 -->
+<div class="row">
+
+  <div class="col-lg-6 col-md-6 col-12">
+    {% if object %}
+    <div class="card content_card">
+      <div class="card-header">
+        <div class="card-title d-flex align-items-center w-100">
+          <h5 class="mb-0">{{object}}</h5>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover info_table mb-0" style="width:100%;">
+            <tbody>
+              {% for name, value in object.get_fields|slice:"5:" %}
+              {% if value %}
+              <tr>
+                <td> {{name}} </td>
+                <td> {{ value }} </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+              <tr>
+                <td>Starting Time</td>
+                <td> {{object.batch.starting_time}}</td>
+              </tr>
+
+              <tr>
+                <td>Ending Time</td>
+                <td> {{object.batch.ending_time}}</td>
+              </tr>
+              <tr>
+                <td>Full Present</td>
+                <td> {{ object.get_total_present }}/{{object.get_total_attendence}} </td>
+              </tr>
+              
+              <tr>
+                <td>Absence</td>
+                <td> {{ object.get_total_absent }}/{{object.get_total_attendence}} </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    {% else %}
+    <div class="card content_card">
+      <div class="card-body">
+        <p class="text-center">There is nothing here</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between w-100">
+        <h5 class="mb-0">Attendence</h5>
+      </div>
+      <div class="card-body p-5">
+        <div class="table-responsive">
+          <table  class="datatable-custom table table-hover table-bordered">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Attentence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in object.get_attendence %}
+              <tr class="{% if i.status == "Present" %} table-success {% else %} table-danger {% endif %}" >
+                <td>{{forloop.counter}}</td>
+                <td><a href="{{i.student.get_absolute_url}}">{{i.student}}</a> </td>
+                <td>{{i.status}}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+  <!--End::row-1 -->
+
+</div>
+</div>
+{% endblock content %}

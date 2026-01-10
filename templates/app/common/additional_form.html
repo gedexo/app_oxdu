@@ -1,0 +1,28 @@
+{% load crispy_forms_tags %}
+{% if additional_forms %}
+    {% for key, data in additional_forms.items %}
+
+        <!-- Modal -->
+        <div class="modal fade" id="{{ key }}Modal" tabindex="-1" aria-labelledby="{{ key }}ModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="{{ key }}ModalLabel">Add {{ key|title }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form method="post" action="{{ data.action }}" id="{{key}}-form">
+                            {% csrf_token %}
+                            {% if data.template_name %}
+                                {% include data.template_name with form=data.form %}
+                            {% else %}
+                                {{ data.form|crispy }}
+                            {% endif %}
+                            <button type="submit" class="btn btn-success">Save</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}

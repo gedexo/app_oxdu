@@ -1,0 +1,353 @@
+{% load static %}
+<aside class="app-sidebar sticky" id="sidebar">
+
+    <!-- Start::main-sidebar-header -->
+    <div class="main-sidebar-header">
+        <a href="{% url 'core:home' %}" class="header-logo">
+            <img src="{% static 'app/assets/images/brand-logos/desktop-logo.png' %}" alt="logo" class="desktop-logo">
+            <img src="{% static 'app/assets/images/brand-logos/toggle-logo.png' %}" alt="logo" class="toggle-logo">
+            <img src="{% static 'app/assets/images/brand-logos/desktop-dark.png' %}" alt="logo" class="desktop-dark">
+            <img src="{% static 'app/assets/images/brand-logos/toggle-dark.png' %}" alt="logo" class="toggle-dark">
+            <img src="{% static 'app/assets/images/brand-logos/desktop-white.png' %}" alt="logo" class="desktop-white">
+            <img src="{% static 'app/assets/images/brand-logos/toggle-white.png' %}" alt="logo" class="toggle-white">
+        </a>
+    </div>
+    <!-- End::main-sidebar-header -->
+
+    <!-- Start::main-sidebar -->
+    <div class="main-sidebar" id="sidebar-scroll">
+
+        <!-- Start::nav -->
+        <nav class="main-menu-container nav nav-pills flex-column sub-open">
+             <!-- Start::Sidebar User -->
+            <div class="app-sidebar__user mb-3">
+                <div class="dropdown user-pro-body text-center user-pic">
+                    <span class="avatar avatar-xxl online avatar-rounded">
+                        <img src="{% static 'app/assets/images/users/16.jpg' %}" alt="img">
+                    </span>
+                    <div class="user-info mt-1">
+                        <h5 class=" mb-1">Abigali kelly</h5>
+                        <span class="text-muted app-sidebar__user-name text-sm">App Developer</span>
+                    </div>
+                </div>
+            </div>
+             <!-- End::Sidebar User -->
+            <div class="slide-left d-none" id="slide-left">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191" width="24" height="24" viewBox="0 0 24 24"> <path d="M13.293 6.293 7.586 12l5.707 5.707 1.414-1.414L10.414 12l4.293-4.293z"></path> </svg>
+            </div>
+            <ul class="main-menu">
+
+                <!-- Start::slide -->
+                <li class="slide ">
+                    <a href="{% url 'accounting:accounting_base' %}" class="side-menu__item {% if is_home %}active{% endif %}">
+                        <i class="fe fe-home side-menu__icon"></i>
+                        <span class="side-menu__label">Dashboard</span>
+                    </a>
+                </li>
+                <!-- End::slide -->
+
+
+                <!-- Start::slide -->
+                <li class="slide has-sub">
+                    <a href="javascript:void(0);" class="side-menu__item {% if is_accounting %} active {% endif %}">
+                        <i class="la la-graduation-cap side-menu__icon"></i>
+                        <span class="side-menu__label">Accounting Master</span>
+                        <i class="fe fe-chevron-right side-menu__angle"></i>
+                    </a>
+                    <ul class="slide-menu child1">
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:groupmaster_list' %}" class="side-menu__item {% if is_groupmaster_list %}active{% endif %}">Group Master</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:account_list' %}" class="side-menu__item {% if is_account_list %}active{% endif %}">Accounts</a>
+                        </li>
+
+                    </ul>
+                </li>
+                <!-- End::slide -->
+
+                <!-- Start::slide -->
+                <li class="slide has-sub">
+                    <a href="javascript:void(0);" class="side-menu__item {% if is_accounting %} active {% endif %}">
+                        <i class="la la-graduation-cap side-menu__icon"></i>
+                        <span class="side-menu__label">Transactions</span>
+                        <i class="fe fe-chevron-right side-menu__angle"></i>
+                    </a>
+                    <ul class="slide-menu child1">
+
+                      
+                        <li class="slide">
+                            <a href="{% url 'transactions:transaction_list' %}" class="side-menu__item {% if is_transaction_list %}active{% endif %}">Transactions</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'transactions:journalvoucher_list' %}" class="side-menu__item {% if is_journal_voucher_list %}active{% endif %}">Journal Vouchers</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'transactions:income_list' %}" class="side-menu__item {% if is_income %}active{% endif %}">Income</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'transactions:expense_list' %}" class="side-menu__item {% if is_expense %}active{% endif %}">Expense</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'transactions:contravoucher_list' %}" class="side-menu__item {% if is_contravoucher_list %}active{% endif %}">Bank Deposit / Withdraw</a>
+                        </li>
+
+
+                    </ul>
+                </li>
+                <!-- End::slide -->
+
+                <!-- Start::slide -->
+                <li class="slide has-sub">
+                    <a href="javascript:void(0);" class="side-menu__item {% if is_accounting %} active {% endif %}">
+                        <i class="la la-graduation-cap side-menu__icon"></i>
+                        <span class="side-menu__label">Reports</span>
+                        <i class="fe fe-chevron-right side-menu__angle"></i>
+                    </a>
+                    <ul class="slide-menu child1">
+
+                      
+                        <li class="slide">
+                            <a href="{% url 'accounting:trial_balance' %}" class="side-menu__item {% if is_trial_balance %}active{% endif %}">Trial Balance</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:balance_sheet' %}" class="side-menu__item {% if is_balance_sheet %}active{% endif %}">Balance Sheet</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:profit_loss' %}" class="side-menu__item {% if is_profit_loss %}active{% endif %}">Profit & Loss</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:cash_flow' %}" class="side-menu__item {% if is_cash_flow %}active{% endif %}">Cash Flow</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'accounting:ledger_report' %}" class="side-menu__item {% if is_ledger_report %}active{% endif %}">Ledger Report</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'transactions:income_expense_report' %}" class="side-menu__item {% if is_income_expense_report %}active{% endif %}">Income & Expense Report</a>
+                        </li>
+
+                    </ul>
+                </li>
+                <!-- End::slide -->
+               
+       
+            </ul>
+            <div class="slide-right d-none" id="slide-right"><svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191" width="24" height="24" viewBox="0 0 24 24"> <path d="M10.707 17.707 16.414 12l-5.707-5.707-1.414 1.414L13.586 12l-4.293 4.293z"></path> </svg></div>
+            
+        </nav>
+        <!-- End::nav -->
+
+    </div>
+    <!-- End::main-sidebar -->
+
+</aside>
+
+<script>
+// Initialize slide-left and slide-right functionality after DOM is loaded
+(function() {
+    // Wait for DOM to be fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSidebarScrolling();
+            initializeDropdownPositioning();
+        });
+    } else {
+        initializeSidebarScrolling();
+        initializeDropdownPositioning();
+    }
+    
+    function initializeSidebarScrolling() {
+        const slideLeft = document.getElementById('slide-left');
+        const slideRight = document.getElementById('slide-right');
+        const mainMenu = document.querySelector('.main-menu');
+        const mainSidebar = document.querySelector('.main-sidebar');
+        
+        if (!slideLeft || !slideRight || !mainMenu || !mainSidebar) {
+            // If elements don't exist, skip initialization
+            return;
+        }
+        
+        // Check if menu is wider than container to enable scrolling
+        function checkMenuWidth() {
+            const menuWidth = mainMenu.scrollWidth;
+            const containerWidth = mainSidebar.offsetWidth;
+            
+            if (menuWidth > containerWidth) {
+                slideRight.classList.remove('d-none');
+                slideLeft.classList.add('d-none'); // Initially at start position
+            } else {
+                slideRight.classList.add('d-none');
+                slideLeft.classList.add('d-none');
+            }
+        }
+        
+        // Initial check
+        checkMenuWidth();
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            setTimeout(checkMenuWidth, 100);
+        });
+        
+        // Slide left functionality
+        slideLeft.addEventListener('click', function() {
+            const marginLeft = parseInt(getComputedStyle(mainMenu).marginLeft) || 0;
+            const scrollAmount = Math.min(200, Math.abs(marginLeft)); // Move max 200px or to start
+            mainMenu.style.marginLeft = (marginLeft + scrollAmount) + 'px';
+            
+            // Update visibility of controls
+            setTimeout(updateSlideControls, 50);
+        });
+        
+        // Slide right functionality
+        slideRight.addEventListener('click', function() {
+            const marginLeft = parseInt(getComputedStyle(mainMenu).marginLeft) || 0;
+            const menuWidth = mainMenu.scrollWidth;
+            const containerWidth = mainSidebar.offsetWidth;
+            const maxScroll = menuWidth - containerWidth;
+            
+            // Calculate how much we can scroll right
+            const scrollAmount = Math.min(200, maxScroll + marginLeft); // Move max 200px or to end
+            mainMenu.style.marginLeft = (marginLeft - scrollAmount) + 'px';
+            
+            // Update visibility of controls
+            setTimeout(updateSlideControls, 50);
+        });
+        
+        // Update visibility of slide controls based on scroll position
+        function updateSlideControls() {
+            const marginLeft = parseInt(getComputedStyle(mainMenu).marginLeft) || 0;
+            const menuWidth = mainMenu.scrollWidth;
+            const containerWidth = mainSidebar.offsetWidth;
+            const maxScroll = menuWidth - containerWidth;
+            
+            if (marginLeft >= 0) {
+                // At the start
+                slideLeft.classList.add('d-none');
+            } else {
+                slideLeft.classList.remove('d-none');
+            }
+            
+            if (Math.abs(marginLeft) >= maxScroll) {
+                // At the end
+                slideRight.classList.add('d-none');
+            } else {
+                slideRight.classList.remove('d-none');
+            }
+        }
+    }
+    
+    // Initialize dropdown positioning functionality
+    function initializeDropdownPositioning() {
+        const sidebar = document.querySelector('.app-sidebar');
+        const mainSidebar = document.querySelector('.main-sidebar');
+        const sidebarItems = document.querySelectorAll('.slide.has-sub');
+        
+        if (!sidebarItems.length) {
+            return;
+        }
+        
+        // Handle dropdown positioning when hovering over menu items
+        sidebarItems.forEach(item => {
+            const menuItem = item.querySelector('.side-menu__item');
+            const submenu = item.querySelector('.slide-menu');
+            
+            if (!submenu) return;
+            
+            // Add event listeners for hover
+            menuItem.addEventListener('mouseenter', function() {
+                setTimeout(() => {
+                    positionSubmenu(item);
+                }, 50); // Small delay to ensure submenu is visible
+            });
+            
+            // Also reposition when scrolling the sidebar
+            mainSidebar.addEventListener('scroll', function() {
+                sidebarItems.forEach(item => {
+                    if (item.classList.contains('open')) {
+                        positionSubmenu(item);
+                    }
+                });
+            });
+        });
+        
+        // Function to position submenu correctly
+        function positionSubmenu(parentItem) {
+            const submenu = parentItem.querySelector('.slide-menu');
+            const menuItem = parentItem.querySelector('.side-menu__item');
+            
+            if (!submenu || !menuItem) return;
+            
+            // Get positions relative to the sidebar container
+            const sidebarRect = mainSidebar.getBoundingClientRect();
+            const menuItemRect = menuItem.getBoundingClientRect();
+            const submenuRect = submenu.getBoundingClientRect();
+            
+            // Calculate the offset from the sidebar scroll
+            const sidebarScrollLeft = mainSidebar.scrollLeft;
+            const sidebarScrollTop = mainSidebar.scrollTop;
+            
+            // Calculate the position of the submenu relative to the sidebar
+            // Reset any previous positioning
+            submenu.style.position = 'absolute';
+            submenu.style.top = '0';
+            submenu.style.left = '100%'; // Position to the right of the menu item
+            submenu.style.transform = '';
+            
+            // Make submenu visible temporarily to measure
+            const wasVisible = submenu.style.display !== 'none';
+            if (!wasVisible) submenu.style.display = 'block';
+            
+            // Calculate position adjustments
+            const submenuWidth = submenu.offsetWidth;
+            const submenuHeight = submenu.offsetHeight;
+            
+            // Position the submenu to appear next to the menu item
+            // Calculate the position relative to the menu item
+            const parentRect = parentItem.getBoundingClientRect();
+            const sidebarRect = mainSidebar.getBoundingClientRect();
+            
+            // Adjust submenu position based on available space
+            const availableRightSpace = window.innerWidth - parentRect.right;
+            const availableLeftSpace = parentRect.left;
+            
+            // Check if submenu would go off the right edge of the screen
+            if (availableRightSpace < submenuWidth) {
+                // Position to the left of the menu item instead
+                submenu.style.left = 'auto';
+                submenu.style.right = '100%';
+            } else {
+                // Position to the right of the menu item
+                submenu.style.left = '100%';
+                submenu.style.right = 'auto';
+            }
+            
+            // Adjust vertical position to stay within viewport
+            const topOffset = parentRect.top - sidebarRect.top + mainSidebar.scrollTop;
+            const viewportBottom = window.innerHeight;
+            const submenuBottom = topOffset + submenuHeight;
+            
+            if (submenuBottom > viewportBottom - 20) { // 20px buffer
+                const adjustment = submenuBottom - viewportBottom + 20;
+                submenu.style.top = (-adjustment) + 'px';
+            } else {
+                submenu.style.top = '0';
+            }
+            
+            // Restore original display if it was hidden
+            if (!wasVisible) submenu.style.display = 'none';
+        }
+    }
+})();
+</script>

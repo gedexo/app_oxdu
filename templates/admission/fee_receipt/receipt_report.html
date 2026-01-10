@@ -1,0 +1,571 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags humanize %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (min-width: 1200px) {
+.col-xl-5th {
+  flex: 0 0 20%;
+  max-width: 20%;
+}
+}
+.loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 20px;
+}
+
+.load-more-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+#receiptsTableBody tr,
+#studentPaymentsTableBody tr {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: bold;
+    border-bottom: 2px solid #007bff;
+}
+
+.student-status-table {
+    margin-top: 20px;
+}
+
+.status-badge-paid {
+    background-color: #28a745;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.status-badge-unpaid {
+    background-color: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{ title|title }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- Filter Form -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header">
+            <h5 class="card-title">Filter Report</h5>
+          </div>
+          <div class="card-body">
+            <form method="get" class="row g-3" id="filterForm">
+              <div class="col-md-2">
+                <label for="branch" class="form-label">Branch</label>
+                <select name="branch" id="branch" class="form-select" {% if is_branch_locked %}disabled{% endif %}>
+                  {% if not is_branch_locked %}
+                    <option value="">All Branches</option>
+                  {% endif %}
+                  {% for branch in branches %}
+                  <option value="{{ branch.id }}" {% if selected_branch == branch.id|stringformat:"i" %}selected{% endif %}>
+                    {{ branch.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if is_branch_locked %}
+                  <input type="hidden" name="branch" value="{{ selected_branch }}">
+                {% endif %}
+              </div>
+              <div class="col-md-2">
+                <label for="course" class="form-label">Course</label>
+                <select name="course" id="course" class="form-select">
+                  <option value="">All Courses</option>
+                  {% for course in courses %}
+                  <option value="{{ course.id }}" {% if selected_course == course.id|stringformat:"i" %}selected{% endif %}>
+                    {{ course.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="year" class="form-label">Year</label>
+                <select name="year" id="year" class="form-select">
+                  {% for year_value, year_label in year_choices %}
+                  <option value="{{ year_value }}" {% if selected_year == year_value|stringformat:"s" %}selected{% endif %}>
+                    {{ year_label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="month" class="form-label">Month</label>
+                <select name="month" id="month" class="form-select">
+                  <option value="">All Months</option>
+                  {% for month_value, month_name in month_choices %}
+                  <option value="{{ month_value }}" {% if selected_month == month_value|stringformat:"i" %}selected{% endif %}>
+                    {{ month_name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{% url 'admission:fee_receipt_report' %}" class="btn btn-light">Clear</a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row">
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Total Receipts</span>
+                <span class="d-block mb-0 fs-18"><strong id="totalReceiptsCount">{{ receipt_count }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Total Amount</span>
+                <span class="d-block mb-0 fs-18 fw-bold"><strong>₹{{ total_amount|floatformat:2|intcomma }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Due Amount</span>
+                <span class="d-block mb-0 fs-18 text-danger fw-bold"><strong>₹{{ unpaid_amount|floatformat:2|intcomma }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Paid Amount</span>
+                <span class="d-block mb-0 fs-18 text-success fw-bold"><strong>₹{{ paid_amount|floatformat:2|intcomma }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Paid Students</span>
+                <span class="d-block mb-0 fs-18"><strong>{{ paid_students_count }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5th col-lg-6 col-md-6 col-xm-12">
+        <div class="card custom-card overflow-hidden">
+          <div class="card-body">
+            <div class="d-flex align-items-top justify-content-between">
+              <div>
+                <span class="d-block mb-2 fs-6 fw-bold">Unpaid Students</span>
+                <span class="d-block mb-0 fs-18"><strong>{{ unpaid_students_count }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Payment Status Tabs -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header">
+            <div class="card-title">Student Payment Status - {{ selected_month_display|default:"All Months" }} {% if selected_year == 'all' %}All Years{% else %}{{ selected_year }}{% endif %}</div>
+          </div>
+          <div class="card-body">
+            <ul class="nav nav-tabs" id="paymentStatusTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="paid-tab" data-bs-toggle="tab" data-bs-target="#paid" type="button" role="tab" aria-controls="paid" aria-selected="true">
+                  Paid Students ({{ paid_students_count }})
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="unpaid-tab" data-bs-toggle="tab" data-bs-target="#unpaid" type="button" role="tab" aria-controls="unpaid" aria-selected="false">
+                  Unpaid Students ({{ unpaid_students_count }})
+                </button>
+              </li>
+            </ul>
+            
+            <div class="tab-content" id="paymentStatusTabContent">
+              <!-- Paid Students Tab -->
+              <div class="tab-pane fade show active" id="paid" role="tabpanel" aria-labelledby="paid-tab">
+                <div class="table-responsive student-status-table">
+                  <table class="table table-hover table-bordered">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Branch</th>
+                        <th>Course</th>
+                        <th>Total Fee</th>
+                        <th>Paid Amount</th>
+                        <th>Balance</th>
+                        <th>Installments</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for student in paid_students %}
+                      <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ student.student_name }}</td>
+                        <td>{{ student.branch }}</td>
+                        <td>{{ student.course }}</td>
+                        <td>₹{{ student.total_fee }}</td>
+                        <td>₹{{ student.paid_amount }}</td>
+                        <td>₹{{ student.balance }}</td>
+                        <td>{{ student.paid_installments }}/{{ student.installments_count }}</td>
+                        <td><span class="status-badge-paid">Paid</span></td>
+                        <td>
+                          <a href="{{ student.fee_overview_url }}" class="btn custom-btn btn-sm" target="_blank">
+                            View Details
+                          </a>
+                        </td>
+                      </tr>
+                      {% empty %}
+                      <tr>
+                        <td colspan="10" class="text-center">No paid students found</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Unpaid Students Tab -->
+              <div class="tab-pane fade" id="unpaid" role="tabpanel" aria-labelledby="unpaid-tab">
+                <div class="table-responsive student-status-table">
+                  <table class="table table-hover table-bordered">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Branch</th>
+                        <th>Course</th>
+                        <th>Total Fee</th>
+                        <th>Paid Amount</th>
+                        <th>Balance</th>
+                        <th>Installments</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for student in unpaid_students %}
+                      <tr {% if not student.has_fee_structure %}class="table-warning" title="No Fee Structure Assigned"{% endif %}>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ student.student_name }}</td>
+                        <td>{{ student.branch }}</td>
+                        <td>{{ student.course }}</td>
+                        <td>₹{{ student.total_fee }}</td>
+                        <td>₹{{ student.paid_amount }}</td>
+                        <td>₹{{ student.balance }}</td>
+                        <td>{{ student.paid_installments }}/{{ student.installments_count }}</td>
+                        <td>
+                          {% if not student.has_fee_structure %}
+                            <span class="badge bg-warning text-white">No Fee Structure</span>
+                          {% else %}
+                            <span class="status-badge-unpaid">Unpaid</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <a href="{{ student.fee_overview_url }}" class="btn custom-btn btn-sm" target="_blank">
+                            View Details
+                          </a>
+                        </td>
+                      </tr>
+                      {% empty %}
+                      <tr>
+                        <td colspan="10" class="text-center">No unpaid students found</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch and Course Summary -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header">
+            <div class="card-title">Summary by Branch and Course - {% if selected_year == 'all' %}All Years{% else %}{{ selected_year }}{% endif %}</div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered">
+                <thead>
+                  <tr>
+                    <th>Branch</th>
+                    <th>Course</th>
+                    <th>Receipt Count</th>
+                    <th>Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for summary in branch_summary %}
+                  <tr>
+                    <td>{{ summary.student__branch__name|default:"N/A" }}</td>
+                    <td>{{ summary.student__course__name|default:"N/A" }}</td>
+                    <td>{{ summary.receipt_count }}</td>
+                    <td>₹{{ summary.total_amount|default:0 }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center">No data available</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Receipt List -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header">
+            <div class="card-title">Detailed Receipt List - {% if selected_year == 'all' %}All Years{% else %}{{ selected_year }}{% endif %}</div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Receipt No</th>
+                    <th>Date</th>
+                    <th>Student</th>
+                    <th>Branch</th>
+                    <th>Course</th>
+                    <th>Amount</th>
+                    <th>Payment Types</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="receiptsTableBody">
+                  {% for receipt in fee_receipts %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ receipt.receipt_no }}</td>
+                    <td>{{ receipt.date|date:"d-m-Y" }}</td>
+                    <td>{{ receipt.student.fullname }}</td>
+                    <td>{{ receipt.student.branch.name }}</td>
+                    <td>{{ receipt.student.course.name }}</td>
+                    <td class="fw-bold text-success">₹{{ receipt.get_amount }}</td>
+                    <td>
+                      {% if receipt.payment_methods.all %}
+                        {% for payment_method in receipt.payment_methods.all %}
+                          <span class="badge bg-primary text-capitalize">{{ payment_method.payment_type }}</span>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                      {% else %}
+                        <span class="text-muted">-</span>
+                      {% endif %}
+                    </td>
+                    <td>₹{{ receipt.get_receipt_balance }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="9" class="text-center">No receipts found</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading more receipts...</p>
+            </div>
+            
+            <!-- Load More Button (Fallback) -->
+            <div id="loadMoreContainer" class="load-more-container" style="display: none;">
+              <button id="loadMoreBtn" class="btn btn-primary">Load More Receipts</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMore = true;
+
+    // Function to load more receipts
+    function loadMoreReceipts() {
+        if (isLoading || !hasMore) return;
+        
+        isLoading = true;
+        currentPage++;
+        
+        $('#loadingSpinner').show();
+        $('#loadMoreBtn').prop('disabled', true);
+        
+        // Get current filter values (use hidden input if select is disabled)
+        const branch = $('#branch').val() || $('input[name="branch"]').val() || '';
+        const course = $('#course').val();
+        const year = $('#year').val();
+        const month = $('#month').val();
+        
+        $.ajax({
+            url: window.location.href,
+            type: 'GET',
+            data: {
+                'page': currentPage,
+                'branch': branch,
+                'course': course,
+                'year': year,
+                'month': month
+            },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.receipts && response.receipts.length > 0) {
+                    // Append new receipts to table
+                    response.receipts.forEach(function(receipt, index) {
+                        const rowNumber = (currentPage - 1) * 20 + index + 1;
+                        const newRow = `
+                            <tr>
+                                <td>${rowNumber}</td>
+                                <td>${receipt.receipt_no}</td>
+                                <td>${receipt.date}</td>
+                                <td>${receipt.student_name}</td>
+                                <td>${receipt.branch_name}</td>
+                                <td>${receipt.course_name}</td>
+                                <td class="fw-bold text-success">₹${receipt.amount}</td>
+                                <td>${receipt.payment_type}</td>
+                                <td>₹${receipt.balance}</td>
+                            </tr>
+                        `;
+                        $('#receiptsTableBody').append(newRow);
+                    });
+                    
+                    hasMore = response.has_next;
+                    
+                    // Show/hide load more button based on has_next
+                    if (hasMore) {
+                        $('#loadMoreContainer').show();
+                    } else {
+                        $('#loadMoreContainer').hide();
+                    }
+                } else {
+                    hasMore = false;
+                    $('#loadMoreContainer').hide();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading more receipts:', error);
+                hasMore = false;
+                $('#loadMoreContainer').hide();
+            },
+            complete: function() {
+                isLoading = false;
+                $('#loadingSpinner').hide();
+                $('#loadMoreBtn').prop('disabled', false);
+            }
+        });
+    }
+
+    // Load more button click event
+    $('#loadMoreBtn').on('click', loadMoreReceipts);
+
+    // Infinite scroll (optional)
+    $(window).on('scroll', function() {
+        if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
+            loadMoreReceipts();
+        }
+    });
+
+    // Reset pagination when filters change
+    $('#filterForm').on('submit', function() {
+        currentPage = 1;
+        hasMore = true;
+        $('#receiptsTableBody').empty();
+        $('#loadMoreContainer').hide();
+    });
+
+    // Initialize load more button visibility
+    {% if fee_receipts|length == 20 %}
+        $('#loadMoreContainer').show();
+    {% else %}
+        $('#loadMoreContainer').hide();
+    {% endif %}
+});
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% load static crispy_forms_tags %}
+
+<div class="modal fade" id="department-form-modal" tabindex="-1" aria-labelledby="department-form-modalLabel"
+    aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg ">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="department-form-modalLabel">Department Form</h5>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'employees:department_create' %}" class="" id="department-form">
+                    {% csrf_token %}
+                    {{ department_form|crispy }}
+                    <div class="modal-footer mt-4">
+                        <button type="button" class="btn btn-outline-grey" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                        <button type="reset" class="btn btn-secondary">Reset</button>
+                    </div>
+                </form>
+
+            </div>
+
+        </div>
+    </div>
+</div>

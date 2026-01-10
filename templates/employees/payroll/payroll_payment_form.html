@@ -1,0 +1,242 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form method="post" autocomplete="off">
+                                    {% csrf_token %}
+                                    <div class="row">
+
+                                        {% if form.non_field_errors %}
+                                            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                                        {% endif %}
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                            {{ form.employee|as_crispy_field }}
+                                        </div>
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-2" id="div_id_payroll" style="display:none;">
+                                            {{ form.payroll|as_crispy_field }}
+                                            <div class="d-flex justify-content-between">
+                                                <div id="payroll_amount_info" style="font-weight:semibold; font-size: 12px;"></div>
+                                                <div id="payroll_remaining_info" style="font-weight:semibold; font-size: 12px;"></div>
+                                                <div id="payroll_empty_message" style="font-weight:semibold; font-size: 12px; color:red; display:none;"></div>
+                                            </div>
+                                        </div>
+
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                            {{ form.payment_date|as_crispy_field }}
+                                        </div>
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                            {{ form.amount_paid|as_crispy_field }}
+                                            <div id="amount_paid_help" class="form-text"></div>
+                                            <div id="amount_paid_error_message" style="font-weight:semibold; font-size: 12px; color:red; display:none;"></div>
+                                            {% if form.amount_paid.errors %}
+                                                <div class="text-danger">{{ form.amount_paid.errors|striptags }}</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                            {{ form.payment_method|as_crispy_field }}
+                                        </div>
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                            {{ form.reference_number|as_crispy_field }}
+                                        </div>
+
+                                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 mb-3">
+                                        {{ form.remarks|as_crispy_field }}
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-success">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}
+
+
+{% block javascript %}
+
+{{form.media}}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const employeeSelect = document.getElementById("id_employee");
+    const payrollSelect = document.getElementById("id_payroll");
+    const payrollDiv = document.getElementById("div_id_payroll");
+    const amountPaidInput = document.getElementById("id_amount_paid");
+    const payrollAmountInfo = document.getElementById("payroll_amount_info");
+    const payrollRemainingInfo = document.getElementById("payroll_remaining_info");
+    const amountPaidHelp = document.getElementById("amount_paid_help");
+    const amountPaidError = document.getElementById("amount_paid_error_message");
+    const payrollEmptyMessage = document.getElementById("payroll_empty_message");
+    const ajaxUrl = "{% url 'employees:ajax_get_employee_payrolls' %}";
+
+    const monthNames = [
+        "", "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    // Initialize Select2
+    if (window.$) {
+        $('#id_employee').select2({ placeholder: 'Select an employee', width: '100%' });
+        $('#id_payroll').select2({ placeholder: 'Select a payroll', width: '100%' });
+    }
+
+    function updatePayrollInfo() {
+        const selectedOption = payrollSelect.selectedOptions[0];
+        if (!selectedOption || !selectedOption.value) {
+            payrollAmountInfo.innerText = "";
+            payrollRemainingInfo.innerText = "";
+            amountPaidInput.value = "";
+            amountPaidInput.removeAttribute("max");
+            amountPaidInput.disabled = true;
+            amountPaidHelp.innerText = "";
+            amountPaidError.style.display = "none";
+            return;
+        }
+
+        const netSalary = parseFloat(selectedOption.dataset.amount);
+        const remainingSalary = parseFloat(selectedOption.dataset.remaining);
+
+        payrollAmountInfo.innerText = `Net Salary: ${netSalary}`;
+        payrollRemainingInfo.innerText = `Remaining Salary: ${remainingSalary}`;
+        amountPaidInput.disabled = false;
+        amountPaidInput.setAttribute("max", remainingSalary);
+        amountPaidHelp.innerText = `Maximum payable amount is ${remainingSalary}`;
+
+        // Real-time validation
+        const validateAmount = () => {
+            const entered = parseFloat(amountPaidInput.value || 0);
+            if (entered > remainingSalary) {
+                amountPaidError.style.display = "block";
+                amountPaidError.innerText = `Amount cannot exceed remaining salary (${remainingSalary})`;
+            } else {
+                amountPaidError.style.display = "none";
+                amountPaidError.innerText = "";
+            }
+        };
+
+        amountPaidInput.removeEventListener("input", validateAmount);
+        amountPaidInput.addEventListener("input", validateAmount);
+    }
+
+    function fetchPayrolls(employeeId) {
+        payrollSelect.innerHTML = '<option value="">---------</option>';
+        payrollDiv.style.display = "none";
+        payrollAmountInfo.innerText = "";
+        payrollRemainingInfo.innerText = "";
+        amountPaidInput.value = "";
+        amountPaidInput.disabled = true;
+        amountPaidInput.removeAttribute("max");
+        amountPaidHelp.innerText = "";
+        amountPaidError.style.display = "none";
+        if (payrollEmptyMessage) {
+            payrollEmptyMessage.style.display = "none";
+            payrollEmptyMessage.innerText = "";
+        }
+
+        if (!employeeId) return;
+
+        fetch(`${ajaxUrl}?employee_id=${employeeId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.payrolls.length > 0) {
+                    payrollDiv.style.display = "block";
+                    amountPaidInput.disabled = false;
+
+                    data.payrolls.forEach((p, index) => {
+                        const monthName = monthNames[p.payroll_month] || p.payroll_month;
+                        const optionText = `${p.payroll_year} ${monthName} - ${p.employee_name}`;
+                        const option = new Option(optionText, p.id, false, false);
+                        option.dataset.amount = p.basic_salary;
+                        option.dataset.remaining = p.remaining_salary;
+
+                        if (index === 0) option.selected = true;
+                        payrollSelect.appendChild(option);
+                    });
+
+                    if (window.$) $('#id_payroll').trigger('change.select2');
+                    updatePayrollInfo();
+                } else {
+                    payrollDiv.style.display = "block";  // show empty dropdown
+                    if (payrollEmptyMessage) {
+                        payrollEmptyMessage.style.display = "block";
+                        payrollEmptyMessage.innerText = "No pending payrolls available for this employee.";
+                    }
+                    amountPaidInput.disabled = true;
+                }
+            })
+            .catch(err => console.error("Error fetching payrolls:", err));
+    }
+
+    // Employee change event
+    if (window.$ && $(employeeSelect).data("select2")) {
+        $('#id_employee').on('change', function () {
+            fetchPayrolls(this.value);
+        });
+    } else {
+        employeeSelect.addEventListener('change', function () {
+            fetchPayrolls(this.value);
+        });
+    }
+
+    // Payroll change event
+    if (window.$ && $(payrollSelect).data("select2")) {
+        $('#id_payroll').on('select2:select', updatePayrollInfo);
+    } else {
+        payrollSelect.addEventListener('change', updatePayrollInfo);
+    }
+
+    // If an employee is pre-selected (edit form)
+    if (employeeSelect.value) fetchPayrolls(employeeSelect.value);
+});
+</script>
+{% endblock %}

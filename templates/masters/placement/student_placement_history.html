@@ -1,0 +1,441 @@
+<!-- templates/masters/placement/student_placement_history.html -->
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+
+{% block title %}{{student}} - Placement History: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">Placement History - {{ student.first_name }} {{ student.last_name }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          <a href="{% url 'masters:placement_report' %}" class="btn btn-outline-secondary">
+            <i class="fe fe-arrow-left me-1"></i> Back to Report
+          </a>
+          <a href="{% url 'masters:placement_history_create' student.pk %}" class="btn btn-success">
+            <i class="fe fe-plus me-1"></i> Add Placement
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- Student Info - Clean Modern Version -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom">
+            <h5 class="card-title mb-0 text-dark">
+              <i class="fe fe-user me-2 text-muted"></i>Student Profile
+            </h5>
+          </div>
+          <div class="card-body">
+            <!-- Profile Header -->
+            <div class="row align-items-center mb-4">
+              <div class="col-auto">
+                <div class="avatar-container bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                  <i class="fe fe-user fs-24 text-dark"></i>
+                </div>
+              </div>
+              <div class="col">
+                <h4 class="mb-1 text-dark">{{ student.first_name }} {{ student.last_name }}</h4>
+                <p class="text-muted mb-1">Admission No: {{ student.admission_number|default:"-" }}</p>
+                <span class="badge status-badge 
+                  {% if student.stage_status == 'completed' %}bg-success
+                  {% elif student.stage_status == 'active' %}bg-primary
+                  {% elif student.stage_status == 'placed' %}bg-info
+                  {% elif student.stage_status == 'dropped' %}bg-danger
+                  {% else %}bg-warning{% endif %}">
+                  {{ student.stage_status|title|default:"Unknown" }}
+                </span>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <!-- Personal Information -->
+              <div class="col-lg-6">
+                <div class="info-section">
+                  <h6 class="section-header text-dark mb-3">
+                    <i class="fe fe-user me-2 text-muted"></i>Personal Information
+                  </h6>
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Full Name</span>
+                        <p class="field-value text-dark mb-0">{{ student.first_name }} {{ student.last_name }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Admission No</span>
+                        <p class="field-value text-dark mb-0">{{ student.admission_number|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Date of Birth</span>
+                        <p class="field-value text-dark mb-0">{{ student.date_of_birth|date:"d M Y"|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Gender</span>
+                        <p class="field-value text-dark mb-0">{{ student.gender|title|default:"-" }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contact Information -->
+              <div class="col-lg-6">
+                <div class="info-section">
+                  <h6 class="section-header text-dark mb-3">
+                    <i class="fe fe-phone me-2 text-muted"></i>Contact Information
+                  </h6>
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Contact Number</span>
+                        <p class="field-value text-dark mb-0">{{ student.contact_number|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">WhatsApp</span>
+                        <p class="field-value text-dark mb-0">{{ student.whatsapp_number|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Email Address</span>
+                        <p class="field-value text-dark mb-0">{{ student.personal_email|default:"-" }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Academic Information -->
+              <div class="col-lg-6">
+                <div class="info-section">
+                  <h6 class="section-header text-dark mb-3">
+                    <i class="fe fe-book me-2 text-muted"></i>Academic Information
+                  </h6>
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Course</span>
+                        <p class="field-value text-dark mb-0">{{ student.course.name|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Batch</span>
+                        <p class="field-value text-dark mb-0">{{ student.batch.batch_name|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Admission Date</span>
+                        <p class="field-value text-dark mb-0">{{ student.admission_date|date:"d M Y"|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Course Mode</span>
+                        <p class="field-value text-dark mb-0">{{ student.course_mode|title|default:"-" }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Institution Details -->
+              <div class="col-lg-6">
+                <div class="info-section">
+                  <h6 class="section-header text-dark mb-3">
+                    <i class="fe fe-home me-2 text-muted"></i>Institution Details
+                  </h6>
+                  <div class="row g-3">
+                    <div class="col-sm-6">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Branch</span>
+                        <p class="field-value text-dark mb-0">{{ student.branch.name|default:"-" }}</p>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="info-field">
+                        <span class="field-label text-muted">Address</span>
+                        <p class="field-value text-dark mb-0 small">
+                          {% if student.home_address %}
+                            {{ student.home_address }}
+                            {% if student.city %}, {{ student.city }}{% endif %}
+                            {% if student.state %}, {{ student.state }}{% endif %}
+                            {% if student.pin_code %} - {{ student.pin_code }}{% endif %}
+                          {% else %}
+                            -
+                          {% endif %}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="row mt-4 pt-4 border-top">
+              <div class="col-md-3 col-6 mb-3">
+                <div class="stat-item text-center p-3 bg-light rounded">
+                  <div class="stat-icon text-dark mb-2">
+                    <i class="fe fe-briefcase fs-20"></i>
+                  </div>
+                  <h3 class="mb-1 fw-bold text-dark">{{ placement_histories.count }}</h3>
+                  <p class="text-muted mb-0 small">Total Applications</p>
+                </div>
+              </div>
+              <div class="col-md-3 col-6 mb-3">
+                <div class="stat-item text-center p-3 bg-light rounded">
+                  <div class="stat-icon text-success mb-2">
+                    <i class="fe fe-check-circle fs-20"></i>
+                  </div>
+                  <h3 class="mb-1 fw-bold text-dark">
+                    {{ student.placementhistory_set.filter|length }}
+                  </h3>
+                  <p class="text-muted mb-0 small">Interviews</p>
+                </div>
+              </div>
+              <div class="col-md-3 col-6 mb-3">
+                <div class="stat-item text-center p-3 bg-light rounded">
+                  <div class="stat-icon text-info mb-2">
+                    <i class="fe fe-award fs-20"></i>
+                  </div>
+                  <h3 class="mb-1 fw-bold text-dark">
+                    {{ student.placementhistory_set.filter|length }}
+                  </h3>
+                  <p class="text-muted mb-0 small">Selections</p>
+                </div>
+              </div>
+              <div class="col-md-3 col-6 mb-3">
+                <div class="stat-item text-center p-3 bg-light rounded">
+                  <div class="stat-icon text-warning mb-2">
+                    <i class="fe fe-trending-up fs-20"></i>
+                  </div>
+                  <h3 class="mb-1 fw-bold text-dark">
+                    {% if student.stage_status == 'placed' %}Placed{% else %}Active{% endif %}
+                  </h3>
+                  <p class="text-muted mb-0 small">Status</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Placement History -->
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom">
+            <h5 class="card-title mb-0 text-dark">
+              <i class="fe fe-briefcase me-2 text-muted"></i>Placement History
+            </h5>
+          </div>
+          <div class="card-body p-0">
+            {% if placement_histories %}
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                  <tr>
+                    <th class="border-0">Company</th>
+                    <th class="border-0">Designation</th>
+                    <th class="border-0">Interview Date</th>
+                    <th class="border-0">Type</th>
+                    <th class="border-0">Status</th>
+                    <th class="border-0">Attended</th>
+                    <th class="border-0">Joined</th>
+                    <th class="border-0">Joining Date</th>
+                    <th class="border-0 text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for history in placement_histories %}
+                  <tr class="border-bottom">
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <div class="company-avatar bg-dark text-white rounded me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; font-size: 14px; font-weight: 500;">
+                          {{ history.company_name|first|upper }}
+                        </div>
+                        <div>
+                          <p class="mb-0 fw-semibold text-dark">{{ history.company_name }}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="fw-semibold text-dark">{{ history.designation }}</td>
+                    <td class="text-dark fw-bolder">{{ history.interview_date }}</td>
+                    <td>
+                      <span class="badge bg-primary text-white border">
+                        {{ history.interview_type }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge 
+                        {% if history.interview_status == 'accepted' %}bg-success
+                        {% elif history.interview_status == 'rejected' %}bg-danger
+                        {% elif history.interview_status == 'pending' %}bg-warning
+                        {% else %}bg-secondary{% endif %}">
+                        {{ history.interview_status|title }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge {% if history.attended_status == 'true' %}bg-success{% else %}bg-danger border{% endif %}">
+                        {{ history.get_attended_status_display }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge {% if history.joining_status == 'true' %}bg-success{% else %}bg-danger border{% endif %}">
+                        {{ history.get_joining_status_display }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if history.joining_date %}
+                        <span class="text-success fw-semibold">{{ history.joining_date }}</span>
+                      {% else %}
+                        <span class="text-muted">-</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <div class="btn-list">
+                        <a href="{% url 'masters:placement_history_update' history.pk %}" 
+                           class="btn btn-sm btn-outline-dark" data-bs-toggle="tooltip" title="Edit">
+                          <i class="fe fe-edit"></i>
+                        </a>
+                        <a href="{% url 'masters:placement_history_delete' history.pk %}" 
+                           class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete">
+                          <i class="fe fe-trash-2"></i>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+              <div class="empty-state">
+                <i class="fe fe-briefcase fs-48 text-muted mb-3"></i>
+                <h4 class="text-dark mb-2">No Placement Records</h4>
+                <p class="text-muted mb-4">No placement history found for this student.</p>
+                <a href="{% url 'masters:placement_history_create' student.pk %}" class="btn btn-success">
+                  <i class="fe fe-plus me-2"></i>Add First Placement
+                </a>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.info-section {
+  padding: 1.25rem;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.section-header {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.info-field {
+  margin-bottom: 0.5rem;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.field-value {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.avatar-container {
+  border: 2px solid #eaeaea;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.stat-item {
+  transition: all 0.2s ease;
+  border: 1px solid #f0f0f0;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-color: #ddd;
+}
+
+.company-avatar {
+  font-weight: 600;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+}
+
+.status-badge {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.border-bottom {
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+.empty-state {
+  padding: 3rem 1rem;
+}
+
+.table th {
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555;
+}
+
+.table td {
+  vertical-align: middle;
+  padding: 0.8rem 0.7rem;
+}
+
+.bg-light {
+  background-color: #fafafa !important;
+}
+
+.card-header {
+  background: #fff !important;
+  border-bottom: 1px solid #eaeaea !important;
+}
+</style>
+{% endblock content %}

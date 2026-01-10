@@ -1,0 +1,40 @@
+{% extends 'core/settings_base.html' %}
+{% load static crispy_forms_tags %}
+
+
+{% block settings_content %}
+<div class="card custom-card">
+    <div class="card-header d-flex justify-content-between border-bottom-0">
+        <div class="card-title">{{ sub_title|title }}</div>
+        <div class="btn-list">
+            {% if object %}
+                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-12">
+                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action=""
+                enctype="multipart/form-data">
+                {% csrf_token %}
+                {{form|crispy}}
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col">
+                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                            <button type="button" onclick="history.back()" class="btn btn-outline-info"> <i class="fa fa-cancel"></i> Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                
+            </form>
+            </div>
+        </div>
+      
+        
+    </div>
+    
+</div>
+{% endblock settings_content %}

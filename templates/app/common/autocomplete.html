@@ -1,0 +1,642 @@
+<!-- autocomplete.html -->
+<script>
+    function appendAddNewButton(newLink, fieldId) {
+        $('.select2-add-btn-container').remove();
+        
+        var buttonHtml = `
+            <div class="select2-add-btn-container">
+                <button type="button" class="btn btn-primary btn-sm w-100" onclick="openAddNewModal('${newLink}', '${fieldId}')">
+                    <i class="fa fa-plus"></i> Add New
+                </button>
+            </div>
+        `;
+        
+        var $dropdown = $('#' + fieldId).data('select2').$dropdown;
+        if ($dropdown && $dropdown.length) {
+            $dropdown.find('.select2-results').append(buttonHtml);
+        } else {
+            $('.select2-container--open .select2-results__options').append(buttonHtml);
+        }
+    }
+    
+    window.openAddNewModal = function(newLink, fieldId) {
+        var popupUrl = newLink;
+        if (popupUrl.indexOf('?') !== -1) {
+            popupUrl += '&_popup=1';
+        } else {
+            popupUrl += '?_popup=1';
+        }
+        
+        openIframeModal(popupUrl, fieldId);
+        $('#' + fieldId).select2('close');
+    };
+    
+    function collectFilterData($element) {
+        var requestData = {};
+        
+        $.each($element.data(), function(key, value) {
+            if (key.startsWith('filter') && key !== 'filterField' && key !== 'filterType') {
+                var filterKey = key.substring(6);
+                filterKey = filterKey.replace(/([A-Z])/g, '_$1').toLowerCase();
+                if (filterKey.startsWith('_')) {
+                    filterKey = filterKey.substring(1);
+                }
+                if (filterKey && value !== undefined && value !== null && value !== '') {
+                    requestData[filterKey] = value;
+                }
+            }
+            if (key.startsWith('exclude') && key !== 'excludeField' && key !== 'excludeType') {
+                var excludeKey = 'exclude_' + key.substring(7);
+                excludeKey = excludeKey.replace(/([A-Z])/g, '_$1').toLowerCase();
+                if (excludeKey.startsWith('exclude__')) {
+                    excludeKey = excludeKey.substring(0, 8) + excludeKey.substring(9);
+                }
+                if (excludeKey && value !== undefined && value !== null && value !== '') {
+                    requestData[excludeKey] = value;
+                }
+            }
+        });
+        
+        return requestData;
+    }
+    
+    function initializeAutocomplete() {
+        $('.autocomplete-select2').each(function() {
+            var $element = $(this);
+            var url = $element.data('autocomplete-url');
+            var minInputLength = parseInt($element.data('minimum-input-length')) || 1;
+            var limit = parseInt($element.data('limit')) || 10;
+            var branchId = $element.data('branch-id');
+            var fieldName = $element.data('field-name');
+            var filterField = $element.data('filter-field');
+            var filterType = $element.data('filter-type');
+            var companyIds = $element.data('company-ids');
+            var canAdd = $element.data('can-add') === 'true' || $element.data('can-add') === true;
+            var newLink = $element.data('new-link');
+            var fieldId = $element.attr('id');
+            
+            if (!url) return;
+            
+            if ($element.hasClass('select2-hidden-accessible')) {
+                $element.select2('destroy');
+            }
+            
+            var initialValue = $element.val();
+            var initialText = $element.find('option:selected').text();
+            var hasInitialValue = initialValue && initialValue !== '' && initialText && initialText !== initialValue;
+            
+            $element.select2({
+                theme: 'default',
+                width: '100%',
+                placeholder: $element.data('placeholder') || 'Select an option...',
+                allowClear: true,
+                minimumInputLength: minInputLength,
+                dropdownCssClass: 'custom-select2-dropdown',
+                ajax: {
+                    url: url,
+                    dataType: 'json',
+                    delay: 300,
+                    cache: true,
+                    data: function(params) {
+                        var requestData = {
+                            q: params.term || '',
+                            limit: limit,
+                            offset: (params.page - 1) * limit || 0,
+                            branch_id: branchId,
+                            field_name: fieldName,
+                            filter_field: filterField,
+                            filter_type: filterType,
+                            company_ids: companyIds,
+                            initial_load: !params.term
+                        };
+                        
+                        var filterData = collectFilterData($element);
+                        $.extend(requestData, filterData);
+                        
+                        return requestData;
+                    },
+                    processResults: function(data, params) {
+                        params.page = params.page || 1;
+                        
+                        var results = data.results || [];
+                        
+                        if (hasInitialValue && (!params.term || params.term === '')) {
+                            var hasCurrentValue = results.some(function(item) {
+                                return String(item.id) === String(initialValue);
+                            });
+                            
+                            if (!hasCurrentValue && initialText && initialText !== initialValue) {
+                                results.unshift({
+                                    id: initialValue,
+                                    text: initialText
+                                });
+                            }
+                        }
+                        
+                        return {
+                            results: results,
+                            pagination: {
+                                more: data.pagination ? data.pagination.more : false
+                            }
+                        };
+                    }
+                },
+                escapeMarkup: function(markup) {
+                    return markup;
+                },
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            }).on('select2:open', function() {
+                setTimeout(function() {
+                    var searchField = document.querySelector('.select2-container--open .select2-search__field');
+                    if (searchField) searchField.focus();
+                }, 100);
+                
+                if (canAdd && newLink) {
+                    appendAddNewButton(newLink, fieldId);
+                }
+            }).on('select2:close', function() {
+                $('.select2-add-btn-container').remove();
+            });
+            
+            if (hasInitialValue) {
+                if (!$element.find('option[value="' + initialValue + '"]').length) {
+                    var option = new Option(initialText, initialValue, true, true);
+                    $element.append(option).trigger('change');
+                }
+            }
+        });
+        
+        $('.autocomplete-select2-multiple').each(function() {
+            var $element = $(this);
+            var url = $element.data('autocomplete-url');
+            var minInputLength = parseInt($element.data('minimum-input-length')) || 1;
+            var limit = parseInt($element.data('limit')) || 10;
+            var branchId = $element.data('branch-id');
+            var fieldName = $element.data('field-name');
+            var filterField = $element.data('filter-field');
+            var filterType = $element.data('filter-type');
+            var companyIds = $element.data('company-ids');
+            var canAdd = $element.data('can-add') === 'true' || $element.data('can-add') === true;
+            var newLink = $element.data('new-link');
+            var fieldId = $element.attr('id');
+            
+            if (!url) return;
+            
+            if ($element.hasClass('select2-hidden-accessible')) {
+                $element.select2('destroy');
+            }
+            
+            var initialValues = $element.val() || [];
+            var initialOptions = $element.find('option:selected');
+            var hasInitialValues = initialValues.length > 0 && initialOptions.length > 0;
+            
+            $element.select2({
+                theme: 'default',
+                width: '100%',
+                placeholder: $element.data('placeholder') || 'Select options...',
+                allowClear: true,
+                multiple: true,
+                minimumInputLength: minInputLength,
+                dropdownCssClass: 'custom-select2-dropdown',
+                ajax: {
+                    url: url,
+                    dataType: 'json',
+                    delay: 300,
+                    cache: true,
+                    data: function(params) {
+                        var requestData = {
+                            q: params.term || '',
+                            limit: limit,
+                            offset: (params.page - 1) * limit || 0,
+                            branch_id: branchId,
+                            field_name: fieldName,
+                            filter_field: filterField,
+                            filter_type: filterType,
+                            company_ids: companyIds,
+                            initial_load: !params.term
+                        };
+                        
+                        var filterData = collectFilterData($element);
+                        $.extend(requestData, filterData);
+                        
+                        return requestData;
+                    },
+                    processResults: function(data, params) {
+                        params.page = params.page || 1;
+                        
+                        var results = data.results || [];
+                        
+                        if (hasInitialValues && (!params.term || params.term === '')) {
+                            initialOptions.each(function() {
+                                var optionValue = $(this).val();
+                                var optionText = $(this).text();
+                                
+                                var existsInResults = results.some(function(item) {
+                                    return String(item.id) === String(optionValue);
+                                });
+                                
+                                if (!existsInResults && optionText && optionText !== optionValue) {
+                                    results.unshift({
+                                        id: optionValue,
+                                        text: optionText
+                                    });
+                                }
+                            });
+                        }
+                        
+                        return {
+                            results: results,
+                            pagination: {
+                                more: data.pagination ? data.pagination.more : false
+                            }
+                        };
+                    }
+                },
+                escapeMarkup: function(markup) {
+                    return markup;
+                },
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            }).on('select2:open', function() {
+                setTimeout(function() {
+                    var searchField = document.querySelector('.select2-container--open .select2-search__field');
+                    if (searchField) searchField.focus();
+                }, 100);
+                
+                if (canAdd && newLink) {
+                    appendAddNewButton(newLink, fieldId);
+                }
+            }).on('select2:close', function() {
+                $('.select2-add-btn-container').remove();
+            });
+            
+            if (hasInitialValues) {
+                initialValues.forEach(function(val) {
+                    if (!$element.find('option[value="' + val + '"]').length) {
+                        var text = initialOptions.filter('[value="' + val + '"]').text();
+                        var option = new Option(text, val, true, true);
+                        $element.append(option);
+                    }
+                });
+                $element.trigger('change');
+            }
+        });
+    }
+    
+    function openIframeModal(url, fieldId) {
+        var modal = $('#iframe-modal');
+        var iframe = modal.find('iframe');
+        
+        iframe.attr('src', url);
+        modal.data('target-field-id', fieldId);
+        modal.modal('show');
+    }
+    
+    window.dismissAddAnotherPopup = function(win, newId, newRepr) {
+        var modal = $('#iframe-modal');
+        var fieldId = modal.data('target-field-id');
+
+        if (fieldId) {
+            var $field = $('#' + fieldId);
+            
+            if ($field.length) {
+                newId = String(newId);
+                var isMultiple = $field.prop('multiple');
+                var newOption = new Option(newRepr, newId, true, true); 
+                
+                if (!$field.find('option[value="' + newId + '"]').length) {
+                    $field.append(newOption);
+                }
+                
+                if (isMultiple) {
+                    var currentValues = $field.val() || [];
+                    currentValues = currentValues.map(String);
+                    
+                    if (currentValues.indexOf(newId) === -1) {
+                        currentValues.push(newId);
+                    }
+                    $field.val(currentValues).trigger('change');
+                } else {
+                    $field.val(newId).trigger('change');
+                }
+            }
+        }
+    };
+    
+    $('#iframe-modal').on('hidden.bs.modal', function() {
+        $(this).find('iframe').attr('src', '');
+        $(this).data('target-field-id', '');
+    });
+
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'form_success') {
+            var responseData = event.data; 
+            var newOption = responseData.data;
+
+            if (newOption && newOption.id && newOption.text) {
+                window.dismissAddAnotherPopup(null, newOption.id, newOption.text);
+            }
+
+            if (responseData.close_modal) {
+                var modal = $('#iframe-modal');
+                if (modal.length) {
+                    modal.modal('hide');
+                }
+            }
+            
+            if (responseData.refresh) {
+                window.location.reload();
+            }
+        }
+    });
+
+    function refreshAutocomplete() {
+        $('.autocomplete-select2, .autocomplete-select2-multiple').each(function() {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2('destroy');
+            }
+        });
+        initializeAutocomplete();
+    }
+    
+    $(document).ready(function() {
+        initializeAutocomplete();
+    });
+    
+    $(document).on('shown.bs.modal', function(e) {
+        if (!$(e.target).is('#iframe-modal')) {
+            setTimeout(initializeAutocomplete, 100);
+        }
+    });
+    
+    $(document).on('formset:added', function() {
+        setTimeout(initializeAutocomplete, 100);
+    });
+    
+    $(window).on('pageshow', function(event) {
+        if (event.originalEvent.persisted) {
+            refreshAutocomplete();
+        }
+    });
+    
+    $(document).ajaxComplete(function() {
+        setTimeout(function() {
+            if ($('.autocomplete-select2:not(.select2-hidden-accessible), .autocomplete-select2-multiple:not(.select2-hidden-accessible)').length > 0) {
+                initializeAutocomplete();
+            }
+        }, 200);
+    });
+
+    function initializeAutocompleteForRow(row) {
+        row.find('.autocomplete-select2').each(function() {
+            var $element = $(this);
+            
+            if ($element.hasClass('select2-hidden-accessible')) {
+                $element.select2('destroy');
+            }
+            
+            var url = $element.data('autocomplete-url');
+            var minInputLength = parseInt($element.data('minimum-input-length')) || 1;
+            var limit = parseInt($element.data('limit')) || 10;
+            var branchId = $element.data('branch-id');
+            var fieldName = $element.data('field-name');
+            var filterField = $element.data('filter-field');
+            var filterType = $element.data('filter-type');
+            var companyIds = $element.data('company-ids');
+            var canAdd = $element.data('can-add') === 'true' || $element.data('can-add') === true;
+            var newLink = $element.data('new-link');
+            var fieldId = $element.attr('id');
+            
+            if (!url) return;
+            
+            var initialValue = $element.val();
+            var initialText = $element.find('option:selected').text();
+            var hasInitialValue = initialValue && initialValue !== '' && initialText && initialText !== initialValue;
+            
+            $element.select2({
+                theme: 'default',
+                width: '100%',
+                placeholder: $element.data('placeholder') || 'Select an option...',
+                allowClear: true,
+                minimumInputLength: minInputLength,
+                dropdownCssClass: 'custom-select2-dropdown',
+                ajax: {
+                    url: url,
+                    dataType: 'json',
+                    delay: 300,
+                    cache: true,
+                    data: function(params) {
+                        var requestData = {
+                            q: params.term || '',
+                            limit: limit,
+                            offset: (params.page - 1) * limit || 0,
+                            branch_id: branchId,
+                            field_name: fieldName,
+                            filter_field: filterField,
+                            filter_type: filterType,
+                            company_ids: companyIds,
+                            initial_load: !params.term
+                        };
+                        
+                        var filterData = collectFilterData($element);
+                        $.extend(requestData, filterData);
+                        
+                        return requestData;
+                    },
+                    processResults: function(data, params) {
+                        params.page = params.page || 1;
+                        
+                        var results = data.results || [];
+                        
+                        if (hasInitialValue && (!params.term || params.term === '')) {
+                            var hasCurrentValue = results.some(function(item) {
+                                return String(item.id) === String(initialValue);
+                            });
+                            
+                            if (!hasCurrentValue && initialText && initialText !== initialValue) {
+                                results.unshift({
+                                    id: initialValue,
+                                    text: initialText
+                                });
+                            }
+                        }
+                        
+                        return {
+                            results: results,
+                            pagination: {
+                                more: data.pagination ? data.pagination.more : false
+                            }
+                        };
+                    }
+                },
+                escapeMarkup: function(markup) {
+                    return markup;
+                },
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            }).on('select2:open', function() {
+                setTimeout(function() {
+                    var searchField = document.querySelector('.select2-container--open .select2-search__field');
+                    if (searchField) searchField.focus();
+                }, 100);
+                
+                if (canAdd && newLink) {
+                    appendAddNewButton(newLink, fieldId);
+                }
+            }).on('select2:close', function() {
+                $('.select2-add-btn-container').remove();
+            });
+            
+            if (hasInitialValue) {
+                if (!$element.find('option[value="' + initialValue + '"]').length) {
+                    var option = new Option(initialText, initialValue, true, true);
+                    $element.append(option).trigger('change');
+                }
+            }
+        });
+        
+        row.find('.autocomplete-select2-multiple').each(function() {
+            var $element = $(this);
+            
+            if ($element.hasClass('select2-hidden-accessible')) {
+                $element.select2('destroy');
+            }
+            
+            var url = $element.data('autocomplete-url');
+            var minInputLength = parseInt($element.data('minimum-input-length')) || 1;
+            var limit = parseInt($element.data('limit')) || 10;
+            var branchId = $element.data('branch-id');
+            var fieldName = $element.data('field-name');
+            var filterField = $element.data('filter-field');
+            var filterType = $element.data('filter-type');
+            var companyIds = $element.data('company-ids');
+            var canAdd = $element.data('can-add') === 'true' || $element.data('can-add') === true;
+            var newLink = $element.data('new-link');
+            var fieldId = $element.attr('id');
+            
+            if (!url) return;
+            
+            var initialValues = $element.val() || [];
+            var initialOptions = $element.find('option:selected');
+            var hasInitialValues = initialValues.length > 0 && initialOptions.length > 0;
+            
+            $element.select2({
+                theme: 'default',
+                width: '100%',
+                placeholder: $element.data('placeholder') || 'Select options...',
+                allowClear: true,
+                multiple: true,
+                minimumInputLength: minInputLength,
+                dropdownCssClass: 'custom-select2-dropdown',
+                ajax: {
+                    url: url,
+                    dataType: 'json',
+                    delay: 300,
+                    cache: true,
+                    data: function(params) {
+                        var requestData = {
+                            q: params.term || '',
+                            limit: limit,
+                            offset: (params.page - 1) * limit || 0,
+                            branch_id: branchId,
+                            field_name: fieldName,
+                            filter_field: filterField,
+                            filter_type: filterType,
+                            company_ids: companyIds,
+                            initial_load: !params.term
+                        };
+                        
+                        var filterData = collectFilterData($element);
+                        $.extend(requestData, filterData);
+                        
+                        return requestData;
+                    },
+                    processResults: function(data, params) {
+                        params.page = params.page || 1;
+                        
+                        var results = data.results || [];
+                        
+                        if (hasInitialValues && (!params.term || params.term === '')) {
+                            initialOptions.each(function() {
+                                var optionValue = $(this).val();
+                                var optionText = $(this).text();
+                                
+                                var existsInResults = results.some(function(item) {
+                                    return String(item.id) === String(optionValue);
+                                });
+                                
+                                if (!existsInResults && optionText && optionText !== optionValue) {
+                                    results.unshift({
+                                        id: optionValue,
+                                        text: optionText
+                                    });
+                                }
+                            });
+                        }
+                        
+                        return {
+                            results: results,
+                            pagination: {
+                                more: data.pagination ? data.pagination.more : false
+                            }
+                        };
+                    }
+                },
+                escapeMarkup: function(markup) {
+                    return markup;
+                },
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            }).on('select2:open', function() {
+                setTimeout(function() {
+                    var searchField = document.querySelector('.select2-container--open .select2-search__field');
+                    if (searchField) searchField.focus();
+                }, 100);
+                
+                if (canAdd && newLink) {
+                    appendAddNewButton(newLink, fieldId);
+                }
+            }).on('select2:close', function() {
+                $('.select2-add-btn-container').remove();
+            });
+            
+            if (hasInitialValues) {
+                initialValues.forEach(function(val) {
+                    if (!$element.find('option[value="' + val + '"]').length) {
+                        var text = initialOptions.filter('[value="' + val + '"]').text();
+                        var option = new Option(text, val, true, true);
+                        $element.append(option);
+                    }
+                });
+                $element.trigger('change');
+            }
+        });
+    }
+
+    $(document).on('formset:added', function(event, row) {
+        setTimeout(function() {
+            initializeAutocompleteForRow($(row));
+        }, 100);
+    });
+</script>

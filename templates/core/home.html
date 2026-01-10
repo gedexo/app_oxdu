@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+{% block title %}Home: {{app_settings.site_title}}{% endblock %}
+
+{% block body %}
+
+<div class="container">
+    <div class="row align-items-center justify-content-center min-vh-100">
+        <div class="col-md-6 mx-auto my-auto">
+            {% include 'app/partials/messages.html' %}
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title text-start">Welcome Back {{ request.user }}</h4>
+                </div>
+                <div class="card-body">
+                    <form action="" class="form-horizontal" method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="text-center mt-3">
+                            <button type="submit" class="btn btn-danger custom-btn w-40">Enter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

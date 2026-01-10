@@ -1,0 +1,156 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+
+<!-- Row-->
+  <div class="row">
+
+    <div class="col-md-12">
+      {% if object %}
+      <div class="card content_card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <h4 class="text-center p-2 mt-6">PDF Books</h4>
+            <table class="table table-hover table-bordered align-middle shadow-sm bg-white">
+              <thead class="table-dark">
+                  <tr>
+                      <th class="text-center">Name</th>
+                      <th class="text-center">Created</th>
+                      <th class="text-center">PDF</th>
+                      <th class="text-center">Action</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for pdfbook in pdfbook_entries %}
+                      <tr>
+                          <td class="fw-semibold">{{ pdfbook.name }}</td>
+                          <td>{{ pdfbook.created|date:"d M Y, h:i A" }}</td>
+                          <td>
+                              <i class="bi bi-file-earmark-pdf text-danger"></i> {{ pdfbook.pdf }}
+                          </td>
+                          <td class="text-center">
+                              <a href="{{ pdfbook.pdf.url }}" target="_blank" class="btn btn-outline-danger btn-sm">
+                                  <i class="bi bi-eye"></i> View PDF
+                              </a>
+                          </td>
+                      </tr>
+                  {% empty %}
+                      <tr>
+                          <td colspan="4" class="text-center text-muted fw-bold">No PDF books found.</td>
+                      </tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+          </div>
+        </div>
+
+      </div>
+      {% else %}
+      <div class="card content_card">
+        <div class="card-body">
+          <p class="text-center">There is nothing here</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+  <!-- End Row-->
+
+
+
+</div>
+</div>
+
+<script>
+    function updateStudents() {
+        let course_id = document.getElementById("id_course").value; 
+        let url = new URL(window.location.href);
+        url.searchParams.set("course", course_id); 
+        window.location.href = url.href; 
+    }
+</script>
+
+{% endblock content %}
+
+{% block js_plugins %}
+<script src="{% static 'app/js/formset/formset.js' %}"></script>
+<script>
+    $(document).ready(function () {
+        // Your first script for formset
+        $('.form_set_row').formset({
+            addText: '<span>Add Item</span>',
+            deleteText: '<i class="fa-solid fa-xmark" ></i>',
+            prefix: '{{ pdfbook_formset.prefix }}',
+            formCssClass: 'dynamic-formset',
+            added: function (row) {
+              $(row).find('select').addClass('select');
+              $(row).find('select').prop('required');
+              $(row).find('select.select').select2();
+            },
+            removed: function (row) {
+               
+            }
+        });
+
+      
+    });
+    
+</script>
+
+<script>
+  var branchSelect = $("#id_branch");
+
+  function updateSelectOptions(selectId, data, valueKey, textKey) {
+      const select = $(selectId);
+      select.empty().append('<option value="" selected="selected">---------</option>');
+      if (data) {
+          const options = data.map(item => `<option value="${item[valueKey]}">${item[textKey]}</option>`);
+          select.append(options.join(''));
+      }
+  }
+
+  function makeAjaxCall(get_url,data,successCallback) {
+      
+      $.ajax({
+          url: get_url,
+          data: data,
+          dataType: 'json',
+          success: successCallback
+      });
+  }
+
+  branchSelect.change(function () {
+      let branch = branchSelect.val();
+      let data = { branch: branch };
+
+      makeAjaxCall(get_city_url,data, function (data) {
+        updateSelectOptions("#id_route_start", data.city, "id", "name");
+        updateSelectOptions("#id_route_end", data.city, "id", "name");
+      });
+  });
+</script>
+
+
+{% endblock js_plugins %}

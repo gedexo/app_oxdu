@@ -1,0 +1,421 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title|title}} : {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-lg-flex d-block">
+        <div class="page-leftheader">
+            <div class="page-title">Branch Performance Overview</div>
+        </div>
+    </div>
+
+    <div class="row">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-xl-12">
+        <div class="card custom-card">
+          <div class="card-header border-bottom-0 d-flex justify-content-between align-items-center">
+            <div class="card-title">Branch Performance Overview</div>
+            
+            <div class="card-options d-flex align-items-center">
+              <!-- Month Selector Form -->
+              <form method="get" class="d-flex align-items-center me-3">
+                <label for="month-select" class="form-label me-2 mb-0">Select Month:</label>
+                <select name="month" id="month-select" class="form-select form-select-sm" onchange="this.form.submit()">
+                  {% for month in months %}
+                  <option value="{{ month.value }}" {% if month.value == selected_month %}selected{% endif %}>
+                    {{ month.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </form>
+              
+              {% if leading_branch %}
+                  <span class="badge badge-overall-leading ms-2">
+                      <i class="fe fe-trending-up me-1"></i> Monthly Leading: {{ leading_branch.branch.name }}
+                  </span>
+              {% endif %}
+              {% if can_add %}
+              <a href="{{ new_link }}" class="btn btn-primary activity-add-btn btn-sm ms-3">
+                <i class="fe fe-plus me-1"></i> Add Activity
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card-body p-0">
+            {% if activities and branches %}
+            <div class="table-responsive">
+              <table class="table branch-performance-table align-middle mb-0">
+                <thead class="border-bottom">
+                  <tr>
+                    <th class="text-start ps-4">ITEMS</th>
+                    {% for branch in branches %}
+                    <th class="text-center position-relative {% if leading_branch and leading_branch.branch.id == branch.id %}leading-column{% endif %}">
+                      <div class="d-flex flex-column align-items-center">
+                        <span class="fw-bold">{{ branch.name }}</span>
+                        {% if leading_branch and leading_branch.branch.id == branch.id %}
+                        <span class="badge badge-leading position-absolute top-0 end-0 mt-1 me-1">
+                          <i class="fe fe-award me-1"></i>Leading
+                        </span>
+                        {% endif %}
+                      </div>
+                    </th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {% for row in activity_matrix %}
+                  <tr class="border-bottom">
+                    <td class="fw-semibold text-start ps-4">
+                      <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm bg-{{ row.activity.color|default:'primary' }}-transparent rounded me-3">
+                          <i class="fe fe-{{ row.activity.icon|default:'activity' }}"></i>
+                        </span>
+                        <div class="flex-fill">
+                          <div class="fw-semibold">{{ row.activity.name }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    {% for branch_data in row.branches %}
+                    <td class="text-center position-relative 
+                              {% if branch_data.is_highest %}highlight-cell{% endif %}
+                              {% if leading_branch and leading_branch.branch.id == branch_data.branch.id %}leading-column{% endif %}">
+                      <div class="d-flex align-items-center justify-content-center">
+                        <span class="fw-semibold me-2 {% if leading_branch and leading_branch.branch.id == branch_data.branch.id %}leading-points{% endif %}">{{ branch_data.points|default:0 }}</span>
+                        {% if can_add %}
+                        <a href="{% if branch_data.id %}
+                                  {% url 'masters:branch_activity_update' branch_data.id %}?month={{ selected_month }}
+                                {% else %}
+                                  {% url 'masters:branch_activity_create' %}?activity={{ row.activity.id }}&branch={{ branch_data.branch.id }}&month={{ selected_month }}
+                                {% endif %}"
+                          class="action-btn btn btn-sm btn-icon {% if branch_data.id %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                          title="{% if branch_data.id %}Edit{% else %}Add Points{% endif %}">
+                          <i class="fe {% if branch_data.id %}fe-edit-2{% else %}fe-plus{% endif %} fs-12"></i>
+                        </a>
+                        {% endif %}
+                      </div>
+                      {% if branch_data.is_highest and not leading_branch.branch.id == branch_data.branch.id %}
+                      <span class="position-absolute top-0 start-0 badge bg-primary-transparent ms-1 mt-1">
+                        <i class="fe fe-star me-1"></i>Best
+                      </span>
+                      {% endif %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  {% endfor %}
+                </tbody>
+
+                <tfoot class="bg-light">
+                  <!-- Monthly Total Points -->
+                  <tr>
+                    <td class="fw-bold text-start ps-4">Monthly Total Points</td>
+                    {% for total in branch_totals %}
+                    <td class="fw-bold text-center position-relative total-cell 
+                              {% if total.is_highest %}leading-cell{% endif %}
+                              {% if leading_branch and leading_branch.branch.id == total.branch.id %}leading-column leading-points{% endif %}">
+                      <div class="d-flex flex-column align-items-center">
+                        <span>{{ total.month_total|default:0 }}</span>
+                        {% if total.is_highest and not leading_branch.branch.id == total.branch.id %}
+                        <span class="badge badge-leading mt-1">
+                          <i class="fe fe-award me-1"></i>Leading
+                        </span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  
+                  <!-- Overall Total Points -->
+                  <tr>
+                    <td class="fw-bold text-start ps-4">Overall Total Points</td>
+                    {% for total in branch_totals %}
+                    <td class="fw-bold text-center position-relative total-cell">
+                      <div class="d-flex flex-column align-items-center">
+                        <span>{{ total.overall_total|default:0 }}</span>
+                      </div>
+                    </td>
+                    {% endfor %}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {% else %}
+            <div class="text-center py-6">
+              <div class="avatar avatar-lg bg-secondary-transparent rounded-circle mb-3">
+                <i class="fe fe-activity fs-2"></i>
+              </div>
+              <h5 class="mb-1">No Activities Found</h5>
+              <p class="text-muted mb-4">{{title|title}} list is empty.</p>
+              {% if can_add %}
+              <a href="{{new_link}}" class="btn btn-primary">
+                <i class="fe fe-plus me-2"></i>Add New Activity
+              </a>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          {% if activities and branches %}
+          <div class="card-footer">
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+              <div>
+                <span class="text-muted">Showing <strong>{{ activities|length }}</strong> activities across <strong>{{ branches|length }}</strong> branches</span>
+                {% if selected_month_name %}
+                <span class="text-muted ms-2">for <strong>{{ selected_month_name }}</strong></span>
+                {% endif %}
+              </div>
+              <div class="d-flex mt-2 mt-md-0">
+                <span class="badge bg-success-transparent ms-2"><i class="fe fe-award me-1"></i> Monthly Leading</span>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascript %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+  });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.branch-performance-table {
+  border: 1px solid #e5e7eb;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Month selector styling */
+#month-select {
+  width: 150px;
+  background-color: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* First column wider (ITEMS), others equal width */
+.branch-performance-table th:first-child,
+.branch-performance-table td:first-child {
+  width: 30%;
+  text-align: left;
+  padding-left: 12px;
+}
+
+.branch-performance-table th:not(:first-child),
+.branch-performance-table td:not(:first-child) {
+  width: calc(70% / {{ branches|length }});
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Enhanced leading column styling */
+.branch-performance-table th.leading-column {
+  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  color: white !important;
+  font-weight: 700;
+  position: relative;
+  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.branch-performance-table td.leading-column {
+  background: rgba(34, 197, 94, 0.15) !important;
+  font-weight: 600;
+  color: #166534;
+  border-left: 2px solid #22c55e !important;
+  border-right: 2px solid #22c55e !important;
+}
+
+/* Special styling for first row of leading column */
+.branch-performance-table tbody tr:first-child td.leading-column {
+  border-top: 2px solid #22c55e !important;
+}
+
+/* Special styling for last row of leading column */
+.branch-performance-table tfoot tr:first-child td.leading-column {
+  border-bottom: 2px solid #22c55e !important;
+  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  color: white !important;
+  font-weight: 800;
+}
+
+/* Leading badge enhancements */
+.badge-leading {
+  background: #ffffff !important;
+  color: #22c55e !important;
+  font-size: 0.7rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  font-weight: 700;
+  z-index: 10;
+}
+
+/* Leading points highlight */
+.leading-points {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #166534 !important;
+  text-shadow: 0 0 5px rgba(34, 197, 94, 0.3);
+}
+
+/* Overall Leading card header badge */
+.badge-overall-leading {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: .25rem;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 4px 8px rgba(34,197,94,0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.badge-overall-leading i {
+  font-size: 1rem;
+}
+.badge-overall-leading:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(34,197,94,0.3);
+}
+
+.branch-performance-table thead th {
+  background: #ee4c24;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  padding: 12px 8px;
+  color: white;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-performance-table tbody td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  border-left: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.branch-performance-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.branch-performance-table tfoot td {
+  padding: 12px 8px;
+  font-weight: 600;
+  border-top: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  font-size: 0.9rem;
+}
+
+.branch-performance-table tfoot tr:first-child td {
+  background: #ee4c24;
+  color: white;
+}
+
+.highlight-cell {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.total-cell {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.leading-cell {
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: #166534;
+}
+
+/* Action buttons */
+.action-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  border-radius: 4px;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 0.8rem;
+  margin-right: 6px;
+}
+
+.position-relative .badge {
+  font-size: 0.6rem;
+  padding: 2px 4px;
+}
+.activity-add-btn{
+  background: linear-gradient(90deg, #ee4c24, #eb135e) !important;
+  border: none;
+  padding: 6px !important;
+}
+
+@media (max-width: 992px) {
+  .branch-performance-table {
+    font-size: 0.8rem;
+  }
+  .branch-performance-table thead th {
+    font-size: 0.7rem;
+    padding: 8px 4px;
+  }
+  .branch-performance-table tbody td {
+    padding: 8px 4px;
+  }
+  .position-relative .badge {
+    transform: scale(0.8);
+    transform-origin: top right;
+  }
+  #month-select {
+    width: 120px;
+  }
+
+  .branch-performance-table th:first-child,
+  .branch-performance-table td:first-child {
+    width: 35%; 
+  }
+  .branch-performance-table th:not(:first-child),
+  .branch-performance-table td:not(:first-child) {
+    width: calc(65% / {{ branches|length }}); 
+  }
+  
+  /* Adjust leading column borders for mobile */
+  .branch-performance-table td.leading-column {
+    border-left: 1px solid #22c55e !important;
+    border-right: 1px solid #22c55e !important;
+  }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                <div class="nav nav-pills justify-content-end" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <a {% if object %} href="{{ info_type_urls.personal }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_personal %} active {% endif %}"  >Personal Data</a>
+                    <a {% if object %} href="{{ info_type_urls.parent }}" {% endif %} role="button" aria-disabled="true" class="nav-link btn btn-pill me-2 mb-1 {% if is_parent %} active {% endif %}"  >Parent</a>
+                    <a {% if object %} href="{{ info_type_urls.address }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_address %} active {% endif %}"  >Address</a>
+                    <a {% if object %} href="{{ info_type_urls.official }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_official %} active {% endif %}"  >Official</a>
+                    <a {% if object %} href="{{ info_type_urls.financial }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_financial %} active {% endif %}"  >Financial</a>
+                    <a 
+                    {% if object %}
+                      {% if object.user %} 
+                          href="{% url 'accounts:user_update' object.user.pk %}"
+                      {% else %}
+                          href="{% url 'accounts:user_create' object.pk %}?type=account" 
+                      {% endif %} 
+                    {% endif %}
+                    class="nav-link btn btn-pill me-2 mb-1 {% if is_account %} active {% endif %}"  >Account</a>
+              </div>
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        {% include 'app/partials/messages.html' %}
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                       
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                {% csrf_token %}
+                                {{form|crispy}}
+                                <div class="row my-2">
+                                    <div class="mb-3">
+                                        <div class="form-group">
+                                            {% if not is_account %}
+                                            <input type="submit" name="save_and_next" class="btn btn-primary me-2" value="Save and Next">
+                                            {% endif %}
+                                            <input type="submit" name="_save" class="btn btn-primary me-2" value="Save">
+                                            <button type="button" onclick="history.back()"
+                                                class="border btn btn-outline-info">Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% include 'employees/partials/department_form_modal.html' %}
+{% include 'employees/partials/designation_form_modal.html' %}
+{% include 'employees/partials/course_form_modal.html' %}
+
+{% endblock content %}
+
+{% block javascript %}
+
+{{form.media}}
+<script>
+    $(document).ready(function () {
+        initializeSelect2WithModal('#id_department', '#department-form-modal',"Search Department");
+        initializeSelect2WithModal('#id_designation', '#designation-form-modal',"Search Designation");
+        initializeSelect2WithModal('#id_course', '#course-form-modal',"Search Course");
+        handleFormSubmit("#id_department", "#department-form-modal");      
+        handleFormSubmit("#id_designation", "#designation-form-modal");      
+        handleFormSubmit("#id_course", "#course-form-modal");      
+    });
+</script>
+{% endblock javascript %}

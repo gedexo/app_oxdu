@@ -1,0 +1,105 @@
+{% extends 'core/settings_base.html' %}
+{% load static django_tables2 %}
+
+
+{% block settings_content %}
+<div class="card custom-card">
+    <div class="card-header d-flex justify-content-between border-bottom-0">
+        <h4 class="card-title">{{ title }}</h4>
+        <div class="btn-list">
+            {% if can_add %}
+            <a href="{{ new_link }}" class="btn btn-light3" data-bs-placement="top" data-bs-toggle="tooltip" title="Add New"> <i
+                class="fe fe-plus"></i>New </a>
+            {% endif %}
+            {% if table.paginated_rows %}
+            <a href="{% export_url 'xlsx' %}" class="btn btn-light3" data-bs-toggle="tooltip" data-bs-placement="top"
+              title="Export"> <i class="fe fe-download"></i> </a>
+            {% endif %}
+  
+          </div>
+    </div>
+    {% if table.paginated_rows %}
+    <div class="card-body">
+      <div class="row justify-content-between">
+        <div class="col-lg-6">
+          <div class="d-flex align-items-center">
+            <span>Show</span>
+            <div class="d-flex ms-2 mx-2">
+              <div class="form-group mb-0">
+                <select name="table_pagination" id="select-table_pagination" class="form-control wd-150" data-trigger>
+                  <option value="10" {% if request.GET.table_pagination == '10' %}selected{% endif %}>10</option>
+                  <option value="25" {% if request.GET.table_pagination == '25' %}selected{% endif %}>25</option>
+                  <option value="50" {% if request.GET.table_pagination == '50' or not request.GET.table_pagination %}selected{% endif %}>50</option>
+                  <option value="100" {% if request.GET.table_pagination == '100' %}selected{% endif %}>100</option>
+              </select>
+
+              </div>
+            </div>
+            <span>entries</span>
+          </div>
+        </div>
+        <div class="col col-auto">
+          <form action="" id="table-search">
+            <div class="form-group w-100">
+                <div class="input-icon" >
+                  <span class="input-icon-addon">
+                    <i class="fe fe-search"></i>
+                </span>
+                    <input type="search" class="form-control" name="q" value="{{request.GET.q}}" placeholder="Search">
+                </div>
+            </div>
+        </form>
+        
+      </div>
+       
+      </div>
+      {% render_table table %}
+      <nav class="mt-4">
+        {% if table.page and table.paginator.num_pages > 1 %}
+        <ul class="pagination justify-content-end mb-0">
+          {% if table.page.has_previous %}
+          <li class="page-item">
+            <a class="page-link"
+              href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <a class="page-link" href="javascript:void(0);">Prev</a>
+          </li>
+          {% endif %}
+
+          {% for p in table.page|table_page_range:table.paginator %}
+          <li class="page-item {% if p == table.page.number %}active{% endif %}">
+            {% if p == '...' %}
+            <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+            {% else %}
+            <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+            {% endif %}
+          </li>
+          {% endfor %}
+
+          {% if table.page.has_next %}
+          <li class="page-item">
+            <a class="page-link"
+              href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+          </li>
+          {% else %}
+          <li class="page-item disabled">
+            <a class="page-link" href="javascript:void(0);">Next</a>
+          </li>
+          {% endif %}
+        </ul>
+        {% endif %}
+      </nav>
+
+
+    </div>
+    {% else %}
+    <div class="card-body">
+      {{title|title}} list is empty
+      {% if can_add %}<a href="{{new_link}}">Add New One</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+{% endblock settings_content %}

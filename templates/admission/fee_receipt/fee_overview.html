@@ -1,0 +1,155 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags humanize %}
+{% block title %}{{object}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+
+<div class="main-content app-content">
+  <div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex d-block justify-content-between">
+      <div class="page-leftheader">
+        <div class="page-title">{{ title|title }}</div>
+      </div>
+      <div class="page-rightheader">
+        <div class="btn-list">
+          <a class="btn btn-light3" href="javascript:void(0);" onclick="window.print();" data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Print"> <i class="fe fe-printer"></i> </a>
+
+            {% comment %} <a class="btn btn-light3" href="{{ object.get_update_url }}"  data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Edit"> <i class="fe fe-edit"></i> </a> {% endcomment %}
+
+            {% comment %} <a class="btn btn-light3" href="{{ object.get_delete_url }}"  data-bs-placement="top"
+            data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a> {% endcomment %}
+        </div>
+      </div>
+    </div>
+    <!-- Page Header Close -->
+
+    <!-- Start::row-1 -->
+  <div class="row">
+
+    <!-- Fee Structure Table -->
+    <div class="col-md-6 mb-4">
+      <div class="card custom-card">
+        <div class="card-header d-flex justify-content-center">
+          <h5 class="mb-0 p-2">Fee Structure</h5>
+        </div>
+        <div class="card-body p-3">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Installment</th>
+                  <th>Amount</th>
+                  <th>Paid</th>
+                  <th>Remaining</th>
+                  <th>Payment Date</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for fee in fee_structures %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ fee.name }}</td>
+                  <td class="text-primary fw-bold">₹{{ fee.amount|floatformat:2|intcomma }}</td>
+                  <td class="fw-bold text-success">₹{{ fee.paid_amount|floatformat:2|intcomma }}</td>
+                  <td>
+                    <span class="fw-bold {% if fee.remaining_amount > 0 %}text-danger{% else %}text-success{% endif %}">
+                      ₹{{ fee.remaining_amount|floatformat:2|intcomma }}
+                    </span>
+                  </td>
+                  <td>{% if fee.payment_date %}{{ fee.payment_date }}{% else %}-{% endif %}</td>
+                  <td class="text-danger fw-bold">{% if fee.due_date %}{{ fee.due_date }}{% else %}-{% endif %}</td>
+                  <td>
+                    {% if fee.status_display == "Paid" %}
+                      <span class="badge bg-success">Paid</span>
+                    {% else %}
+                      <span class="badge bg-danger">Pending</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="8" class="text-center">No Fee Structure Found</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Receipt List Table -->
+    <div class="col-md-6 mb-4">
+      <div class="card custom-card">
+        <div class="card-header d-flex justify-content-center">
+          <h5 class="mb-0 p-2">Receipt List</h5>
+        </div>
+        <div class="card-body p-3">
+          <div class="table-responsive">
+            <table class="datatable-custom table table-hover table-bordered">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Receipt No</th>
+                  <th>Date</th>
+                  <th>Payment Types</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for receipt in fee_receipts %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>
+                    <a href="{{ receipt.get_absolute_url }}">
+                      {{ receipt.receipt_no|default:"No Receipt" }}
+                    </a>
+                  </td>
+                  <td>{{ receipt.date }}</td>
+                  <td>
+                    {% if receipt.payment_methods.all %}
+                      {% for payment_method in receipt.payment_methods.all %}
+                        <span class="badge bg-primary text-capitalize">{{ payment_method.payment_type }}</span>{% if not forloop.last %}, {% endif %}
+                      {% endfor %}
+                    {% else %}
+                      <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td class="fw-bold text-success">₹{{ receipt.get_amount|floatformat:2|intcomma }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center">No Receipts Found</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="4" class="text-end fw-bold">Total Receipt:</th>
+                  <th class="fw-bold text-success">₹{{ total_fee_amount|floatformat:2|intcomma }}</th>
+                </tr>
+                <tr>
+                  <th colspan="4" class="text-end fw-bold">Balance Due:</th>
+                  <th class="fw-bold text-danger">₹{{ balance_amount|floatformat:2|intcomma }}</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+    <!--End::row-1 -->
+
+  </div>
+</div>
+{% endblock content %}

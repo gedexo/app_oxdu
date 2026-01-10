@@ -1,0 +1,211 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector("form");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", function() {
+        // Disable the submit button
+        submitBtn.disabled = true;
+
+        // Change button content to loading spinner
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving & Sending Messages...';
+    });
+
+    // Show/hide branch and course fields based on filter type
+    const filterTypeSelect = document.getElementById('id_filter_type');
+    
+    function toggleFilterFields() {
+        const filterType = filterTypeSelect.value;
+        const branchField = document.getElementById('div_id_branch');
+        const courseField = document.getElementById('div_id_course');
+        
+        console.log('Filter type changed to:', filterType);
+        
+        // Show all fields first
+        if (branchField) branchField.style.display = 'block';
+        if (courseField) courseField.style.display = 'block';
+        
+        // Then hide based on selection
+        if (filterType === 'all') {
+            if (branchField) branchField.style.display = 'none';
+            if (courseField) courseField.style.display = 'none';
+        } else if (filterType === 'branch') {
+            if (branchField) branchField.style.display = 'block';
+            if (courseField) courseField.style.display = 'none';
+        } else if (filterType === 'course') {
+            if (branchField) branchField.style.display = 'none';
+            if (courseField) courseField.style.display = 'block';
+        } else if (filterType === 'branch_course') {
+            if (branchField) branchField.style.display = 'block';
+            if (courseField) courseField.style.display = 'block';
+        }
+    }
+
+    // Initial toggle
+    if (filterTypeSelect) {
+        toggleFilterFields();
+        filterTypeSelect.addEventListener('change', toggleFilterFields);
+    }
+});
+</script>
+{% endblock javascript %}
+
+{% block extra_css %} 
+<style>
+.tox.tox-tinymce {
+    min-height: 50px !important;
+    max-height: 800px;
+}
+
+/* Optional: Add some spacing between form fields */
+.form-group {
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fe fe-info"></i>
+                            <strong>Note:</strong> After saving, WhatsApp messages will be automatically sent to all filtered users.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <form method="post" autocomplete="off" enctype="multipart/form-data" action="">
+                                    {% csrf_token %}
+                                    <div class="row">
+                                        <!-- Message Type -->
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label for="id_message_type">Message Type *</label>
+                                                {{ form.message_type }}
+                                                {% if form.message_type.errors %}
+                                                    <div class="text-danger">{{ form.message_type.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <!-- Filter Type -->
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label for="id_filter_type">Filter Type *</label>
+                                                {{ form.filter_type }}
+                                                {% if form.filter_type.errors %}
+                                                    <div class="text-danger">{{ form.filter_type.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">
+                                                    Choose how to filter the recipients
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Branch -->
+                                        <div class="col-md-4" id="div_id_branch">
+                                            <div class="form-group">
+                                                <label for="id_branch">Branches</label>
+                                                {{ form.branch }}
+                                                {% if form.branch.errors %}
+                                                    <div class="text-danger">{{ form.branch.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">
+                                                    Select branches (leave empty for all branches)
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Course -->
+                                        <div class="col-md-4" id="div_id_course">
+                                            <div class="form-group">
+                                                <label for="id_course">Courses</label>
+                                                {{ form.course }}
+                                                {% if form.course.errors %}
+                                                    <div class="text-danger">{{ form.course.errors }}</div>
+                                                {% endif %}
+                                                <small class="form-text text-muted">
+                                                    Select courses (leave empty for all courses)
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Message -->
+                                        <div class="col-md-8">
+                                            <div class="form-group">
+                                                <label for="id_message">Message *</label>
+                                                {{ form.message }}
+                                                {% if form.message.errors %}
+                                                    <div class="text-danger">{{ form.message.errors }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        {% if formset %}
+                                            <div class="col-md-12">
+                                                {% include formset_html %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="card-footer">
+                                        <div class="row">
+                                            <div class="col">
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fe fe-send"></i> Save & Send Messages
+                                                </button>
+                                                <button type="button" onclick="history.back()" class="btn btn-outline-info">
+                                                    <i class="fa fa-times"></i> Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}

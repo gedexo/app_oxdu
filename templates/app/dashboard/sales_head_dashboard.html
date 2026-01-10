@@ -1,0 +1,288 @@
+{% load static %}
+
+ <!-- Start::row-1 -->
+ <div class="row">
+    <div class="col-xxl-9 col-md-12 col-lg-12">
+        <div class="row">
+          
+            <div class="col-xl-3 col-lg-43 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'employees:tele_caller_list' %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Total Tele Callers</span>
+                                        <h3 class="mb-0 mt-1 mb-2">{{tele_callers_count}}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-success my-auto float-end card-icon"> <i class="fe fe-users"></i> </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-lg-3 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url "admission:assigned_lead_list" %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Assigned Leads</span>
+                                        <h3 class="mb-0 mt-1 mb-2">{{assigned_lead_count}}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="icon1 bg-primary my-auto  float-end card-icon"> <i class="fas fa-tasks"></i> </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-lg-3 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'admission:public_lead_list' %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Leads in Queue</span>
+                                    <h3 class="mb-0 mt-1 text-danger mb-2">{{awaiting_leads}}</h3> </div>
+                                </div>
+                                <div class="col-4">
+                                  <div class="icon1 bg-danger my-auto  float-end card-icon"> <i class="fas fa-user-clock"></i> </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-lg-3 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'admission:my_lead_list' %}">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">My Leads</span>
+                                    <h3 class="mb-0 mt-1 text-danger mb-2">{{my_leads}}</h3> </div>
+                                </div>
+                                <div class="col-4">
+                                  <div class="icon1 bg-danger my-auto  float-end card-icon"> <i class="fas fa-question-circle"></i> </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            
+        </div>
+    </div>
+  
+</div>
+<!--End::row-1 -->
+
+<div class="row">
+ <div class="container py-4">
+
+    <!-- Header -->
+    <div class="row mb-4">
+      <div class="col">
+        <h4 class="fw-bold text-dark text-center">
+          <i class="bi bi-graph-up-arrow me-2 text-primary"></i>
+          Leads Report
+        </h4>
+      </div>
+    </div>
+
+  <!-- Lead Breakdown -->
+  <div class="row g-3">
+    <!-- Enquiry Types -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card custom-card border-0  h-100">
+        <div class="card-header bg-white border-0">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-list-check text-primary me-2"></i>
+            Enquiry Types
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            {% for item in enquiry_type_counts %}
+            <li class="py-2 border-bottom">
+              <a href="{% url 'admission:lead_list' %}?enquiry_type={{ item.enquiry_type }}" 
+                 class="d-flex justify-content-between text-decoration-none text-dark">
+                <span>{{ item.enquiry_type }}</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary">{{ item.count }}</span>
+              </a>
+            </li>
+            {% empty %}
+            <li class="py-2 text-muted">No data</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch Wise -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card custom-card border-0  h-100">
+        <div class="card-header bg-white border-0">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-building text-info me-2"></i>
+            Branch Wise
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+              {% for item in branch_counts %}
+                <li class="py-2 border-bottom">
+                  <a href="{% url 'admission:lead_list' %}?branch={{ item.branch__id|default:'' }}" 
+                    class="d-flex justify-content-between text-decoration-none text-dark">
+                    <span>{{ item.branch__name|default:"N/A" }}</span>
+                    <span class="badge bg-info bg-opacity-10 text-info">{{ item.count }}</span>
+                  </a>
+                </li>
+              {% empty %}
+                <li class="py-2 text-muted">No data</li>
+              {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Course Wise -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card custom-card border-0  h-100">
+        <div class="card-header bg-white border-0">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-book text-warning me-2"></i>
+            Course Wise
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            {% for item in course_counts %}
+            <li class="py-2 border-bottom">
+              <a href="{% url 'admission:lead_list' %}?course={{ item.course__id|default:'' }}" 
+                 class="d-flex justify-content-between text-decoration-none text-dark">
+                <span>{{ item.course__name|default:"N/A" }}</span>
+                <span class="badge bg-warning bg-opacity-10 text-warning">{{ item.count }}</span>
+              </a>
+            </li>
+            {% empty %}
+            <li class="py-2 text-muted">No data</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Wise -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card custom-card border-0  h-100">
+        <div class="card-header bg-white border-0">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-flag text-danger me-2"></i>
+            Status Wise
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            {% for item in status_counts %}
+            <li class="py-2 border-bottom">
+              <a href="{% url 'admission:lead_list' %}?status={{ item.status }}" 
+                 class="d-flex justify-content-between text-decoration-none text-dark">
+                <span>{{ item.status|capfirst }}</span>
+                <span class="badge bg-danger bg-opacity-10 text-danger">{{ item.count }}</span>
+              </a>
+            </li>
+            {% empty %}
+            <li class="py-2 text-muted">No data</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>  
+
+<!-- Start::row-1 -->
+<div class="row mt-4">
+    <div class="col-xxl-12">
+        <div class="card custom-card">
+            <div class="card-header justify-content-between">
+                <div class="card-title">
+                    My Request Submissions
+                </div>
+                <div class="btn-section d-flex gap-2">
+                    <!-- View All Request -->
+                    <div class="prism-toggle">
+                        <a href="{% url 'masters:request_submission_list' %}" class="btn btn-sm btn-info">
+                            <i class="fe fe-list me-1"></i> View All Requests
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered text-nowrap">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th scope="col">Request ID</th>
+                                <th scope="col">Title</th>
+                                <th scope="col">Created Date</th>
+                                <th scope="col">Current Status</th>
+                                <th scope="col">Current Handler</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in assigned_requests %}
+                            <tr>
+                                <td>{{forloop.counter}}</td>
+                                <td>{{ request.request_id }}</td>
+                                <td>{{ request.title }}</td>
+                                <td>{{ request.created|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if request.status == 'approved' %}bg-success{% endif %}
+                                        {% if request.status == 'rejected' %}bg-danger{% endif %}
+                                        {% if request.status == 'forwarded' or request.status == 'pending' %}bg-warning{% endif %}
+                                    ">
+                                        {{ request.status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ request.current_usertype|title }}</td>
+                                <td>
+                                    <a href="{% url 'masters:request_submission_detail' request.pk %}" 
+                                       class="btn btn-sm custom-btn">
+                                        <i class="fe fe-eye"></i> View
+                                    </a>
+                                    {% if request.status == 'forwarded' and request.branch_staff.user == user %}
+                                    <a href="{% url 'masters:request_submission_update' request.pk %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fe fe-edit"></i> Edit
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No requests found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--End::row-1 -->

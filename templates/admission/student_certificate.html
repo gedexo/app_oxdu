@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+    <style>
+        @font-face {
+            font-family: 'Poppins';
+            src: url('{{ poppins_regular }}') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Poppins';
+            src: url('{{ poppins_bold }}') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        @page {
+            size: 8.27in 11.69in;
+            margin: 0;
+        }
+
+        html, body {
+            width: 8.27in;
+            height: 11.69in;
+            margin: 0;
+            padding: 0;
+        }
+
+        .certificate {
+            position: relative;
+            width: 8.27in;
+            height: 11.69in;
+            background-image: url('{{ certificate_image_url }}');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+        }
+
+        .date {
+            position: absolute;
+            top: 465px;
+            left: 2in;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;  
+            font-size: 15px;
+            color: #000;
+            width: 100% !important;
+        }
+
+        .id_number {
+            position: absolute;
+            top: 465px;
+            left: 655px;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;  
+            font-size: 15px;
+            color: #000;
+            width: 100% !important;
+            text-transform: uppercase;
+        }
+
+        .content {
+            position: absolute;
+            top: 530px;
+            left: 63px;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            font-size: 18px;
+            color: #000;
+            width: 84.2%;
+            line-height: 2.4;
+            text-align: justify;
+            text-justify: inter-word;
+
+        }
+    </style>
+</head>
+
+<body>
+    <div class="certificate">
+        <p class="date">{{ current_date }}</p>
+        <p class="id_number">{{ instance.admission_number }}</p>
+        <p class="content">{{ certificate_content|safe }}</p>
+    </div>
+</body>
+</html>

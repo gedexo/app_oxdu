@@ -1,0 +1,115 @@
+<!-- CONFIRM MODAL (Modern) -->
+<div class="modal fade" id="globalFeeRefreshModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center">
+            <div class="modal-body">
+                <!-- Icon Badge -->
+                <div class="modal-icon-box warning">
+                    <i class="fe fe-refresh-cw"></i>
+                </div>
+
+                <!-- Typography -->
+                <h4 class="fw-bold text-dark mb-2">Refresh Fee Structure?</h4>
+                <p class="text-muted mb-0">
+                    This will recalculate the fees for all selected students. 
+                    <br>Existing payments will remain unchanged.
+                </p>
+            </div>
+
+            <!-- Footer / Actions -->
+            <div class="modal-footer w-100">
+                <button type="button" class="btn btn-light text-muted" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-warning text-white px-4" id="confirmFeeRefreshBtn">
+                    <span class="btn-text">Yes, Refresh it</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- SUCCESS MODAL (Modern) -->
+<div class="modal fade" id="feeRefreshSuccessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content text-center">
+            <div class="modal-body">
+                <!-- Icon Badge -->
+                <div class="modal-icon-box success">
+                    <i class="fe fe-check"></i>
+                </div>
+
+                <h4 class="fw-bold text-dark mb-2">Success!</h4>
+                <p class="text-muted" id="feeRefreshSuccessMessage">
+                    Fee structure refreshed successfully.
+                </p>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">
+                    Okay, Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% block extra_css %} 
+<style>
+#globalFeeRefreshModal .modal-content {
+    border: none;
+    border-radius: 16px; /* Softer, modern corners */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+#globalFeeRefreshModal .modal-body {
+    padding: 2rem 2rem 1.5rem 2rem;
+}
+
+#globalFeeRefreshModal .modal-footer {
+    border-top: none;
+    padding: 0 2rem 2rem 2rem;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Icon Box Styling */
+#globalFeeRefreshModal .modal-icon-box {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem auto;
+    font-size: 32px;
+    transition: transform 0.3s ease;
+}
+
+/* Warning Theme (Refresh) */
+#globalFeeRefreshModal .modal-icon-box.warning {
+    background-color: #fff8e1; /* Very light orange/yellow */
+    color: #f59e0b; /* Deep Warning Color */
+}
+
+/* Success Theme */
+#globalFeeRefreshModal .modal-icon-box.success {
+    background-color: #dcfce7; /* Very light green */
+    color: #16a34a; /* Deep Green */
+}
+
+/* Hover Animation for Icon */
+#globalFeeRefreshModal .modal-content:hover .modal-icon-box {
+    transform: scale(1.1);
+}
+
+/* Button Styling */
+#globalFeeRefreshModal .btn {
+    padding: 10px 24px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

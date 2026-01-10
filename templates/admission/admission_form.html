@@ -1,0 +1,625 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Animation for Batch Field */
+        #div_id_batch {
+            display: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #div_id_batch.show {
+            display: block;
+            opacity: 1;
+        }
+
+        /* --- Sleek & Compact Fee Preview Styles --- */
+        .fee-preview-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            margin-bottom: 15px;
+        }
+        
+        .fee-header {
+            background-color: #f8fafc;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .fee-header-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        .fee-table {
+            margin-bottom: 0;
+            width: 100%;
+        }
+
+        .fee-table th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 600;
+            background-color: #fff;
+            border-bottom: 2px solid #f1f5f9;
+            padding: 10px 20px;
+        }
+
+        .fee-table td {
+            vertical-align: middle;
+            padding: 8px 20px; /* Compact padding */
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+            color: #334155;
+        }
+
+        .fee-amount {
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .fee-date {
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+
+        /* Compact Total Row */
+        .total-row {
+            background-color: #f8fafc;
+        }
+        
+        .total-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+            text-align: right;
+            text-transform: uppercase;
+        }
+
+        .total-amount {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #166534; /* Professional Green */
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        /* Badge for Draft status */
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            background: #e2e8f0;
+            color: #475569;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                <div class="nav nav-pills justify-content-end" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <a {% if object %} href="{{ info_type_urls.personal }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_personal %} active {% endif %}">Personal Data</a>
+                    <a {% if object %} href="{{ info_type_urls.parent }}" {% endif %} role="button" aria-disabled="true" class="nav-link btn btn-pill me-2 mb-1 {% if is_parent %} active {% endif %}">Parent</a>
+                    <a {% if object %} href="{{ info_type_urls.address }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_address %} active {% endif %}">Address</a>
+                    <a {% if object %} href="{{ info_type_urls.official }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_official %} active {% endif %}">Official</a>
+                    <a {% if object %} href="{{ info_type_urls.financial }}" {% endif %} class="nav-link btn btn-pill me-2 mb-1 {% if is_financial %} active {% endif %}">Financial</a>
+                    <a 
+                    {% if object %}
+                      {% if object.user %} 
+                          href="{% url 'accounts:student_user_update' object.user.pk %}"
+                      {% else %}
+                          href="{% url 'accounts:student_user_create' object.pk %}?type=account" 
+                      {% endif %} 
+                    {% endif %}
+                    class="nav-link btn btn-pill me-2 mb-1 {% if is_account %} active {% endif %}">Account</a>
+              </div>
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        {% include 'app/partials/messages.html' %}
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                
+                                <!-- Student Search / Check Section -->
+                                <div class="row pb-5">
+                                    <h6>Has the student's information already been entered?</h6>
+                                    <div class="col-lg-4" id="studentEmailContainer">
+                                        <div class="form-group" id="div_id_studentEmail">
+                                            <input type="text" class="form-control" id="studentEmail" name="studentEmail" placeholder="Enter Your Student Email">
+                                        </div>
+                                    </div>
+                                
+                                    <!-- Clear Email Button -->
+                                    <div class="col-lg-4">
+                                        <button type="button" id="clearEmailBtn" class="btn btn-secondary" style="display: none;">Clear Email</button>
+                                    </div>
+
+                                    <div class="col-lg-4" id="studentEmailError" style="display: none;">
+                                        <p class="text-danger">The Student Email was not found.</p>
+                                    </div>
+
+                                    <div class="col-lg-4" id="studentNameContainer" style="display: none;">
+                                        <label for="studentName">Student Name</label>
+                                        <p id="studentName" class="form-control"></p>
+                                    </div>
+                                </div>
+
+                                <!-- Render Form Fields -->
+                                {{ form|crispy }}
+                                
+                                <!-- Hidden Fields -->
+                                <input type="hidden" name="branch_id" id="id_branch_id" value="{{ admission.branch_id }}">
+                                <input type="hidden" id="admission_pk" value="{{ object.pk }}">
+                                <input type="hidden" id="raw_course_fee" value="{{ object.course.fees }}">
+
+                                <!-- FEE STRUCTURE PREVIEW TABLE (Sleek Design) -->
+                                {% if is_financial %}
+                                <div class="row mt-3" id="fee_structure_preview_container" style="display:none;">
+                                    <div class="col-lg-10 mx-auto col-md-12">
+                                        <div class="fee-preview-card">
+                                            <!-- Sleek Header -->
+                                            <div class="fee-header">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fa fa-calculator me-2 text-primary opacity-75"></i>
+                                                    <h6 class="fee-header-title">Payment Schedule</h6>
+                                                </div>
+                                                <span class="status-badge">PREVIEW</span>
+                                            </div>
+
+                                            <!-- Table -->
+                                            <div class="table-responsive">
+                                                <table class="table fee-table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="ps-4">Installment</th>
+                                                            <th class="text-center">Due Date</th>
+                                                            <th class="text-end pe-4">Amount</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="fee_structure_body">
+                                                        <!-- JS will inject rows here -->
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr class="total-row">
+                                                            <td colspan="2" class="total-label py-3 align-middle">
+                                                                Total Payable (Excl. Adm Fee)
+                                                            </td>
+                                                            <td class="text-end py-3 pe-4 align-middle">
+                                                                <span class="total-amount" id="preview_net_total">₹ 0.00</span>
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                <!-- End Fee Structure Preview -->
+
+                                <div class="row my-2">
+                                    <div class="mb-3">
+                                        <div class="form-group">
+                                            {% if not is_account %}
+                                            <input type="submit" id="saveAndNextBtn" name="save_and_next" class="btn btn-primary me-2" value="Save and Next">
+                                            {% endif %}
+                                            <input type="submit" id="saveBtn" name="_save" class="btn btn-primary me-2" value="Save">
+                                            <button type="button" onclick="history.back()" class="border btn btn-outline-info">Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block javascript %}
+
+{{form.media}}
+
+<script>
+  // Save batch instance ID for logic reference
+  document.addEventListener("DOMContentLoaded", function() {
+      const batchSelect = document.getElementById("id_batch");
+      if (batchSelect) {
+          batchSelect.setAttribute("data-saved-batch", "{{ form.instance.batch_id }}");
+      }
+  });
+</script>
+
+<script>
+    // --- LocalStorage for Student Email/Name ---
+    document.addEventListener("DOMContentLoaded", function () {
+        const savedEmail = localStorage.getItem('studentEmail');
+        const savedName = localStorage.getItem('studentName');
+
+        if (savedEmail && savedName) {
+            $('#studentEmail').val(savedEmail).trigger('change');
+            $('#studentName').text(savedName);
+            $('#studentNameContainer').show();
+            $('#clearEmailBtn').show();
+        }
+
+        $('#saveAndNextBtn').on('click', function () {
+            const email = $('#studentEmail').val().trim();
+            const name = $('#studentName').text().trim();
+            if (email && name) {
+                localStorage.setItem('studentEmail', email);
+                localStorage.setItem('studentName', name);
+            }
+        });
+
+        $('#saveBtn').on('click', function () {
+            localStorage.removeItem('studentEmail');
+            localStorage.removeItem('studentName');
+        });
+    });
+
+    // --- Clear Email Logic ---
+    $('#clearEmailBtn').on('click', function () {
+        $('#studentEmail').val('');
+        localStorage.removeItem('studentEmail');
+        localStorage.removeItem('studentName');
+        $('#studentName').text('');
+        $('#studentNameContainer').hide();
+        $('#clearEmailBtn').hide();
+        $('#studentEmailError').hide();
+    });
+
+    // --- Check Student Email AJAX ---
+    $('#studentEmail').on('change', function () {
+        const personal_email = $(this).val().trim();
+        if (!personal_email) return;
+
+        const url = "{% url 'admission:student_check_data' %}";
+        $.ajax({
+            url: url,
+            type: 'GET',
+            data: { 'personal_email': personal_email },
+            success: function (response) {
+                if (response.status) {
+                    $('#studentEmailError').hide();
+                    $('#studentName').text(response.student_name);
+                    $('#studentNameContainer').show();
+                    $('#clearEmailBtn').show();
+                    // Autofill logic...
+                } else {
+                    $('#studentNameContainer, #clearEmailBtn').hide();
+                    $('#studentEmailError').show();
+                    $('#clearEmailBtn').show();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error checking email:', error);
+            }
+        });
+    });
+</script>
+
+<script>
+    // --- Toggle Fee Discount Fields ---
+    $(document).ready(function () {
+        function toggleFields() {
+            var selectedFeeType = $("#id_fee_type").val();
+            if (["one_time", "installment", "finance", "Finance"].includes(selectedFeeType)) {
+                $("#id_is_discount").parents(".form-group, .mb-3").show();
+                $("#id_discount_amount").parents(".form-group, .mb-3").show();
+            } else {
+                $("#id_is_discount").parents(".form-group, .mb-3").hide();
+                $("#id_discount_amount").parents(".form-group, .mb-3").hide();
+            }
+        }
+        toggleFields();
+        $(document).on("change", "#id_fee_type", function () {
+            toggleFields();
+        });
+    });
+</script>
+
+<script>
+    // --- Load Batches AJAX ---
+    $(document).ready(function () {
+        const $courseSelect = $('#id_course');
+        const $batchSelect = $('#id_batch');
+        const $batchContainer = $('#div_id_batch');
+        const selectedCourseId = $courseSelect.val();
+        const selectedBatchId = $batchSelect.val();
+        const branchId = $('#id_branch_id').val() || $('#branch_id').val();
+        
+        function loadBatches(courseId, branchId, selectedBatch = null) {
+            if (!courseId || !branchId) {
+                $batchContainer.hide();
+                $batchSelect.empty().append('<option value="">Select course first</option>');
+                return;
+            }
+            $batchContainer.show();
+            $batchSelect.empty().append('<option value="">Loading...</option>');
+
+            $.ajax({
+                url: '/admission/ajax/get-batches/',
+                type: 'GET',
+                data: { course_id: courseId, branch_id: branchId },
+                success: function (response) {
+                    $batchSelect.empty();
+                    if (response.batches && response.batches.length > 0) {
+                        $batchSelect.append('<option value="">Select batch</option>');
+                        $.each(response.batches, function (index, batch) {
+                            const option = new Option(batch.batch_name, batch.id);
+                            if (selectedBatch && batch.id == selectedBatch) {
+                                option.selected = true;
+                            }
+                            $batchSelect.append(option);
+                        });
+                    } else {
+                        $batchSelect.append('<option value="">No batches available</option>');
+                    }
+                },
+                error: function () {
+                    $batchSelect.empty().append('<option value="">Error loading batches</option>');
+                }
+            });
+        }
+
+        if (selectedCourseId && branchId) {
+            loadBatches(selectedCourseId, branchId, selectedBatchId);
+        } else {
+            $batchContainer.hide();
+        }
+
+        $courseSelect.on('change', function () {
+            if (branchId) {
+                loadBatches($(this).val(), branchId);
+            } else {
+                $batchContainer.hide();
+            }
+        });
+    });
+</script>
+
+<script>
+    // --- Toggle Installment Fields & Custom Month Requirement ---
+    $(document).ready(function () {
+        const $installmentWrapper = $("#div_id_installment_type");
+        const $customMonthsWrapper = $("#div_id_custom_installment_months");
+        const $customMonthsInput = $("#id_custom_installment_months");
+        const $customMonthsLabel = $('label[for="id_custom_installment_months"]');
+        
+        // Initially hide custom months
+        $customMonthsWrapper.hide();
+
+        function toggleInstallmentUI() {
+            var feeType = $("#id_fee_type").val();
+            var installType = $("#id_installment_type").val();
+
+            // 1. Show/Hide Installment Type Select
+            if (feeType === "installment") {
+                $installmentWrapper.show();
+                $("#id_installment_type").prop("disabled", false);
+            } else {
+                $installmentWrapper.hide();
+                $("#id_installment_type").prop("disabled", true);
+                $("#id_installment_type").val("").trigger('change');
+            }
+
+            // 2. Show/Hide Custom Months Input & Toggle Required
+            if (feeType === "installment" && installType === "custom") {
+                $customMonthsWrapper.slideDown(); 
+                $customMonthsInput.prop("required", true);
+                
+                // Add red asterisk if not present
+                if ($customMonthsLabel.find('.text-danger').length === 0) {
+                    $customMonthsLabel.append('<span class="text-danger">*</span>');
+                }
+            } else {
+                $customMonthsWrapper.slideUp();   
+                $customMonthsInput.prop("required", false);
+                $customMonthsInput.val(""); // Clear value
+                
+                // Remove red asterisk
+                $customMonthsLabel.find('.text-danger').remove();
+            }
+        }
+        
+        // Run on load
+        toggleInstallmentUI();
+        
+        // Run on change
+        $("#id_fee_type, #id_installment_type").on("change", function () {
+            toggleInstallmentUI();
+        });
+    });
+</script>
+
+<script>
+    // --- Toggle Admission Fee Payment Type Visibility & Required ---
+    $(document).ready(function() {
+        const $amountField = $("#admission_fee_amount");
+        const $paymentTypeWrapper = $("#div_id_admission_fee_payment_type");
+        const $paymentTypeField = $("#id_admission_fee_payment_type");
+        const $paymentTypeLabel = $('label[for="id_admission_fee_payment_type"]');
+
+        function togglePaymentTypeField() {
+            const amount = parseFloat($amountField.val()) || 0;
+
+            if (amount > 0) {
+                // Show & require
+                $paymentTypeWrapper.slideDown(150);
+                $paymentTypeField.prop("required", true);
+
+                // Add required asterisk (avoid duplicates)
+                if ($paymentTypeLabel.find(".text-danger").length === 0) {
+                    $paymentTypeLabel.append(' <span class="text-danger">*</span>');
+                }
+            } else {
+                // Hide & reset
+                $paymentTypeWrapper.slideUp(150);
+                $paymentTypeField.prop("required", false);
+                $paymentTypeField.val("");
+
+                // Remove asterisk
+                $paymentTypeLabel.find(".text-danger").remove();
+            }
+        }
+
+        // Initial run (important for edit forms)
+        togglePaymentTypeField();
+
+        // Run on change
+        $amountField.on("input change", function() {
+            togglePaymentTypeField();
+        });
+    });
+</script>
+
+<script>
+    // --- REAL-TIME FEE STRUCTURE PREVIEW (With Custom Months) ---
+    $(document).ready(function () {
+        const $feeType = $("#id_fee_type");
+        const $installmentType = $("#id_installment_type");
+        const $customMonths = $("#id_custom_installment_months"); // New field
+        const $discountAmount = $("#discount_amount");
+        const $admissionFeeAmount = $("#admission_fee_amount");
+        const $previewContainer = $("#fee_structure_preview_container");
+        const $tbody = $("#fee_structure_body");
+        const $netTotal = $("#preview_net_total");
+        const admissionId = $("#admission_pk").val();
+
+        function fetchFeeStructurePreview() {
+            // Prepare Data
+            const data = {
+                admission_id: admissionId,
+                fee_type: $feeType.val(),
+                installment_type: $installmentType.val(),
+                custom_months: $customMonths.val(), // Send to backend
+                discount_amount: $discountAmount.val() || 0,
+                admission_fee_amount: $admissionFeeAmount.val() || 0
+            };
+
+            // Validation before AJAX
+            if (!data.fee_type) { 
+                $previewContainer.hide(); return; 
+            }
+            if (data.fee_type === 'installment') {
+                if (!data.installment_type) { 
+                    $previewContainer.hide(); return; 
+                }
+                // If custom, make sure months are entered before calculating
+                if (data.installment_type === 'custom' && (!data.custom_months || data.custom_months < 1)) {
+                    $previewContainer.hide(); return;
+                }
+            }
+
+            // Visual Feedback
+            $tbody.css('opacity', '0.5');
+
+            // AJAX Call
+            $.ajax({
+                url: "{% url 'admission:calculate_fee_structure_preview' %}",
+                type: "GET",
+                data: data,
+                success: function (response) {
+                    $tbody.empty();
+                    $tbody.css('opacity', '1');
+
+                    if (response.status === 'success') {
+                        const structure = response.structure;
+                        
+                        if (structure.length > 0) {
+                            structure.forEach((row) => {
+                                const html = `
+                                    <tr>
+                                        <td class="ps-4">
+                                            <span class="fw-bold">${row.installment}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fee-date">${row.due_date}</span>
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <span class="fee-amount">₹ ${row.amount}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                                $tbody.append(html);
+                            });
+
+                            let netAmount = response.net_amount; // Already formatted string from backend
+                            $netTotal.text('₹ ' + netAmount);
+                            
+                            $previewContainer.fadeIn(200);
+                        } else {
+                            $previewContainer.hide();
+                        }
+                    } else {
+                        console.error(response.message);
+                        $previewContainer.hide();
+                    }
+                },
+                error: function () {
+                    console.error("AJAX Error");
+                    $tbody.css('opacity', '1');
+                    $previewContainer.hide();
+                }
+            });
+        }
+
+        // Attach Listeners
+        $feeType.on("change", fetchFeeStructurePreview);
+        $installmentType.on("change", fetchFeeStructurePreview);
+        
+        // Debounce text inputs
+        let timeout = null;
+        $discountAmount.add($admissionFeeAmount).add($customMonths).on("input", function () {
+            clearTimeout(timeout);
+            timeout = setTimeout(fetchFeeStructurePreview, 500); 
+        });
+
+        // Initial check
+        if ($feeType.val()) {
+            fetchFeeStructurePreview();
+        }
+    });
+</script>
+
+{% endblock javascript %}

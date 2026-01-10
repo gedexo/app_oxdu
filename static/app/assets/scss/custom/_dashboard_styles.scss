@@ -1,0 +1,754 @@
+/* Start:: dashboard_styles */
+
+///// HR DASHBOARD /////
+/* Start:: hr dashboard */
+@media (max-width: 330px) {
+	.header-datepicker .form-control.fc-datepicker, .header-datepicker .form-control{
+		width: 6.125rem !important;
+	}
+}
+.header-datepicker .form-control.fc-datepicker, .header-datepicker .form-control{
+  width: 102px !important;
+  background: $light3;
+  font-size: 0.8125rem;
+  line-height: 1.99;
+}
+.header-datepicker {
+  .form-control::placeholder {
+    color: $default-text-color;
+  }
+}
+.icon1 {
+  height: 3.438rem;
+  width: 3.438rem;
+  line-height: 4.063rem;
+  border-radius: 0.438rem;
+  text-align: center;
+  i {
+    font-size: 1.5rem;
+  }
+}
+.dot-label {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.188rem;
+  display: block;
+}
+.bg-light4 {
+  background-color: $default-background !important;
+}
+.comming_holidays.calendar-icon .date_time {
+    display: block;
+    height: 3.313rem;
+    width: 3.313rem;
+}
+.comming_holidays.calendar-icon .date {
+    line-height: 1.9;
+}
+.calendar-icon .month {
+    line-height: 0;
+}
+.calendar-icon {
+  .date_time{
+    display: block;
+    height: 45px;
+    width: 45px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+  }
+  span{
+    display:block;
+    font-weight: 500;
+  }
+  .date{
+    line-height: 2.3;
+  }
+  .month{
+    line-height: 0;
+  }
+}
+.notice-board {
+  &:not(:last-child) {
+    margin-block-end: 0.75rem;
+  }
+}
+.comming_events.calendar-icon .date{
+	line-height: 1.8;
+}
+.upcoming-events-swiper {
+  &.swiper.vertical {
+    height: 14rem !important;
+    overflow: hidden;
+  }
+}
+#employees, #analysis {
+  .apexcharts-pie text {
+    fill: $default-text-color;
+  }
+}
+.recent-activities .timeline {
+  list-style-type: none;
+  position: relative;
+  padding-inline-start: 0 !important;
+}
+.recent-activities .timeline:before {
+  content: ' ';
+  background: $default-background;
+  display: inline-block;
+  position: absolute;
+  inset-inline-start: 0.563rem;
+  width: 1px;
+  height: 100%;
+  z-index: 0;
+}
+.recent-activities .timeline > li {
+  margin: 1.25rem 0;
+  padding-inline-start: 1.25rem;
+}
+.recent-activities .timeline > li:before {
+  content: ' ';
+  background: $danger;
+  display: inline-block;
+  position: absolute;
+  border-radius: 50%;
+  border: 0.25rem solid $default-border;
+  inset-inline-start: -2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  z-index: 1;
+  margin: 0.125rem;
+}
+.recent-activities .timeline > li.primary:before {
+  background: $primary;
+  border: 0.25rem solid $default-border;
+}
+.recent-activities .timeline > li.pink:before {
+  background: $pink;
+  border: 0.25rem solid $default-border;
+}
+.recent-activities .timeline > li.success:before {
+  background: $success;
+  border: 0.25rem solid $default-border;
+}
+.table_tabs {
+  border-block-end: 1px solid $default-border !important;
+  border-block-start: 0 !important;
+  border-inline-start: 0 !important;
+  border-inline-end: 0 !important;
+}
+.tab-menu-heading {
+  padding: 1.25rem;
+  border: 1px solid $default-border;
+  border-block-end: 0;
+  border-start-start-radius: 0.313rem;
+  border-start-end-radius: 0.313rem;
+  border-end-end-radius: 0;
+  border-end-start-radius: 0;
+}
+.table_tabs .tabs-menu1 ul li a.active {
+  border-block-end: 0;
+  background: $custom-white
+}
+.table_tabs .tabs-menu1 ul li a {
+  border: 1px solid $default-border;
+  background: $default-background;
+  border-block-end: 0;
+  margin: 0 0.3rem;
+  border-start-start-radius: 0.5rem;
+  border-start-end-radius: 0.5rem;
+  border-end-end-radius: 0;
+  border-end-start-radius: 0;
+  margin-block-end: -1px;
+}
+.tabs-menu1 ul li a {
+  padding: 0.625rem 20px 11px 20px;
+  display: block;
+  font-weight: 500;
+}
+.table_img {
+  img, .ux-bg {
+    font-size: 1.25rem;
+    width: 3.125rem;
+    height: 3.125rem;
+    padding: 0.155rem;
+    display: inline-flex;
+    vertical-align: middle;
+    justify-content: center;
+    align-items: center;
+    object-fit: contain;
+  }
+} 
+.table_img {
+    font-size: 1.25rem;
+    width: 3.125rem;
+    height: 3.125rem;
+    padding: 0.625rem;
+    display: inline-flex;
+    vertical-align: middle;
+    justify-content: center;
+    align-items: center;
+    object-fit: contain;
+} 
+.action-btns {
+  padding: 0.188rem 0.5rem;
+  text-align: center;
+  border-radius: 0.5rem;
+  margin-inline-end: 0.25rem;
+  font-size: 1.125rem;
+  border: 1px solid $default-border;
+  display: inline-block;
+}
+.upcoming_events .swiper-pagination-vertical.swiper-pagination-bullets .swiper-pagination-bullet, .swiper-vertical>.swiper-pagination-bullets .swiper-pagination-bullet{
+  display: none;
+}
+@media (max-width: 768px) {
+  .page-leftheader {
+      margin-block-end: 0.75rem;
+  }
+}
+.page-rightheader .input-group-text {
+  border-color: $input-border;
+  background: $light3;
+}
+@media (max-width: 480px) {
+  .tabs-menu1 ul li {
+      width: 100%;
+      margin: 15px;
+  }
+
+  .table_tabs .tabs-menu1 ul li:not(:last-child) {
+      margin-block-end: 0;
+  }
+}
+@media (max-width: 567px) {
+  .table_tabs .tabs-menu1 ul li a {
+      border-block-end: 1px solid $default-border !important;
+      border-radius: 8px !important;
+  }
+  .table_tabs .tabs-menu1 ul li {
+    width: 100%;
+    margin: 15px;
+  }
+}
+/* End:: hr dashboard */
+/* Start:: epmloyee view */
+.hremp-tabs1 {
+  background: $custom-white;
+  border-radius: 0.5rem !important;
+  border: 0 !important;
+}
+.hremp-tabs .tabs-menu1 ul li a {
+  border: 0;
+  background: $default-background2;
+  border-block-end: 0;
+  margin: 0 0.5rem;
+  border-start-start-radius: 0.5rem;
+  border-start-end-radius: 0.5rem;
+  border-end-end-radius: 0;
+  border-end-end-radius: 0;
+  margin-block-end: -1px;
+  padding: 0.75rem 1.375rem;
+  margin-block-start: 0.4rem;
+  &.active {
+    border-block-end: 0;
+    background: $custom-white;
+  }
+}
+@media (max-width: 767px) {
+  .hremp-tabs .tabs-menu1 ul li a {
+      border-radius: 8px!important;
+  }
+  .hremp-tabs .tabs-menu1 ul li {
+    width: 100%;
+    margin: 0.625rem;
+  }
+}
+/* End:: epmloyee view */
+/*Start:: hr attendance list*/
+.hrattview-buttons {
+  position: relative;
+  inset-block-end: 0.625rem;
+  padding-block-start: 0.75rem;
+  a {
+    background: $default-background2;
+    border-block-end: 0;
+    margin: 0 0.5rem;
+    border-radius: 8px 8px 0 0;
+    margin-block-end: -1px;
+    padding: 12px 25px;
+    font-weight: 500;
+    &.active {
+      background: $custom-white;
+    }
+  }
+}
+.action-btns1 {
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  text-align: center;
+  border-radius: 0.25rem;
+  margin-inline-end: .75rem;
+  font-size: 1.125rem;
+  border: 1px solid $default-border;
+}
+.leave-to {
+  margin-inline: 0.75rem;
+  font-size: 0.75rem;
+}
+.leave-text {
+  font-size: 0.813rem;
+  height: 2.813rem;
+  overflow: auto;
+  padding-block: 0.313rem;
+  padding-inline-start: 0;
+}
+@media (max-width: 767px) {
+  .hrattview-buttons a {
+      display: block;
+      width: 100%;
+      margin-inline-start: 0 !important;
+      border-radius: 8px !important;
+      margin-block-end: 12px;
+  }
+}
+/*End:: hr attendance list*/
+
+/* Start:: hr-overviewcldr Calendar */
+[dir="rtl"] {
+  .fullcalendar-events-activity {
+    li {
+      padding-block-start: 0.25rem;
+      padding-block-end: 0.25rem;
+      padding-inline-start: 2rem;
+    }
+  }
+}
+
+.fullcalendar-events-activity {
+  li {
+    margin-block-end: 0.75rem;
+    font-size: 0.8125rem;
+    padding-block-start: 0.25rem;
+    padding-inline-end: 1rem;
+    padding-block-end: 0.25rem;
+    padding-inline-start: 2rem;
+    position: relative;
+
+    &::before {
+      position: absolute;
+      content: "";
+      width: 0.75rem;
+      height: 0.75rem;
+      border: 0.125rem solid $primary-03;
+      border-radius: 3.125rem;
+      background-color: $custom-white;
+      inset-inline-start: 0.25rem;
+      inset-block-start: 0.563rem;
+    }
+
+    &::after {
+      position: absolute;
+      content: "";
+      height: 100%;
+      background-color: transparent;
+      border-inline-end: 2px dashed $primary-01;
+      inset-inline-start: 0.563rem;
+      inset-block-start: 1.25rem;
+    }
+
+    &:last-child {
+      margin-block-end: 0;
+
+      &::after {
+        border-inline-end: 0px dashed $default-border;
+      }
+    }
+  }
+}
+
+#full-calendar-activity {
+  max-height: 21rem;
+}
+.admisetting-tabs {
+    .nav-icon {
+        font-size: 1.375rem;
+        margin-inline-end: 0.5rem;
+    }
+    .nav-link {
+        padding: 1rem 1.25rem;
+        display: flex;
+        border-inline-start: 0.188rem solid transparent;
+        position: relative;
+        color: $default-text-color;
+        border-radius: 0;
+        &.active {
+            background: $default-background2;
+            color: $primary;
+            border-inline-start: 3px solid $primary;
+            border-radius: 0;
+        }
+        &:focus-visible {
+          box-shadow: none;
+      }
+    }
+}
+.adminsetting-content {
+    &.tab-content{
+        .tab-pane {
+            padding: 0;
+            border: 0;
+        }
+    }
+}   
+
+@media (min-width: 1400px) {
+    .admisetting-tabs .nav-link.active::before {
+        position: absolute;
+        inset-block-start: 0;
+        inset-block-end: 0;
+        content: "";
+        inset-inline-end: -0.938rem;
+        border-block-start: 26px solid transparent;
+        border-inline-start: 15px solid $default-background2;
+        border-block-end: 26px solid transparent;
+    }
+}
+/* End:: hr-overviewcldr */
+
+///// EMPLOYEE DASHBOARD /////
+/* Start:: index2 */
+.pink-border {
+  border: 6px solid #fee8f4;
+}
+.warning-border {
+  border: 6px solid #fdf7e1;
+}
+.primary-border {
+  border: 6px solid #eceaff;
+}
+.success-border {
+  border: 6px solid #e2f6eb;
+}
+.orange-border {
+  border: 6px solid #fdece5;
+}
+#calendar3 {
+  height: 22.75rem;
+  .fc-view-harness.fc-view-harness-active {
+    .fc .fc-daygrid-day-number {
+      padding: 0.625rem !important;
+    }
+  }
+}
+.leave_table .table td {
+  padding: 0.95rem 1.5rem;
+}
+.leave_table .table th {
+  font-size: 0.934rem;
+  padding: 0.95rem 1.5rem;
+}
+#salary-attendance-chart, #chartbar-statistics {
+  .apexcharts-bar-series.apexcharts-plot-series .apexcharts-series .apexcharts-bar-area {
+    stroke: transparent !important;
+  }
+}
+#leavesoverview {
+  .apexcharts-datalabels-group text:first-child {
+    fill: $gray-7 !important;
+    font-size: 18px !important;
+    font-weight: 500 !important;
+    font-family: "Roboto", sans-serif !important;
+  }
+  text:nth-child(2) {
+    fill: $primary !important;
+    font-size: 34px !important;
+    font-weight: 500 !important;
+    font-family: "Roboto", sans-serif !important;
+  }
+}
+/* End:: index2 */
+
+/* Start:: index3 */
+.task-img {
+  height: 55px;
+  width: 55px;
+  border-radius: 13px;
+  padding: 0.625rem;
+  vertical-align: middle;
+  justify-content: center;
+  align-items: center;
+}
+img {
+  max-width: 100%;
+}
+.task-btn {
+  line-height: 2;
+  font-size: 12px;
+  padding: 0.3rem 0.75rem;
+  letter-spacing: 0.4px;
+  border-radius: 7px;
+  margin-inline-end: 0.5rem;
+  border-width: 1px;
+  border-style: solid;
+  cursor: pointer;
+}
+ul.timeline:before {
+  content: " ";
+  background: $default-border;
+  display: inline-block;
+  position: absolute;
+  inset-inline-start: 9px;
+  width: 1px;
+  height: 100%;
+  z-index: 0;
+}
+ul.timeline>li {
+  margin: 20px 0;
+  padding-inline-start: 20px;
+}
+ul.timeline>li:before {
+  content: " ";
+  background: #f7284a;
+  display: inline-block;
+  position: absolute;
+  border-radius: 50%;
+  border: 4px solid #fdedef;
+  inset-inline-start: -2px;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+  margin: 2px;
+}
+ul.timeline>li.primary:before {
+  background: $primary;
+  border: 4px solid #ebeffb;
+}
+ul.timeline>li.pink:before {
+  background: $pink;
+  border: 4px solid #f9e6f2;
+}
+ul.timeline>li.success:before {
+  background: $success;
+  border: 4px solid #e2fbf3;
+}
+ul.timeline {
+  list-style-type: none;
+  position: relative;
+  padding-inline-start: 0px;
+}
+.remind-icon {
+  line-height: 2.75rem;
+  height: 2.5rem;
+  width: 2.5rem;
+  border: 1px solid $default-border;
+  border-radius: 8px;
+  min-width: 0 !important;
+  text-align: center;
+  position: relative;
+  display: inline-block;
+    i {
+      font-size: 18px !important;
+  }
+}
+.dot-label1 {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50px;
+  display: block;
+}
+.icon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50px;
+  position: absolute;
+  left: 20px;
+  top: 8px;
+}
+/* End:: index3 */
+/* Start:: index4 */
+#calendar{
+  display: none;
+}
+
+.calendar{
+  .flatpickr-calendar,.flatpickr-days{
+    width: 100%;
+  }
+  .dayContainer {
+    width: 100%;
+    max-width: 100%;
+
+  }
+  .flatpickr-day {
+      max-width: 50px;
+      height: 50px;
+      line-height: 50px;
+      font-size: 14px;
+  } 
+  .flatpickr-rContainer {
+    flex: 1 1 auto!important;
+  }
+} 
+/* End:: index4 */
+/* Start:: index5 */
+.dashboard-carousel .carousel-control-prev {
+  inset-inline-end: 4rem;
+  inset-inline-start: auto;
+}
+.dashboard-carousel .carousel-control-prev, .dashboard-carousel .carousel-control-next {
+  background: $custom-white;
+  border: 1px solid $default-border;
+  width: 1.625rem;
+  height: 1.625rem;
+  inset-block-start: 1.062rem;
+  border-radius: 0.375rem;
+  opacity: 1;
+}
+.dashboard-carousel .carousel-control-prev .carousel-control-prev-icon, .dashboard-carousel .carousel-control-next .carousel-control-next-icon {
+  background-image: none;
+}
+.dashboard-carousel .carousel-control-prev-icon, .dashboard-carousel .carousel-control-next-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: no-repeat 50%/100% 100%;
+}
+.dashboard-carousel .carousel-control-prev .carousel-control-prev-icon::after {
+  content: "\e92e";
+  font-family: "feather" !important;
+  display: block;
+  font-size: 0.812rem;
+  color: $default-text-color;
+  font-weight: bold;
+  line-height: 1.35rem;
+  margin-inline-end: 0.1rem;
+}
+.dashboard-carousel .carousel-control-next .carousel-control-next-icon::after {
+  content: "\e92f";
+  font-family: "feather" !important;
+  color: $default-text-color;
+  font-weight: bold;
+  font-size: 0.812rem;
+  display: block;
+  line-height: 1.35rem;
+}
+.dashboard-carousel .carousel-control-next {
+  inset-inline-end: 1.8rem;
+}
+
+.dashboard-carousel {
+  .card-title {
+    text-wrap: wrap;
+    padding-inline-end: 4rem;
+  }
+}
+[dir="rtl"] {
+  .dashboard-carousel {
+    .carousel-control-prev .carousel-control-prev-icon::after,
+    .carousel-control-next .carousel-control-next-icon::after  {
+      transform: scaleX(-1);
+    }
+  }
+}
+.custom-min-w-5 {
+  min-width: 5rem;
+}
+/* End:: index5 */
+
+/* Start:: index6 */
+.jobtable-tabs .tabs-menu1 {
+  float: right;
+}
+
+.job-status {
+	list-style-type: none;
+	position: relative;
+	display: flex;
+  padding: 0px;
+    margin: 0px;
+	 li{
+		margin: 0 15px !important;
+	}
+	li:first-child{
+		margin-inline-start:0 !important;
+	}
+	li:last-child{
+		margin-inline-end:0 !important;
+	} 
+	li::after{
+		content: ' ';
+		background: $white;
+		display: inline-flex;
+		position: absolute;
+		border-radius: 50%;
+		border:1px solid $default-border;
+		width: 18px;
+		height: 18px;
+		z-index: 1;
+    inset-block-start: -13px;
+	} 
+	li.active::after{
+		border: 1px solid $primary;
+	}
+	li.completed::after{
+		background: #e7e9f9;
+		border: 1px solid $primary;
+	}
+}
+.job-status::before{
+	content: ' ';
+    background: #dadffc;
+    position: absolute;
+    width: 69%;
+    height: 1px;
+    z-index: 0;
+    inset-block-start: -4px;
+    inset-inline-start: 19px;
+}
+/* End:: index6 */
+
+/* Start:: index7 */
+.offcanvas.company-details{
+  width: 45%;
+}
+@media (max-width: 767.98px) {
+  .offcanvas.company-details{
+    width: 100%;
+  }
+}
+.icon-style-circle {
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1.6rem !important;
+  border-radius: 50px;
+  display: inline-block;
+  margin: 0 auto;
+  text-align: center;
+}
+[data-width="boxed"] {
+  @media (min-width: 1400px)  {
+    .boxed-btn-disable {
+      display: none;
+    }
+    .boxed-btn-enable {
+      display: block;
+    }
+  }
+}
+.boxed-btn-enable {
+  display: none;
+}
+/* End:: index7 */
+#overview {
+  .apexcharts-pie text {
+    fill: $default-text-color;
+  }
+}
+#Ticket-Statistics {
+  .apexcharts-pie text {
+    fill: $default-text-color;
+  }
+}
+/* End:: dashboard_styles */
