@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}Academic Intelligence | Live Dashboard{% endblock %}
+
+{% block body %}
+<!-- Premium Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+<div class="dashboard-viewport">
+    <div class="container-fluid px-5 py-4 mt-4">
+        
+        <!-- HEADER: Title & Live Clock -->
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div class="brand-section">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="live-indicator">
+                        <span class="dot"></span>
+                        <span class="text">SYSTEM LIVE</span>
+                    </div>
+                    <div class="divider-v"></div>
+                    <h6 class="text-uppercase tracking-widest text-muted fw-bold mb-0">Operational Overview</h6>
+                </div>
+                <h1 class="display-4 fw-900 text-dark-blue tracking-tighter m-0">{{ report_title }}</h1>
+            </div>
+            
+            <div class="clock-section text-end">
+                <div id="digital-clock" class="clock-num">00:00:00</div>
+                <div class="date-text">{% now "l, F jS" %}</div>
+            </div>
+        </div>
+
+        <!-- ROW 1: HERO STATS (Total vs Courses) -->
+        <div class="row g-4 mb-5">
+            <!-- Active Enrollment Card (Left - 25% width) -->
+            <div class="col-xl-3 col-lg-4">
+                <div class="card-hero-total">
+                    <div class="card-content">
+                        <span class="label">ACTIVE ENROLLMENT</span>
+                        <h2 class="massive-number text-white">{{ total_students }}</h2>
+                        <div class="growth-tag text-white-50">
+                            <i class="bi bi-person-check"></i> Total Registered Pool
+                        </div>
+                    </div>
+                    <div class="visual-element">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Course-wise Grid (Right - 75% width) -->
+            <div class="col-xl-9 col-lg-8">
+                <div class="row g-3 h-100">
+                    {% for stat in course_stats|slice:":6" %}
+                    <div class="col-md-4">
+                        <div class="course-mini-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="course-info">
+                                    <span class="course-label">COURSE</span>
+                                    <h5 class="course-name fw-bold">{{ stat.name }}</h5>
+                                </div>
+                                <div class="course-count">{{ stat.student_count }}</div>
+                            </div>
+                            <div class="course-progress mt-3">
+                                {% if total_students > 0 %}
+                                    {% widthratio stat.student_count total_students 100 as percent %}
+                                {% else %}
+                                    {% widthratio 0 1 100 as percent %}
+                                {% endif %}
+                                <div class="progress-bg">
+                                    <div class="progress-fill" style="width: {{ percent }}%"></div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="percent-label">{{ percent }}% Share</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12 text-center py-5">
+                        <h4 class="text-muted">No course statistics available</h4>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 2: BRANCH PERFORMANCE -->
+        <div class="section-divider mb-4">
+            <h3 class="fw-800 text-dark">Branch Analysis</h3>
+            <div class="line"></div>
+        </div>
+
+        <div class="row g-4">
+            {% for item in branch_stats %}
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <div class="branch-card">
+                    <div class="branch-header mb-3">
+                        <div class="branch-meta">
+                            <h4 class="fw-bold"><i class="bi bi-geo-alt"></i> {{ item.branch_obj.name }}</h4>
+                        </div>
+                        <div class="branch-total">{{ item.total }}</div>
+                    </div>
+                    <div class="branch-body">
+                        <div class="course-stack">
+                            {% for course in item.courses %}
+                            <!-- Logic: Mute courses with 0 students, Highlight those with > 0 -->
+                            <div class="stack-item {% if course.branch_course_count == 0 %}muted-item{% endif %}">
+                                <span class="course-mini-name">{{ course.name }}</span>
+                                <span class="fw-900 {% if course.branch_course_count > 0 %}text-primary-brand{% endif %}">
+                                    {{ course.branch_course_count }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <h3 class="text-muted">No active branch data found</h3>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary: #ee4c24;
+        --primary-dark: #b22d0a;
+        --bg-light: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #1e293b;
+        --text-dim: #64748b;
+        --border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    body {
+        background-color: var(--bg-light);
+        color: var(--text-main);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        overflow-x: hidden;
+    }
+
+    .dashboard-viewport {
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, rgba(238, 76, 36, 0.05), transparent),
+                    radial-gradient(circle at bottom left, rgba(226, 232, 240, 1), transparent);
+    }
+
+    /* TYPOGRAPHY */
+    .fw-800 { font-weight: 800; }
+    .fw-900 { font-weight: 900; font-family: 'Outfit', sans-serif; }
+    .text-dark-blue { color: #0f172a; }
+    .text-primary-brand { color: var(--primary) !important; }
+    .tracking-tighter { letter-spacing: -2px; }
+    .tracking-widest { letter-spacing: 3px; }
+
+    /* HEADER COMPONENTS */
+    .live-indicator {
+        background: rgba(238, 76, 36, 0.1);
+        padding: 6px 14px;
+        border-radius: 100px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(238, 76, 36, 0.2);
+    }
+    .live-indicator .dot {
+        width: 8px;
+        height: 8px;
+        background: var(--primary);
+        border-radius: 50%;
+        box-shadow: 0 0 10px var(--primary);
+        animation: pulse 2s infinite;
+    }
+    .live-indicator .text { font-size: 0.7rem; font-weight: 800; color: var(--primary); }
+    .clock-num { font-family: 'Outfit', sans-serif; font-size: 3.5rem; font-weight: 800; color: #0f172a; line-height: 1; }
+    .date-text { color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* HERO CARD: TOTAL ENROLLMENT */
+    .card-hero-total {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 30px;
+        padding: 40px;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 20px 40px rgba(238, 76, 36, 0.2);
+    }
+    .massive-number { font-family: 'Outfit', sans-serif; font-size: 6rem; font-weight: 900; line-height: 1; margin: 10px 0; }
+    .card-hero-total .label { font-weight: 800; letter-spacing: 1.5px; font-size: 0.85rem; color: rgba(255,255,255,0.8); }
+
+    /* COURSE MINI CARDS */
+    .course-mini-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        padding: 24px;
+        height: 100%;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+    .course-mini-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+    .course-label { font-size: 0.65rem; font-weight: 800; color: var(--primary); letter-spacing: 1px; }
+    .course-name { color: #0f172a; font-size: 1.1rem; margin: 0; }
+    .course-count { font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; color: #0f172a; }
+    
+    .progress-bg { height: 8px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary); border-radius: 10px; }
+    .percent-label { font-size: 0.75rem; color: var(--text-dim); font-weight: 700; }
+
+    /* BRANCH CARDS */
+    .branch-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        padding: 24px;
+        height: 100%;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.02);
+    }
+    .branch-header { display: flex; justify-content: space-between; align-items: center; }
+    .branch-meta h4 { font-size: 1.25rem; color: #0f172a; margin: 0; }
+    .branch-meta p { font-size: 0.85rem; color: var(--text-dim); }
+    .branch-total {
+        background: #0f172a;
+        color: white;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        font-weight: 900;
+        font-size: 1.2rem;
+    }
+
+    /* COURSE STACK IN BRANCH CARDS */
+    .course-stack { display: flex; flex-direction: column; gap: 8px; }
+    .stack-item {
+        background: rgba(0, 0, 0, 0.02);
+        padding: 10px 15px;
+        border-radius: 12px;
+        border: 1px solid #9c9c9c63 !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85rem;
+    }
+    .course-mini-name { font-weight: 600; color: var(--text-main); }
+    .muted-item { opacity: 0.6; background: transparent; border: 1px dashed var(--border-color); }
+
+    .section-divider { display: flex; align-items: center; gap: 20px; }
+    .section-divider .line { height: 1px; flex-grow: 1; background: var(--border-color); }
+
+    .visual-element {
+        position: absolute; right: -20px; bottom: -20px; font-size: 12rem;
+        opacity: 0.1; color: white; transform: rotate(-15deg); pointer-events: none;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.4); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Large Screen / TV Tweaks */
+    @media (min-width: 1800px) {
+        .massive-number { font-size: 8rem; }
+        .course-count { font-size: 3.5rem; }
+    }
+</style>
+
+<script>
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('digital-clock').textContent = now.toLocaleTimeString('en-US', { 
+            hour12: true, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Refresh every 5 minutes to keep the dashboard updated
+    setTimeout(() => location.reload(), 300000);
+</script>
+{% endblock body %}

@@ -97,6 +97,12 @@
             </div>
             {% endif %}
 
+            <div class="header-element">
+                <a href="{% url 'reports:academic_statistics_report' %}" class="header-link" title="Dashboard">
+                    <i class="fe fe-bar-chart-2 header-link-icon"></i>
+                </a>
+            </div>
+
             {% if request.user.is_superuser or request.user.usertype in "admin_staff,ceo,cfo,coo,hr,cmo" %}
                 <!-- Start::header-element -->
                 <div class="header-element header-accounting" id="accounting-btn">

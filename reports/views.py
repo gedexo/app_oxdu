@@ -1,9 +1,11 @@
 from collections import defaultdict
 from decimal import Decimal
+from django.db import models
 from datetime import date, datetime, timedelta
 from django.urls import reverse_lazy
 from django.utils.http import quote
 from django.utils import timezone
+from django.db.models import Count, Q
 from typing import Dict, Tuple, List
 from django.shortcuts import render
 from django.contrib import messages
@@ -20,6 +22,8 @@ from transactions.models import TransactionEntry, Transaction
 from accounting.models import Account, GroupMaster 
 from reports import tables, filters, forms
 
+from admission.models import Admission
+from masters.models import Course
 
 class BalanceSheetReportView(mixins.HybridTemplateView):
     template_name = 'reports/balance_sheet_report.html'
@@ -1434,5 +1438,62 @@ class IncomeExpenseReportView(mixins.HybridTemplateView):
             "expense_series": json.dumps(expense_data),
             "profit_series": json.dumps(profit_data),
         })
+
+        return context
+
+    
+class AcademicStatisticsReportView(mixins.OpenView):
+    template_name = "reports/academic_statistics_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["report_title"] = "Academic Overview"
+
+        # Base active students
+        students = Admission.objects.filter(is_active=True, stage_status="active")
+        context["total_students"] = students.count()
+
+        # 1. Get all active courses globally
+        active_courses = Course.objects.filter(is_active=True).order_by('name')
+        
+        # Global stats (Total students per course)
+        context["course_stats"] = active_courses.annotate(
+            student_count=Count(
+                'admission',
+                filter=models.Q(
+                    admission__is_active=True,
+                    admission__stage_status='active'
+                )
+            )
+        ).order_by('-student_count')
+
+        # 2. Branch-wise stats (Showing ALL active courses per branch)
+        branch_stats_data = []
+        all_branches = Branch.objects.filter(is_active=True)
+
+        for branch in all_branches:
+            branch_students = students.filter(branch=branch)
+            
+            # For this branch, get all courses and count students specifically in this branch
+            branch_courses = active_courses.annotate(
+                branch_course_count=Count(
+                    'admission',
+                    filter=models.Q(
+                        admission__branch=branch,
+                        admission__is_active=True,
+                        admission__stage_status='active'
+                    )
+                )
+            ).order_by('name') # Consistent ordering for all cards
+
+            branch_stats_data.append({
+                "branch_obj": branch,
+                "total": branch_students.count(),
+                "courses": branch_courses  # This now contains ALL active courses
+            })
+
+        # Sort branches by total enrollment
+        branch_stats_data.sort(key=lambda x: x["total"], reverse=True)
+        context["branch_stats"] = branch_stats_data
 
         return context

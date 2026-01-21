@@ -14,4 +14,7 @@ urlpatterns = [
 
     #Income expense reports
     path("income-expense-report/", views.IncomeExpenseReportView.as_view(), name="income_expense_report"),
+
+    #Overall Report 
+    path("academic-statistics-report/", views.AcademicStatisticsReportView.as_view(), name="academic_statistics_report"),
 ]
