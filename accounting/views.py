@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404
 from .models import GroupMaster, Account
 from . import tables
 from .forms import GroupMasterForm, SubGroupFormSet, AccountForm, TransactionEntryFormSet
+from branches.models import Branch
 
 from accounting.functions import generate_account_code
 from transactions .models import Transaction, TransactionEntry
@@ -25,22 +26,32 @@ from django.urls import reverse
 from django.views.generic import RedirectView
 from transactions.models import IncomeExpense
 from django.views.decorators.http import require_GET
+import traceback 
 
 
 @login_required
-def get_next_group_code_ajax(request):
-    branch_id = request.GET.get('branch_id')
+@require_GET
+def ajax_get_next_group_code(request):
+    branch_id = request.GET.get("branch")
     prefix = "GRP"
-    last_group = GroupMaster.objects.filter(branch_id=branch_id, code__startswith=prefix).order_by('-code').first()
+    default_code = f"{prefix}0001"
+
+    if not branch_id:
+        return JsonResponse({"code": default_code})
+
+    last_group = GroupMaster.objects.filter(
+        branch_id=branch_id, 
+        code__startswith=prefix
+    ).order_by('-code').first()
+
     if last_group and last_group.code:
         match = re.search(r'(\d+)', last_group.code)
         if match:
-            code = f"{prefix}{(int(match.group(1)) + 1):04d}"
-        else:
-            code = f"{prefix}0001"
-    else:
-        code = f"{prefix}0001"
-    return JsonResponse({'code': code})
+            next_num = int(match.group(1)) + 1
+            new_code = f"{prefix}{next_num:04d}"
+            return JsonResponse({"code": new_code})
+
+    return JsonResponse({"code": default_code})
 
 
 @login_required
@@ -95,19 +106,21 @@ class AccountingBase(mixins.HybridTemplateView):
         context["is_accounting_base"] = True
         context["is_accounting"] = True
 
-        income = IncomeExpense.objects.filter(
-            type='income',
-            transaction__status='posted'
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        total_income = Transaction.objects.filter(
+            transaction_type='income',
+            status='posted'
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
 
-        expense = IncomeExpense.objects.filter(
-            type='expense',
-            transaction__status='posted'
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        total_expense = Transaction.objects.filter(
+            transaction_type='expense',
+            status='posted'
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
 
-        context["total_income"] = income
-        context["total_expense"] = expense
-        context["net_profit"] = income - expense
+        net_profit = total_income - total_expense
+
+        context["total_income"] = total_income
+        context["total_expense"] = total_expense
+        context["net_profit"] = net_profit
 
         context["total_transactions"] = Transaction.objects.filter(
             status='posted'
@@ -192,7 +205,6 @@ class GroupMasterCreateView(mixins.HybridCreateView):
         context = self.get_context_data()
         formset = context['formset']
         
-        # Get branch from form selection
         branch = form.cleaned_data.get('branch') or self.get_branch()
 
         if not branch:
@@ -204,32 +216,35 @@ class GroupMasterCreateView(mixins.HybridCreateView):
 
         try:
             with transaction.atomic():
-                # 1. Save main group
+                # 1. Save Main Group
                 self.object = form.save(commit=False)
                 self.object.branch = branch 
                 
-                # Double check uniqueness for the selected branch
-                if GroupMaster.objects.filter(branch=branch, code=self.object.code).exists():
+                # Code Uniqueness Loop
+                while GroupMaster.objects.filter(branch=branch, code=self.object.code).exists():
                     self.object.code = self._generate_group_code(branch)
                 
                 self.object.save()
 
+                # === CRITICAL FIX START ===
+                # We must tell the formset about the parent object we just saved
+                # BEFORE calling save() on the formset.
+                formset.instance = self.object
+                # === CRITICAL FIX END ===
+
                 # 2. Save subgroups
-                subgroups = formset.save(commit=False)
-                for subgroup in subgroups:
-                    subgroup.parent = self.object
-                    subgroup.branch = branch
-                    if not subgroup.code:
-                        subgroup.code = self._generate_group_code(branch)
-                    if not subgroup.nature_of_group:
-                        subgroup.nature_of_group = self.object.nature_of_group
-                    if not subgroup.main_group:
-                        subgroup.main_group = self.object.main_group
-                    subgroup.save()
+                self._save_subgroups(formset, self.object)
 
             return HttpResponseRedirect(self.get_success_url())
             
         except Exception as e:
+            # Print error to terminal for debugging
+            import traceback
+            print("\n========== SAVE ERROR ==========")
+            print(f"Error: {str(e)}")
+            traceback.print_exc()
+            print("================================\n")
+            
             form.add_error(None, f"Save failed: {str(e)}")
             return self.form_invalid(form)
 
@@ -244,16 +259,45 @@ class GroupMasterCreateView(mixins.HybridCreateView):
         return f"{prefix}0001"
 
     def _save_subgroups(self, formset, parent_group):
+        # Now this will work because formset.instance is set
         subgroups = formset.save(commit=False)
+        
+        existing_codes_in_batch = set()
+        
         for subgroup in subgroups:
             subgroup.parent = parent_group
             subgroup.branch = parent_group.branch
-            if not subgroup.code:
-                subgroup.code = self._generate_group_code(parent_group.branch)
+            
             if not subgroup.nature_of_group:
                 subgroup.nature_of_group = parent_group.nature_of_group
             if not subgroup.main_group:
                 subgroup.main_group = parent_group.main_group
+
+            # Check logic for code uniqueness
+            code_exists_in_db = False
+            if subgroup.code:
+                code_exists_in_db = GroupMaster.objects.filter(
+                    branch=parent_group.branch, 
+                    code=subgroup.code
+                ).exists()
+
+            if not subgroup.code or code_exists_in_db or subgroup.code in existing_codes_in_batch:
+                new_code = self._generate_group_code(parent_group.branch)
+                # Loop to ensure unique code
+                while (GroupMaster.objects.filter(branch=parent_group.branch, code=new_code).exists() 
+                       or new_code in existing_codes_in_batch):
+                    
+                    match = re.search(r'(\d+)', new_code)
+                    if match:
+                        num = int(match.group(1)) + 1
+                        new_code = f"GRP{num:04d}"
+                    else:
+                        import time
+                        new_code = f"GRP{int(time.time())}"
+                
+                subgroup.code = new_code
+            
+            existing_codes_in_batch.add(subgroup.code)
             subgroup.save()
 
 
@@ -263,129 +307,109 @@ class GroupMasterUpdateView(mixins.HybridUpdateView):
     template_name = "accounting/groupmaster_form.html"
     branch_filter_fields = {"parent": "branch"}
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['branch'] = self.get_branch()
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        group = self.object
-
-        context["formset"] = SubGroupFormSet(
-            self.request.POST or None,
-            instance=group,
-            queryset=GroupMaster.objects.filter(parent=group),
-            prefix="subgroups"
-        )
+        
+        # Initialize formset
+        if self.request.POST:
+            context["formset"] = SubGroupFormSet(
+                self.request.POST,
+                instance=self.object,
+                prefix="subgroups"
+            )
+        else:
+            context["formset"] = SubGroupFormSet(
+                instance=self.object,
+                prefix="subgroups"
+            )
 
         context.update({
             "is_accounting_master": True,
             "is_groupmaster_list": True,
-            "title": f"Update Group - {group.name}",
+            "title": f"Update Group - {self.object.name}",
         })
         return context
     
-    def get_form(self, form_class=None):
-        """Override to ensure branch is passed to form"""
-        form = super().get_form(form_class)
-        if hasattr(form, 'fields') and 'branch' in form.fields:
-            # Ensure the form has the correct branch for parent filtering
-            branch = self.get_branch()
-            form.fields['parent'].queryset = GroupMaster.objects.filter(
-                branch=branch
-            ).exclude(pk=form.instance.pk if form.instance.pk else None)
-        return form
-
     def form_valid(self, form):
         context = self.get_context_data()
         formset = context["formset"]
 
+        # Check validity of both
         if not form.is_valid():
-            print("\nFORM INVALID IN form_valid()")
-            print(form.errors.as_data())
             return self.form_invalid(form)
 
         if not formset.is_valid():
-            print("\nFORMSET INVALID IN form_valid()")
-            print(formset.errors)
-            print(formset.non_form_errors())
             return self.form_invalid(form)
 
         try:
             with transaction.atomic():
-                group = form.save()
-                self._save_subgroups(formset, group)
-                self.object = group
+                # 1. Save Parent (GroupMasterForm handles the disabled branch field automatically)
+                self.object = form.save()
+                
+                # 2. Save Subgroups
+                self._save_subgroups(formset, self.object)
 
-            return super().form_valid(form)
-        except forms.ValidationError as e:
-            # Add the error to the form to trigger form_invalid
-            form.add_error(None, str(e))
+            return HttpResponseRedirect(self.get_success_url())
+        except Exception as e:
+            form.add_error(None, f"Transaction failed: {str(e)}")
             return self.form_invalid(form)
     
     def form_invalid(self, form):
-        context = self.get_context_data()
-        formset = context.get("formset")
-
+        # Your existing debug prints are fine to keep here
         print("\n========== FORM ERRORS ==========")
-        for field, errors in form.errors.items():
-            print(f"{field}: {errors}")
-
-        if form.non_field_errors():
-            print("NON FIELD ERRORS:", form.non_field_errors())
-
-        if formset:
-            print("\n========== FORMSET ERRORS ==========")
-            for i, f in enumerate(formset.forms):
-                if f.errors:
-                    print(f"\n-- SubForm {i} --")
-                    for field, errors in f.errors.items():
-                        print(f"{field}: {errors}")
-
-            if formset.non_form_errors():
-                print("\nFORMSET NON-FORM ERRORS:")
-                print(formset.non_form_errors())
-
-        print("=================================\n")
-
+        print(form.errors)
+        context = self.get_context_data()
+        if context.get('formset'):
+            print("========== FORMSET ERRORS ==========")
+            print(context['formset'].errors)
+            print(context['formset'].non_form_errors())
+            
         return super().form_invalid(form)
 
     def _save_subgroups(self, formset, parent_group):
         subgroups = formset.save(commit=False)
         
-        # Check for duplicate codes among the subgroups before saving
+        # 1. Validation Logic for duplicates
         existing_codes = set()
-        for subgroup in subgroups:
-            if not subgroup.code:
-                continue
-            
-            # Check if code already exists in the same branch
-            if subgroup.code in existing_codes:
-                # This should not happen if formset validation worked properly
-                raise forms.ValidationError(f'Duplicate code "{subgroup.code}" found in subgroups.')
-            existing_codes.add(subgroup.code)
-            
-            # Check if code already exists in the database for this branch
-            existing_in_db = GroupMaster.objects.filter(
-                branch=parent_group.branch, 
-                code=subgroup.code
-            ).exclude(pk=subgroup.pk if subgroup.pk else None)
-            
-            if existing_in_db.exists():
-                raise forms.ValidationError(f'Code "{subgroup.code}" already exists in this branch.')
+        # Get existing codes in DB to prevent duplicates, excluding the rows we are currently saving
+        current_ids = [s.pk for s in subgroups if s.pk]
+        db_codes = GroupMaster.objects.filter(
+            branch=parent_group.branch
+        ).exclude(pk=parent_group.pk).exclude(pk__in=current_ids).values_list('code', flat=True)
         
+        existing_codes.update(db_codes)
+
+        # 2. Save Logic
         for subgroup in subgroups:
-            # Set the parent relationship
-            subgroup.parent = parent_group
-            # Ensure branch are properly set
+            # Check duplicate code in current iteration
+            if subgroup.code in existing_codes:
+                 # Note: Ideally this validation should happen in FormSet.clean, 
+                 # but manual check here works for safety.
+                raise forms.ValidationError(f'Code "{subgroup.code}" already exists in this branch.')
+            
+            if subgroup.code:
+                existing_codes.add(subgroup.code)
+
+            # Assign Relationships
+            # Note: InlineFormSet automatically sets subgroup.parent = parent_group
+            # We only need to set the branch manually
             subgroup.branch = parent_group.branch
-            # Set default nature and main group if not provided
+            
             if not subgroup.nature_of_group:
                 subgroup.nature_of_group = parent_group.nature_of_group
             if not subgroup.main_group:
                 subgroup.main_group = parent_group.main_group
+            
             subgroup.save()
 
+        # 3. Delete Objects
         for obj in formset.deleted_objects:
-            # Check if the object has a pk before trying to delete
-            if obj.pk:
-                obj.delete()
+            obj.delete()
 
 
 
@@ -462,7 +486,7 @@ class AccountDetailView(mixins.HybridDetailView):
             return value.url if value else None
         elif hasattr(value, 'all'):  # Handle ManyToMany fields
             return [str(item) for item in value.all()]
-        elif isinstance(value, models.Model):  # Handle ForeignKey
+        elif isinstance(value, models.Model):  
             return str(value)
         return value
 
@@ -649,7 +673,6 @@ class AccountOpeningBalanceMixin:
                 
         except Exception as e:
             print(f"❌ ERROR handling opening balance for {account.name}: {str(e)}")
-            import traceback
             traceback.print_exc()
             raise
 
@@ -837,19 +860,23 @@ class AccountCreateView(AccountOpeningBalanceMixin, mixins.HybridCreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-
-        branch = self.get_branch()
-
-        if 'initial' not in kwargs:
-            kwargs['initial'] = {}
-
-        # Auto-generate account code
-        kwargs['initial']['code'] = generate_account_code(branch)
-
-        # Pass branch so `under` loads correctly
-        kwargs['initial']['branch'] = branch
-
+        kwargs.setdefault('initial', {})
+        kwargs['initial']['code'] = generate_account_code()
         return kwargs
+
+    def form_valid(self, form):
+        
+        with transaction.atomic():
+            
+            self.object = form.save()
+            
+            if hasattr(self, '_handle_opening_balance_transaction'):
+                self._handle_opening_balance_transaction(self.object, form.cleaned_data)
+            
+            self.object.save()
+
+        # HybridCreateView usually expects a call to its parent's form_valid
+        return super(mixins.HybridCreateView, self).form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -895,461 +922,3 @@ class AccountUpdateView(AccountOpeningBalanceMixin, mixins.HybridUpdateView):
 
 class AccountDeleteView(mixins.HybridDeleteView):
     model = Account
-
-
-class TrialBalanceView(mixins.HybridListView):
-    model = Account
-    template_name = "accounting/trial_balance.html"
-    branch_field_name = "branch"
-    table_class = tables.TrialBalanceTable
-    
-    def get_queryset(self):
-        qs = super().get_queryset().select_related('under').order_by('code')
-        
-        qs = qs.annotate(
-            total_debit=Coalesce(
-                Sum('transactionentry__debit_amount'),
-                Decimal('0'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-            total_credit=Coalesce(
-                Sum('transactionentry__credit_amount'),
-                Decimal('0'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-        ).annotate(
-            # Standard calculation: Debit - Credit
-            balance=F('total_debit') - F('total_credit')
-        )
-        return qs
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_reports"] = True
-        
-        queryset = self.get_queryset()
-        
-        # Calculate grand totals for the footer
-        # Using the annotated 'balance' field
-        total_debit = sum(acc.balance if acc.balance > 0 else 0 for acc in queryset)
-        total_credit = sum(abs(acc.balance) if acc.balance < 0 else 0 for acc in queryset)
-        
-        context.update({
-            'title': 'Trial Balance',
-            'is_accounting': True,
-            'is_trial_balance': True,
-            'total_debit_summary': total_debit,
-            'total_credit_summary': total_credit,
-            'is_balanced': abs(total_debit - total_credit) < Decimal('0.01'),
-            'current_date': timezone.now().date(),
-        })
-        
-        return context
-
-
-class BalanceSheetView(mixins.HybridListView):
-    model = Account
-    template_name = "accounting/balance_sheet.html"
-    branch_field_name = "branch"
-
-    def get_queryset(self):
-        return (
-            super()
-            .get_queryset()
-            .filter(under__main_group="balance_sheet")
-            .select_related("under")
-            .annotate(
-                total_debit=Coalesce(
-                    Sum("transactionentry__debit_amount"),
-                    Decimal("0.00"),
-                    output_field=DecimalField(max_digits=15, decimal_places=2),
-                ),
-                total_credit=Coalesce(
-                    Sum("transactionentry__credit_amount"),
-                    Decimal("0.00"),
-                    output_field=DecimalField(max_digits=15, decimal_places=2),
-                ),
-            )
-            .order_by("code")
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_reports"] = True
-
-        assets = []
-        liabilities = []
-        equity = []
-
-        total_assets = Decimal("0.00")
-        total_liabilities = Decimal("0.00")
-        total_equity = Decimal("0.00")
-
-        for account in self.get_queryset():
-            group = account.under.nature_of_group
-
-            if group == "Assets":
-                balance = account.total_debit - account.total_credit
-                if balance != 0:
-                    assets.append({"account": account, "balance": balance})
-                    total_assets += balance
-
-            elif group == "Liabilities":
-                balance = account.total_credit - account.total_debit
-                if balance != 0:
-                    liabilities.append({"account": account, "balance": balance})
-                    total_liabilities += balance
-
-            elif group == "Equity":
-                balance = account.total_credit - account.total_debit
-                if balance != 0:
-                    equity.append({"account": account, "balance": balance})
-                    total_equity += balance
-
-        context.update({
-            "title": "Balance Sheet",
-            "assets": assets,
-            "liabilities": liabilities,
-            "equity": equity,
-            "total_assets": total_assets,
-            "total_liabilities": total_liabilities,
-            "total_equity": total_equity,
-            "current_date": timezone.now().date(),
-            "is_accounting": True,
-            "is_balance_sheet": True,
-        })
-
-        return context
-
-
-class ProfitAndLossView(mixins.HybridListView):
-    model = Account
-    template_name = "accounting/profit_loss.html"
-    branch_field_name = "branch"
-    
-    def get_queryset(self):
-        # Get accounts for P&L (Income, Expenses)
-        qs = super().get_queryset().filter(
-            under__main_group='profit_and_loss'
-        ).select_related('under').order_by('code')
-        
-        # Annotate with current balance calculation
-        qs = qs.annotate(
-            total_debit=Coalesce(
-                Sum('transactionentry__debit_amount'),
-                Decimal('0'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-            total_credit=Coalesce(
-                Sum('transactionentry__credit_amount'),
-                Decimal('0'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-        ).annotate(
-            balance=F('total_debit') - F('total_credit')
-        )
-        
-        return qs
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_reports"] = True
-        
-        queryset = self.get_queryset()
-        
-        # Separate accounts by category
-        income = []
-        expenses = []
-        
-        for account in queryset:
-            if account.under.nature_of_group == 'Income':
-                income.append(account)
-            elif account.under.nature_of_group == 'Expense':
-                expenses.append(account)
-        
-        # Calculate totals
-        total_income = sum(abs(account.current_balance) for account in income if account.current_balance < 0)  # Credit balances for income
-        total_expenses = sum(abs(account.current_balance) for account in expenses if account.current_balance > 0)  # Debit balances for expenses
-        
-        net_profit = total_income - total_expenses
-        
-        context.update({
-            'title': 'Profit & Loss Statement',
-            'is_accounting': True,
-            'is_profit_loss': True,
-            'income': income,
-            'expenses': expenses,
-            'total_income': total_income,
-            'total_expenses': total_expenses,
-            'net_profit': net_profit,
-            'is_profitable': net_profit >= 0,
-            'current_date': timezone.now().date(),
-        })
-        
-        return context
-
-
-class LedgerReportView(mixins.BranchMixin, mixins.HybridListView):
-    model = Account
-    template_name = "accounting/ledger_report.html"
-    
-    def get_queryset(self):
-        """
-        Get all accounts available for this branch.
-        This populates the dropdown list (object_list).
-        """
-        qs = super().get_queryset().select_related('under')
-        
-        # Ensure we only show accounts for the current branch
-        branch = self.get_branch()
-        if branch:
-            qs = qs.filter(branch=branch)
-            
-        return qs.order_by('name')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_ledger_report"] = True
-        context["is_reports"] = True
-        
-        # 1. Get Form Data
-        account_id = self.request.GET.get('account')
-        start_date_str = self.request.GET.get('start_date')
-        end_date_str = self.request.GET.get('end_date')
-
-        # 2. Set Dates (Default to current month if empty)
-        today = timezone.now().date()
-        if start_date_str:
-            start_date = timezone.datetime.strptime(start_date_str, "%Y-%m-%d").date()
-        else:
-            start_date = today.replace(day=1)
-
-        if end_date_str:
-            end_date = timezone.datetime.strptime(end_date_str, "%Y-%m-%d").date()
-        else:
-            end_date = today
-
-        # 3. Process Ledger if Account Selected
-        entries = []
-        opening_balance = Decimal('0.00')
-        closing_balance = Decimal('0.00')
-        selected_account = None
-
-        if account_id:
-            # Use the same filtering logic as get_queryset to ensure consistency
-            qs = self.get_queryset()
-            # We use filter().first() instead of get() to avoid crashing if ID is invalid
-            selected_account = qs.filter(id=account_id).first()
-
-            if selected_account:
-                # A. Calculate Opening Balance (Sum of all transactions BEFORE start_date)
-                opening_stats = TransactionEntry.objects.filter(
-                    account=selected_account,
-                    transaction__date__lt=start_date
-                ).aggregate(
-                    debit=Coalesce(Sum('debit_amount'), Decimal('0.00')),
-                    credit=Coalesce(Sum('credit_amount'), Decimal('0.00'))
-                )
-                opening_balance = opening_stats['debit'] - opening_stats['credit']
-
-                # B. Fetch Transactions in Range
-                entries = TransactionEntry.objects.filter(
-                    account=selected_account,
-                    transaction__date__range=[start_date, end_date]
-                ).select_related('transaction').order_by('transaction__date', 'transaction__created')
-
-                # C. Calculate Running Balance
-                running = opening_balance
-                for entry in entries:
-                    running = running + entry.debit_amount - entry.credit_amount
-                    entry.running_balance = running
-                
-                closing_balance = running
-
-        # 4. Update Context
-        context.update({
-            'selected_account': selected_account,
-            # Pass account_id as int to helper fix template comparison
-            'selected_account_id': int(account_id) if account_id else None, 
-            'entries': entries,
-            'opening_balance': opening_balance,
-            'closing_balance': closing_balance,
-            'start_date': start_date,
-            'end_date': end_date,
-            'title': 'Ledger Report',
-        })
-        
-        return context
-
-
-class CashFlowStatementView(mixins.BranchMixin, mixins.HybridListView):
-    model = Transaction
-    template_name = "accounting/cash_flow_statement.html"
-    branch_field_name = "branch"
-    
-    # FIX: Change dictionary to a list to avoid the "dict object not callable" error
-    filterset_fields = ['branch'] 
-
-    def get_queryset(self):
-        # Return posted transactions for the selected branch
-        return Transaction.objects.filter(
-            branch=self.get_branch(),
-            status='posted'
-        ).select_related('branch').order_by('date')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        branch = self.get_branch()
-        
-        # 1. DATE HANDLING
-        start_date_param = self.request.GET.get('start_date')
-        end_date_param = self.request.GET.get('end_date')
-        
-        try:
-            if start_date_param and end_date_param:
-                start_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
-                end_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
-            else:
-                # Default: Current month
-                today = timezone.now().date()
-                start_date = today.replace(day=1)
-                end_date = today
-        except ValueError:
-            start_date = timezone.now().date().replace(day=1)
-            end_date = timezone.now().date()
-
-        # Convert to aware datetimes for database filtering
-        start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
-        end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
-
-        # 2. IDENTIFY CASH/BANK ACCOUNTS
-        # We find accounts belonging to 'Asset' that are categorized as Cash or Bank
-        cash_accounts = Account.objects.filter(
-            branch=branch,
-            under__main_group='Asset'
-        ).filter(
-            Q(under__name__icontains='Cash') | 
-            Q(under__name__icontains='Bank') |
-            Q(name__icontains='Cash') | 
-            Q(name__icontains='Bank')
-        )
-        cash_account_ids = set(cash_accounts.values_list('id', flat=True))
-
-        # 3. OPENING BALANCE CALCULATION
-        # Net movement of all cash accounts before the start date
-        opening_data = TransactionEntry.objects.filter(
-            account_id__in=cash_account_ids,
-            transaction__date__lt=start_dt,
-            transaction__status='posted',
-            transaction__branch=branch
-        ).aggregate(
-            total_dr=Sum('debit_amount'),
-            total_cr=Sum('credit_amount')
-        )
-        opening_balance = (opening_data['total_dr'] or Decimal('0')) - (opening_data['total_cr'] or Decimal('0'))
-
-        # 4. FETCH TRANSACTIONS FOR THE PERIOD
-        transactions = Transaction.objects.filter(
-            branch=branch,
-            status='posted',
-            date__range=[start_dt, end_dt]
-        ).prefetch_related('entries__account__under').order_by('date')
-
-        # 5. CATEGORIZATION LOGIC
-        categories = {
-            'operating': {'items': [], 'in': Decimal('0'), 'out': Decimal('0')},
-            'investing': {'items': [], 'in': Decimal('0'), 'out': Decimal('0')},
-            'financing': {'items': [], 'in': Decimal('0'), 'out': Decimal('0')},
-        }
-
-        for tx in transactions:
-            entries = list(tx.entries.all())
-            cash_entries = [e for e in entries if e.account_id in cash_account_ids]
-            other_entries = [e for e in entries if e.account_id not in cash_account_ids]
-
-            # Skip "Contra" entries (Cash to Bank or Bank to Cash) as they don't change net cash
-            if not cash_entries or not other_entries:
-                continue
-
-            for c_entry in cash_entries:
-                is_inflow = c_entry.debit_amount > 0
-                amount = c_entry.debit_amount if is_inflow else c_entry.credit_amount
-                
-                # Use the first non-cash entry to determine category
-                target = other_entries[0]
-                nature = target.account.under.nature_of_group # Income, Expense, Asset, Liability
-                
-                # Classification logic
-                if nature in ['Income', 'Expense']:
-                    cat = 'operating'
-                elif nature == 'Asset':
-                    cat = 'investing'
-                elif nature in ['Liability', 'Equity']:
-                    cat = 'financing'
-                else:
-                    cat = 'operating'
-
-                item = {
-                    'date': tx.date,
-                    'description': f"{tx.get_transaction_type_display()}: {target.account.name}",
-                    'amount': amount,
-                    'type': 'inflow' if is_inflow else 'outflow',
-                    'ref': tx.voucher_number or f"TX-{tx.id}"
-                }
-                
-                categories[cat]['items'].append(item)
-                if is_inflow:
-                    categories[cat]['in'] += amount
-                else:
-                    categories[cat]['out'] += amount
-
-        # 6. FINAL BALANCES
-        net_op = categories['operating']['in'] - categories['operating']['out']
-        net_inv = categories['investing']['in'] - categories['investing']['out']
-        net_fin = categories['financing']['in'] - categories['financing']['out']
-        
-        net_cash_flow = net_op + net_inv + net_fin
-        closing_balance = opening_balance + net_cash_flow
-
-        context.update({
-            'title': 'Cash Flow Statement',
-            'is_accounting': True,
-            'is_reports': True,
-            
-            # Activities
-            'operating_activities': categories['operating']['items'],
-            'investing_activities': categories['investing']['items'],
-            'financing_activities': categories['financing']['items'],
-            
-            # Totals for summary
-            'net_operating_cash_flow': net_op,
-            'net_investing_cash_flow': net_inv,
-            'net_financing_cash_flow': net_fin,
-            
-            # Global Totals
-            'opening_balance': opening_balance,
-            'net_cash_flow': net_cash_flow,
-            'closing_balance': closing_balance,
-            
-            # Header info
-            'start_date': start_date,
-            'end_date': end_date,
-            'current_date': timezone.now().date(),
-        })
-        return context
-from django.urls import reverse
-from django.views.generic import RedirectView
-from transactions.models import IncomeExpense
-
-class IncomeRedirectView(RedirectView):
-    permanent = False
-    
-    def get_redirect_url(self, *args, **kwargs):
-        return reverse('transactions:income_list')
-
-
-class ExpenseRedirectView(RedirectView):
-    permanent = False
-    
-    def get_redirect_url(self, *args, **kwargs):
-        return reverse('transactions:expense_list')

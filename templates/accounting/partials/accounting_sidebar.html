@@ -64,6 +64,14 @@
                             <a href="{% url 'accounting:account_list' %}" class="side-menu__item {% if is_account_list %}active{% endif %}">Accounts</a>
                         </li>
 
+                        <li class="slide">
+                            <a href="{% url 'masters:state_list' %}" class="side-menu__item {% if is_state_list %}active{% endif %}">States</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'masters:tax_list' %}" class="side-menu__item {% if is_tax_list %}active{% endif %}">Tax</a>
+                        </li>
+
                     </ul>
                 </li>
                 <!-- End::slide -->
@@ -114,28 +122,29 @@
 
                       
                         <li class="slide">
-                            <a href="{% url 'accounting:trial_balance' %}" class="side-menu__item {% if is_trial_balance %}active{% endif %}">Trial Balance</a>
+                            <a href="{% url 'reports:trial_balance' %}" class="side-menu__item {% if is_trail_balance %}active{% endif %}">Trial Balance</a>
                         </li>
 
                         <li class="slide">
-                            <a href="{% url 'accounting:balance_sheet' %}" class="side-menu__item {% if is_balance_sheet %}active{% endif %}">Balance Sheet</a>
+                            <a href="{% url 'reports:balance_sheet' %}" class="side-menu__item {% if is_balance_sheet %}active{% endif %}">Balance Sheet</a>
                         </li>
 
                         <li class="slide">
-                            <a href="{% url 'accounting:profit_loss' %}" class="side-menu__item {% if is_profit_loss %}active{% endif %}">Profit & Loss</a>
+                            <a href="{% url 'reports:pnl' %}" class="side-menu__item {% if is_profit_loss %}active{% endif %}">Profit & Loss</a>
                         </li>
 
                         <li class="slide">
-                            <a href="{% url 'accounting:cash_flow' %}" class="side-menu__item {% if is_cash_flow %}active{% endif %}">Cash Flow</a>
+                            <a href="{% url 'reports:cash_flow_report' %}" class="side-menu__item {% if is_cash_flow %}active{% endif %}">Cash Flow</a>
                         </li>
 
                         <li class="slide">
-                            <a href="{% url 'accounting:ledger_report' %}" class="side-menu__item {% if is_ledger_report %}active{% endif %}">Ledger Report</a>
+                            <a href="{% url 'reports:ledger_report' %}" class="side-menu__item {% if is_ledger_report %}active{% endif %}">Ledger Report</a>
                         </li>
 
                         <li class="slide">
-                            <a href="{% url 'transactions:income_expense_report' %}" class="side-menu__item {% if is_income_expense_report %}active{% endif %}">Income & Expense Report</a>
+                            <a href="{% url 'reports:income_expense_report' %}" class="side-menu__item {% if is_income_expense_report %}active{% endif %}">Income & Expense Report</a>
                         </li>
+                        
 
                     </ul>
                 </li>

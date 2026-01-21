@@ -47,6 +47,9 @@ class HomeView(mixins.HybridTemplateView):
         user = self.request.user
         context["is_home"] = True
 
+        # Define the stages to include in financial calculations
+        FINANCIAL_STAGES = ["active", "completed", "placed", "internship"]
+
         assigned_requests = RequestSubmission.objects.filter(is_active=True)
 
         if user.usertype == "branch_staff":
@@ -54,11 +57,14 @@ class HomeView(mixins.HybridTemplateView):
         else:
             context["assigned_requests"] = assigned_requests.filter(current_usertype=user.usertype).order_by('-created')
 
+        # --- UPDATED: Main Dashboard Totals Calculation ---
+        # Removed is_active=True and filtered by specific stage_statuses
         students = Admission.objects.filter(
-            is_active=True,
-            stage_status="active"
+            stage_status__in=FINANCIAL_STAGES
         )
         
+        # We keep is_active=True for receipts/structures to avoid calculating deleted/voided records,
+        # but they are now linked to the broader range of students defined above.
         fee_receipts = FeeReceipt.objects.filter(
             is_active=True,
             student__in=students
@@ -276,7 +282,7 @@ class HomeView(mixins.HybridTemplateView):
                     total_absent += absent_count
                     total_holiday += holiday_count
 
-                context["attendance_by_month"] = attendance_by_month # Keeping dict for backward compat if needed
+                context["attendance_by_month"] = attendance_by_month 
                 context["attendance_by_month_list"] = list(attendance_by_month.values()) 
                 context["days_in_month"] = [f"{day:02d}" for day in range(1, 32)]
                 context["total_present"] = total_present
@@ -578,7 +584,6 @@ class HomeView(mixins.HybridTemplateView):
             context["company_profile"] = CompanyProfile.objects.first()
             context["partners"] = Partner.objects.all().order_by('-shares_owned')
             
-            
             branch_infos = Branch.objects.filter(is_active=True).annotate(
                 student_count=Count(
                     "admission",
@@ -595,10 +600,11 @@ class HomeView(mixins.HybridTemplateView):
             branch_infos = list(branch_infos)
 
             for branch in branch_infos:
+                # --- UPDATED: Branch-specific Finance Calculation ---
+                # Removed is_active=True and used FINANCIAL_STAGES
                 students = Admission.objects.filter(
                     branch=branch,
-                    is_active=True,
-                    stage_status="active"
+                    stage_status__in=FINANCIAL_STAGES
                 ).select_related("course")
 
                 total_fee_paid = Decimal('0.00')
@@ -627,6 +633,7 @@ class HomeView(mixins.HybridTemplateView):
                 branch.total_fee_paid = total_fee_paid
                 branch.pending_fee_amount = pending if pending > 0 else Decimal('0.00')
                 
+                # Seat calculations remain on active students only (usually)
                 forenoon_occupied = Admission.objects.filter(
                     branch=branch,
                     batch_type='forenoon',
@@ -657,10 +664,11 @@ class HomeView(mixins.HybridTemplateView):
         elif user.usertype == "branch_staff":
             branch = user.branch 
 
+            # --- UPDATED: Branch Staff Finance Calculation ---
+            # Removed is_active=True and used FINANCIAL_STAGES
             students_in_branch = Admission.objects.filter(
                 branch=branch,
-                is_active=True,
-                stage_status="active",
+                stage_status__in=FINANCIAL_STAGES,
             ).select_related("course")
 
             total_balance = Decimal('0.00')
@@ -762,10 +770,11 @@ class HomeView(mixins.HybridTemplateView):
             branch_infos = list(branch_infos)
 
             for branch in branch_infos:
+                # --- UPDATED: Telecaller Branch Finance Calculation ---
+                # Removed is_active=True and used FINANCIAL_STAGES
                 students = Admission.objects.filter(
                     branch=branch,
-                    is_active=True,
-                    stage_status="active"
+                    stage_status__in=FINANCIAL_STAGES
                 ).select_related("course")
 
                 total_pending_amount = Decimal('0.00')
@@ -838,6 +847,7 @@ class HomeView(mixins.HybridTemplateView):
             context['enquiry_type_counts'] = AdmissionEnquiry.objects.values('enquiry_type').annotate(count=Count('id'))
 
         return context
+
 
 
 class IDCardView(PDFView):

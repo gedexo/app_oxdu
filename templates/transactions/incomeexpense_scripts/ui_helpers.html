@@ -1,0 +1,413 @@
+<script>
+    // ui-helpers.js - UI helper functions and footer management
+
+// Update payment footer total
+function updatePaymentFooterTotal(total) {
+    const paymentTable = $('.table-warning');
+    let footerRow = paymentTable.find('tfoot tr.payment-total');
+
+    if (footerRow.length === 0) {
+        // Create footer if it doesn't exist
+        const footer = `
+            <tfoot>
+                <tr class="payment-total table-info">
+                    <td class="text-end font-weight-bold">Total Payment</td>
+                    <td class="font-weight-bold payment-total-amount">₹${total.toFixed(2)}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        `;
+        paymentTable.append(footer);
+    } else {
+        // Update existing footer
+        footerRow.find('.payment-total-amount').text(`₹${total.toFixed(2)}`);
+    }
+}
+
+
+// Auto round off functionality
+function bindAutoRoundOffEvents() {
+    $('#id_auto_round_off').on("change", function () {
+        if (typeof calculateFinalTotals === 'function') {
+            calculateFinalTotals();
+        }
+    });
+
+    $('#id_round_off_amount').on("input", function () {
+        if (typeof calculateFinalTotals === 'function') {
+            calculateFinalTotals();
+        }
+    });
+}
+
+// Initialize Select2 for a specific form row
+function initializeSelect2ForFormRow(row, selector, modalSelector, placeholder) {
+    const $select = row.find(selector);
+    
+    if ($select.length > 0 && typeof $select.select2 === 'function') {
+        // Destroy existing Select2 instance if it exists
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+        
+        // Initialize Select2 with custom options
+        $select.select2({
+            placeholder: placeholder || "Select an option",
+            allowClear: true,
+            width: '100%',
+            dropdownParent: row,
+            templateResult: function(data) {
+                if (data.loading) {
+                    return data.text;
+                }
+                
+                // Custom template for dropdown options
+                if (data.element && data.element.dataset) {
+                    const dataset = data.element.dataset;
+                    let template = `<div class="select2-option-content">
+                        <div class="option-title">${data.text}</div>`;
+                    
+                    if (dataset.description) {
+                        template += `<div class="option-description text-muted small">${dataset.description}</div>`;
+                    }
+                    
+                    template += '</div>';
+                    return $(template);
+                }
+                
+                return data.text;
+            }
+        });
+    }
+}
+
+// Show/hide loading spinner
+function toggleLoadingSpinner(show = true, container = 'body', message = 'Loading...') {
+    const spinnerId = 'global-loading-spinner';
+    
+    if (show) {
+        // Remove existing spinner
+        $(`#${spinnerId}`).remove();
+        
+        const spinnerHtml = `
+            <div id="${spinnerId}" class="position-fixed d-flex align-items-center justify-content-center" 
+                 style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+                <div class="text-center text-white">
+                    <div class="spinner-border mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div>${message}</div>
+                </div>
+            </div>
+        `;
+        
+        $(container).append(spinnerHtml);
+    } else {
+        $(`#${spinnerId}`).remove();
+    }
+}
+
+// Format currency for display
+function formatCurrency(amount, currency = '₹', locale = 'en-IN') {
+    const numericAmount = parseFloat(amount) || 0;
+    
+    try {
+        const formatted = numericAmount.toLocaleString(locale, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        
+        return `${currency}${formatted}`;
+    } catch (error) {
+        // Fallback formatting
+        return `${currency}${numericAmount.toFixed(2)}`;
+    }
+}
+
+// Format number with Indian number system (lakhs, crores)
+function formatIndianNumber(num) {
+    const numericValue = parseFloat(num) || 0;
+    
+    if (numericValue >= 10000000) { // 1 crore
+        return (numericValue / 10000000).toFixed(2) + ' Cr';
+    } else if (numericValue >= 100000) { // 1 lakh
+        return (numericValue / 100000).toFixed(2) + ' L';
+    } else if (numericValue >= 1000) { // 1 thousand
+        return (numericValue / 1000).toFixed(1) + 'K';
+    }
+    
+    return numericValue.toFixed(2);
+}
+
+// Create progress bar
+function createProgressBar(percentage, container, options = {}) {
+    const defaults = {
+        height: '20px',
+        showPercentage: true,
+        animated: false,
+        striped: false,
+        variant: 'primary'
+    };
+    
+    const config = Object.assign(defaults, options);
+    const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
+    
+    const progressHtml = `
+        <div class="progress" style="height: ${config.height};">
+            <div class="progress-bar${config.striped ? ' progress-bar-striped' : ''}${config.animated ? ' progress-bar-animated' : ''} bg-${config.variant}" 
+                 role="progressbar" 
+                 style="width: ${clampedPercentage}%" 
+                 aria-valuenow="${clampedPercentage}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100">
+                ${config.showPercentage ? `${clampedPercentage.toFixed(1)}%` : ''}
+            </div>
+        </div>
+    `;
+    
+    $(container).html(progressHtml);
+    
+    return clampedPercentage;
+}
+
+// Initialize tooltips
+function initializeTooltips(container = document) {
+    const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            boundary: 'viewport',
+            fallbackPlacements: ['top', 'right', 'bottom', 'left']
+        });
+    });
+}
+
+// Initialize popovers
+function initializePopovers(container = document) {
+    const popoverTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="popover"]'));
+    popoverTriggerList.map(function (popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl, {
+            boundary: 'viewport',
+            fallbackPlacements: ['top', 'right', 'bottom', 'left']
+        });
+    });
+}
+
+// Create alert message
+function createAlert(message, type = 'info', dismissible = true, container = '.alerts-container') {
+    const alertId = 'alert-' + Date.now();
+    const dismissButton = dismissible ? `
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    ` : '';
+    
+    const alertHtml = `
+        <div id="${alertId}" class="alert alert-${type}${dismissible ? ' alert-dismissible' : ''} fade show" role="alert">
+            ${message}
+            ${dismissButton}
+        </div>
+    `;
+    
+    const $container = $(container);
+    if ($container.length > 0) {
+        $container.append(alertHtml);
+    } else {
+        // Fallback to body if container not found
+        $('body').prepend(alertHtml);
+    }
+    
+    // Auto-dismiss after 5 seconds if not manually dismissible
+    if (!dismissible) {
+        setTimeout(() => {
+            $(`#${alertId}`).fadeOut(500, function() {
+                $(this).remove();
+            });
+        }, 5000);
+    }
+    
+    return alertId;
+}
+
+// Update form field validation state
+function updateFieldValidation(fieldSelector, isValid, message = '') {
+    const $field = $(fieldSelector);
+    
+    if (!$field.length) return;
+    
+    // Remove existing validation classes and feedback
+    $field.removeClass('is-valid is-invalid');
+    $field.siblings('.valid-feedback, .invalid-feedback').remove();
+    
+    if (isValid) {
+        $field.addClass('is-valid');
+        if (message) {
+            $field.after(`<div class="valid-feedback">${message}</div>`);
+        }
+    } else {
+        $field.addClass('is-invalid');
+        if (message) {
+            $field.after(`<div class="invalid-feedback">${message}</div>`);
+        }
+    }
+}
+
+// Animate number counter
+function animateNumber(element, endValue, duration = 1000, startValue = 0) {
+    const $element = $(element);
+    const start = parseFloat(startValue) || 0;
+    const end = parseFloat(endValue) || 0;
+    const startTime = performance.now();
+    
+    function updateNumber(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function (ease-out)
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const currentValue = start + (end - start) * easeProgress;
+        
+        $element.text(formatCurrency(currentValue));
+        
+        if (progress < 1) {
+            requestAnimationFrame(updateNumber);
+        }
+    }
+    
+    requestAnimationFrame(updateNumber);
+}
+
+// Create confirmation modal
+function showConfirmationModal(title, message, onConfirm, onCancel = null) {
+    const modalId = 'confirmation-modal-' + Date.now();
+    
+    const modalHtml = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${message}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary confirm-btn">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('body').append(modalHtml);
+    const $modal = $(`#${modalId}`);
+    
+    // Bind events
+    $modal.find('.confirm-btn').on('click', function() {
+        if (typeof onConfirm === 'function') {
+            onConfirm();
+        }
+        $modal.modal('hide');
+    });
+    
+    $modal.on('hidden.bs.modal', function() {
+        if (typeof onCancel === 'function') {
+            onCancel();
+        }
+        $(this).remove();
+    });
+    
+    // Show modal
+    const modal = new bootstrap.Modal($modal[0]);
+    modal.show();
+    
+    return modal;
+}
+
+// Scroll to element smoothly
+function scrollToElement(element, offset = 0, duration = 500) {
+    const $element = $(element);
+    
+    if (!$element.length) return;
+    
+    const targetPosition = $element.offset().top - offset;
+    
+    $('html, body').animate({
+        scrollTop: targetPosition
+    }, duration);
+}
+
+// Copy text to clipboard
+function copyToClipboard(text, successMessage = 'Copied to clipboard!') {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification(successMessage, 'success');
+            }
+        }).catch(function(err) {
+            console.error('Failed to copy text: ', err);
+            fallbackCopyToClipboard(text, successMessage);
+        });
+    } else {
+        fallbackCopyToClipboard(text, successMessage);
+    }
+}
+
+// Fallback copy method for older browsers
+function fallbackCopyToClipboard(text, successMessage) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        if (typeof showToastNotification === 'function') {
+            showToastNotification(successMessage, 'success');
+        }
+    } catch (err) {
+        console.error('Fallback copy failed: ', err);
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Failed to copy text', 'error');
+        }
+    } finally {
+        document.body.removeChild(textArea);
+    }
+}
+
+// Initialize UI helpers
+function initializeUiHelpers() {
+    // Initialize tooltips and popovers
+    initializeTooltips();
+    initializePopovers();
+    
+    // Initialize Select2 components
+    
+    // Bind auto round off events
+    bindAutoRoundOffEvents();
+    
+    
+}
+
+// Export UiHelpers object for external access
+const UiHelpers = {
+    updatePaymentFooterTotal: updatePaymentFooterTotal,
+    initializeSelect2ForFormRow: initializeSelect2ForFormRow,
+    toggleLoadingSpinner: toggleLoadingSpinner,
+    formatCurrency: formatCurrency,
+    formatIndianNumber: formatIndianNumber,
+    createProgressBar: createProgressBar,
+    initializeTooltips: initializeTooltips,
+    initializePopovers: initializePopovers,
+    createAlert: createAlert,
+    updateFieldValidation: updateFieldValidation,
+    animateNumber: animateNumber,
+    showConfirmationModal: showConfirmationModal,
+    scrollToElement: scrollToElement,
+    copyToClipboard: copyToClipboard,
+    initialize: initializeUiHelpers
+};
+</script>

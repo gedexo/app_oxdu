@@ -1,0 +1,210 @@
+<script>
+    // amount-words-manager.js - Amount-to-Words Management
+    const AmountWordsManager = {
+        // Update all amount fields with words
+        updateAllAmountWords: function () {
+            this.updateNetAmountWords();
+            this.updateReceivedAmountWords();
+            this.updateBalanceAmountWords();
+            this.updateOutstandingAmountWords();
+            this.updateTotalAmountWords();
+        },
+
+        // Update net amount in words
+        updateNetAmountWords: function () {
+            const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+            const wordsContainer = $('#net-amount-words');
+
+            if (wordsContainer.length > 0) {
+                const words = numberToWords(netAmount);
+                wordsContainer.html(`<small class="fw-bold fst-italic fs-14">${words}</small>`);
+            }
+        },
+
+        // Update received amount in words
+        updateReceivedAmountWords: function () {
+            const receivedAmount = parseFloat($('#id_received_amount').val()) || 0;
+            const wordsContainer = $('#received-amount-words');
+
+            if (wordsContainer.length > 0) {
+                const words = numberToWords(receivedAmount);
+                wordsContainer.html(`<small class="fw-bold fst-italic fs-14">${words}</small>`);
+            }
+        },
+
+        // Update balance amount in words
+        updateBalanceAmountWords: function () {
+            const balanceAmount = parseFloat($('#id_balance_amount').val()) || 0;
+            const wordsContainer = $('#balance-amount-words');
+
+            if (wordsContainer.length > 0) {
+                const words = numberToWords(balanceAmount);
+                let colorClass = 'text-muted';
+
+                // Add color coding based on balance status
+                if (Math.abs(balanceAmount) < 0.01) {
+                    colorClass = 'text-success'; // Fully paid
+                } else if (balanceAmount > 0) {
+                    colorClass = 'text-warning'; // Partial payment
+                } else {
+                    colorClass = 'text-danger'; // Overpaid
+                }
+
+                wordsContainer.html(`<small class="${colorClass} fw-bold fst-italic fs-14">${words}</small>`);
+            }
+        },
+
+        // Update outstanding amount in words
+        updateOutstandingAmountWords: function () {
+            const outstandingAmount = parseFloat($('#id_outstanding_amount').val()) || 0;
+            const outstandingType = $('#id_outstanding_type').val();
+            const wordsContainer = $('#outstanding-amount-words');
+
+            if (wordsContainer.length > 0) {
+                const words = numberToWords(outstandingAmount);
+                let colorClass = 'text-muted';
+                let typeLabel = '';
+
+                // Add color and label based on outstanding type
+                if (outstandingAmount > 0) {
+                    if (outstandingType === 'DR') {
+                        colorClass = 'text-danger'; // Debit - amount due to us
+                        typeLabel = ' (DR)';
+                    } else if (outstandingType === 'CR') {
+                        colorClass = 'text-info'; // Credit - amount due to customer
+                        typeLabel = ' (CR)';
+                    }
+                }
+
+                wordsContainer.html(`<small class="${colorClass} fw-bold fst-italic fs-14">${words}${typeLabel}</small>`);
+            }
+        },
+
+        // Update total amount in words
+        updateTotalAmountWords: function () {
+            const totalAmount = parseFloat($('#id_total_amount').val()) || 0;
+            const wordsContainer = $('#total-amount-words');
+
+            if (wordsContainer.length > 0) {
+                const words = numberToWords(totalAmount);
+                const colorClass = totalAmount > 0 ? 'text-primary' : 'text-muted';
+
+                wordsContainer.html(`<small class="${colorClass} fw-bold fst-italic fs-14">${words}</small>`);
+            }
+        },
+
+        // Initialize event listeners for amount fields
+        initializeAmountWordListeners: function () {
+            // Listen for net amount changes
+            $('#id_invoice_amount').on('input change blur', () => {
+                setTimeout(() => this.updateNetAmountWords(), 100);
+            });
+
+            // Listen for received amount changes
+            $('#id_received_amount').on('input change blur', () => {
+                setTimeout(() => this.updateReceivedAmountWords(), 100);
+            });
+
+            // Listen for balance amount changes
+            $('#id_balance_amount').on('input change blur', () => {
+                setTimeout(() => this.updateBalanceAmountWords(), 100);
+            });
+
+            // Listen for outstanding amount changes
+            $('#id_outstanding_amount').on('input change blur', () => {
+                setTimeout(() => {
+                    this.updateOutstandingAmountWords();
+                    this.updateTotalAmountWords();
+                }, 100);
+            });
+
+            // Listen for outstanding type changes
+            $('#id_outstanding_type').on('change', () => {
+                setTimeout(() => {
+                    this.updateOutstandingAmountWords();
+                    this.updateTotalAmountWords();
+                }, 100);
+            });
+
+            // Listen for total amount changes
+            $('#id_total_amount').on('input change blur', () => {
+                setTimeout(() => this.updateTotalAmountWords(), 100);
+            });
+
+            // Also update when any payment amount changes
+            $(document).on('input change blur', '.payment-formset-row input', () => {
+                setTimeout(() => {
+                    this.updateReceivedAmountWords();
+                    this.updateBalanceAmountWords();
+                }, 200);
+            });
+
+            // Update words when discount fields change
+            $('#id_discount_percentage, #id_discount_amount, #id_round_off_amount').on('input change', () => {
+                setTimeout(() => {
+                    this.updateNetAmountWords();
+                    this.updateTotalAmountWords();
+                }, 200);
+            });
+        },
+
+        // Manually trigger update of specific amount word
+        triggerNetAmountUpdate: function () {
+            this.updateNetAmountWords();
+        },
+
+        triggerReceivedAmountUpdate: function () {
+            this.updateReceivedAmountWords();
+        },
+
+        triggerBalanceAmountUpdate: function () {
+            this.updateBalanceAmountWords();
+        },
+
+        triggerOutstandingAmountUpdate: function () {
+            this.updateOutstandingAmountWords();
+        },
+
+        triggerTotalAmountUpdate: function () {
+            this.updateTotalAmountWords();
+        },
+
+        // Get words for any amount (utility function)
+        getAmountInWords: function (amount) {
+            return numberToWords(parseFloat(amount) || 0);
+        },
+
+        // Format amount with currency and words
+        formatAmountWithWords: function (amount, showCurrency = true) {
+            const numericAmount = parseFloat(amount) || 0;
+            const words = numberToWords(numericAmount);
+            const currency = showCurrency ? `₹${numericAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : numericAmount.toFixed(2);
+
+            return {
+                numeric: currency,
+                words: words,
+                combined: `${currency} (${words})`
+            };
+        },
+
+        // Clear all amount words
+        clearAllAmountWords: function () {
+            $('#net-amount-words').html('<small class="fw-bold fst-italic fs-14 text-muted">Zero Only</small>');
+            $('#received-amount-words').html('<small class="fw-bold fst-italic fs-14 text-muted">Zero Only</small>');
+            $('#balance-amount-words').html('<small class="fw-bold fst-italic fs-14 text-muted">Zero Only</small>');
+            $('#outstanding-amount-words').html('<small class="fw-bold fst-italic fs-14 text-muted">Zero Only</small>');
+            $('#total-amount-words').html('<small class="fw-bold fst-italic fs-14 text-muted">Zero Only</small>');
+        },
+
+        // Validate and update words container
+        updateWordsContainer: function (containerSelector, amount, colorClass = 'text-muted') {
+            const container = $(containerSelector);
+            if (container.length > 0) {
+                const words = numberToWords(parseFloat(amount) || 0);
+                container.html(`<small class="${colorClass} fw-bold fst-italic fs-14">${words}</small>`);
+                return true;
+            }
+            return false;
+        }
+    };
+</script>

@@ -414,48 +414,41 @@ class StudentFeeOverviewTable(BaseTable):
 class DueStudentsTable(BaseTable):
     action = columns.TemplateColumn(
         """
-        <a href="{% url 'admission:student_fee_overview_detail' record.student.id %}" class="btn btn-sm btn-light btn-outline-info">OPEN</a>
+        <a href="{% url 'admission:student_fee_overview_detail' record.id %}" class="btn btn-sm btn-light btn-outline-info">OPEN</a>
         """,
         orderable=False,
     )
-    created = None
-    student__contact_number = columns.Column(verbose_name="Mob")
-    student__admission_date = columns.DateColumn(verbose_name="Admission Date", format="d/m/Y")
-    payment_date = columns.DateColumn(verbose_name="Payment Date", format="d/m/Y")
     
-    # Use TemplateColumn for remaining_amount to use template filters directly
-    remaining_amount = columns.TemplateColumn(
+    fullname = columns.Column(verbose_name="Student Name", accessor="fullname", order_by=("first_name", "last_name"))
+    contact_number = columns.Column(verbose_name="Mob")
+    admission_date = columns.DateColumn(verbose_name="Adm Date", format="d/m/Y")
+    stage_status = columns.Column(verbose_name="Status")
+    
+    total_due_amount = columns.TemplateColumn(
         """
         {% load humanize %}
-        <span class="fw-bold text-danger">₹ {{ value|floatformat:2|intcomma }}</span>
+        <span class="fw-bold text-danger">₹ {{ record.total_due_amount|floatformat:2|intcomma }}</span>
         """,
-        verbose_name="Due Amount"
+        verbose_name="Total Pending"
     )
     
-    due_date = columns.DateColumn(verbose_name="Due Date", format="d/m/Y")
-
-    def render_due_date(self, value):
+    def render_stage_status(self, value):
         if value:
-            today = timezone.now().date()
-            if value < today:
-                # Overdue - red color
-                return format_html('<span class="fw-bold text-danger">{}</span>', value.strftime("%d/%m/%Y"))
-            else:
-                # Not yet due - orange color
-                return format_html('<span class="fw-bold text-warning">{}</span>', value.strftime("%d/%m/%Y"))
+            status_map = {
+                'active': ('bg-success', 'Active'),
+                'inactive': ('bg-secondary', 'Inactive'),
+                'completed': ('bg-primary', 'Completed'),
+                'placed': ('bg-info', 'Placed'),
+                'internship': ('bg-warning', 'Internship'),
+            }
+            css_class, display_text = status_map.get(value, ('bg-light text-dark', value.title()))
+            return format_html('<span class="badge {}">{}</span>', css_class, display_text)
         return "-"
 
-    def render_payment_date(self, value):
-        if value:
-            return format_html('<span class="fw-bold">{}</span>', value.strftime("%d/%m/%Y"))
-        return "-"
+    def render_fullname(self, value, record):
+        return format_html('<strong>{}</strong>', value)
 
-    def render_student(self, value):
-        if value:
-            return format_html('<strong>{}</strong>', value.fullname())
-        return "-"
-
-    def render_student__course(self, value):
+    def render_course(self, value):
         if value:
             if value.name == "Graphic Designing":
                 return format_html('<span class="badge bg-info">GD</span>')
@@ -466,11 +459,11 @@ class DueStudentsTable(BaseTable):
         return "-"
 
     class Meta:
-        model = FeeStructure
+        model = Admission
         fields = (
-            "student", "student__contact_number", "student__admission_date",
-            "student__admission_number", "student__course",
-            "payment_date", "due_date", "remaining_amount", "action"
+            "fullname", "contact_number", "stage_status", "admission_date",
+            "admission_number", "course", "branch",
+            "total_due_amount", "action"
         )
         attrs = {
             "class": "table key-buttons border-bottom table-hover table-bordered"

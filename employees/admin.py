@@ -24,7 +24,7 @@ class DesignationAdmin(admin.ModelAdmin):
 class EmployeeAdmin(BaseAdmin):
     list_display = ("first_name", "branch", "employee_id", "is_active")
     list_filter = ("is_active",)
-    search_fields = ("first_name", "branch", "employee_id")
+    search_fields = ("first_name", "branch__name", "employee_id")
     ordering = ("first_name",)
 
 

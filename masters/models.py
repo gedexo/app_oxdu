@@ -3,7 +3,7 @@ from django.db.models import Q
 import threading
 from tinymce.models import HTMLField
 from django.contrib.sites.models import Site
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 
 from core.base import BaseModel
 from core.choices import SYLLABUS_MONTH_CHOICE, SYLLABUS_WEEK_CHOICE, MONTH_LIST_CHOICES, USERTYPE_CHOICES, REQUEST_SUBMISSION_STATUS_CHOICES, CHOICES, USERTYPE_FLOW_CHOICES, BATCH_STATUS_CHOICES, LEAVE_STATUS_CHOICES, RATING_CHOICES, FEEDBACK_TYPE_CHOICES, INTERVIEW_STATUS_CHOICES, BOOL_CHOICES
@@ -1202,3 +1202,44 @@ class Event(BaseModel):
     
     def get_delete_url(self):
         return reverse_lazy("masters:event_delete", kwargs={"pk": self.pk})
+
+    
+class State(BaseModel):
+    name = models.CharField(max_length=120, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Tax(BaseModel):
+    TAX_TYPE_CHOICES = (
+        ('GST', 'Goods and Services Tax'),
+        ('CGST', 'Central GST'),
+        ('SGST', 'State GST'),
+        ('IGST', 'Integrated GST'),
+        ('VAT', 'Value Added Tax'),
+        ('SERVICE', 'Service Tax'),
+        ('CUSTOM', 'Custom Tax'),
+    )
+    name = models.CharField(max_length=100)  # e.g., "GST 18%", "CGST 9%"
+    code = models.CharField(max_length=20, blank=True, null=True)  # e.g., HSN/SAC code
+    tax_type = models.CharField(max_length=20, choices=TAX_TYPE_CHOICES, default='GST')
+    rate = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Tax rate percentage (e.g., 18.00)"
+    )
+
+
+    class Meta:
+        verbose_name = "Tax"
+        verbose_name_plural = "Taxes"
+        ordering = ["name"]
+        indexes = [
+            models.Index(fields=['tax_type']),
+            models.Index(fields=['rate']),
+        ]
+
+
+    def __str__(self):
+        return self.name

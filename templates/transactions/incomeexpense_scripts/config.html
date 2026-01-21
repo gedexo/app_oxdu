@@ -1,0 +1,51 @@
+<script>
+    // config.js - Configuration and constants
+const CONFIG = {
+    DEBOUNCE_DELAY: 300,
+    CALCULATION_DELAY: 50,
+    TOAST_DELAY: 4000,
+    KEYBOARD_SHORTCUT_DELAY: 100,
+    SELECT2_DELAY: 200,
+    TAX_VALIDATION: {
+        MIN: 0,
+        MAX: 100
+    }
+};
+
+const CSS_CLASSES = {
+    TOAST: {
+        SUCCESS: 'bg-success',
+        ERROR: 'bg-danger', 
+        WARNING: 'bg-warning',
+        INFO: 'bg-info'
+    },
+    ICONS: {
+        SUCCESS: 'fas fa-check-circle',
+        ERROR: 'fas fa-exclamation-circle',
+        WARNING: 'fas fa-exclamation-triangle',
+        INFO: 'fas fa-info-circle'
+    },
+    BALANCE_COLORS: {
+        SUCCESS: 'text-success',
+        WARNING: 'text-warning',
+        DANGER: 'text-danger'
+    }
+};
+
+const SELECTORS = {
+    GST_CHECKBOX: '#id_is_gst',
+    PARTY_SELECT: '#id_party',
+    invoice_amount: '#id_invoice_amount',
+    RECEIVED_AMOUNT: '#id_received_amount',
+    BALANCE_AMOUNT: '#id_balance_amount',
+    DISCOUNT_PERCENTAGE: '#id_discount_percentage',
+    DISCOUNT_AMOUNT: '#id_discount_amount',
+    ROUND_OFF_AMOUNT: '#id_round_off_amount',
+    AUTO_ROUND_OFF: '#id_auto_round_off',
+    FORMSET_ROW: '.formset_row',
+    PAYMENT_FORMSET_ROW: '.payment-formset-row',
+    GST_FIELD: '.gst-field',
+    ITEM_SELECT: '.item-select',
+    AUTO_PAYMENT_CHECKBOX: '.auto-payment-checkbox'
+};
+</script>

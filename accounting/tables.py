@@ -15,6 +15,20 @@ class GroupMasterTable(BaseTable):
     name = columns.Column(verbose_name="Group Name")
     created = None
 
+    action = columns.TemplateColumn(
+        template_code="""
+        <div class="btn-group btn-group-sm" role="group">
+            <a href="{% url 'accounting:groupmaster_update' record.pk %}"
+               class="btn btn-outline-primary"
+               title="Edit">
+                <i class="fe fe-file-text"></i>
+            </a>
+        </div>
+        """,
+        verbose_name="Actions",
+        orderable=False,
+    )
+
     class Meta(BaseTable.Meta):
         model = GroupMaster
         fields = ("name", "code", "branch", "nature_of_group", "main_group")
@@ -30,6 +44,20 @@ class AccountTable(BaseTable):
     ledger_type_display = columns.Column(verbose_name="Type", orderable=False, empty_values=())
     credit_info = columns.Column(verbose_name="Credit Info", empty_values=(), orderable=False)
     created = None
+
+    action = columns.TemplateColumn(
+        template_code="""
+        <div class="btn-group btn-group-sm" role="group">
+            <a href="{% url 'accounting:account_update' record.pk %}"
+               class="btn btn-outline-primary"
+               title="Edit">
+                <i class="fe fe-file-text"></i>
+            </a>
+        </div>
+        """,
+        verbose_name="Actions",
+        orderable=False,
+    )
 
     class Meta(BaseTable.Meta):
         model = Account
@@ -141,6 +169,7 @@ class AccountTable(BaseTable):
             return format_html(
                 '<span style="color: #6c757d;">0.00</span>'
             )
+
 
 class TrialBalanceTable(tables.Table):
     # We use Column or TemplateColumn to ensure we can customize the rendering

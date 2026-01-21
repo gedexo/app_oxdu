@@ -1,0 +1,645 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Start::row-1 -->
+        <div class="row mt-3">
+            <div class="col-md-12">
+                <form class="form-horizontal-expense expense-income-form" method="post" autocomplete="off" enctype="multipart/form-data" action="" novalidate>
+                                    <input type="hidden" name="transaction_type" value="{{ transaction_type }}">
+                    <div class="card custom-card">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+                            <div class="card-title-section d-flex align-items-center gap-3 flex-wrap">
+                                <h4 class="card-title-text mb-0 fw-bold">{{ title|title }}</h4>
+                                <div class="gst-toggle-container d-flex align-items-center">
+                                    <div class="form-check form-switch me-0">
+                                        <input type="checkbox"
+                                               class="form-check-input checkboxinput"
+                                               id="{{ form.is_gst.id_for_label }}"
+                                               name="{{ form.is_gst.html_name }}"
+                                               {% if form.is_gst.value %}checked{% endif %}
+                                               {% for attr, value in form.is_gst.field.widget.attrs.items %} {{ attr }}="{{ value }}"{% endfor %}>
+                                        <label class="form-check-label" for="{{ form.is_gst.id_for_label }}"></label>
+                                        <span class="switch-label-text ms-2">{{ form.is_gst.label }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-12">
+                                    {% csrf_token %}
+                                    <div class="row justify-content-between">
+                                        <div class="col-md-6">
+                                            <div class="row">
+                                                <div class="col-md-4">{{ form.branch|as_crispy_field }}</div>
+                                                <div class="col-md-4">{{ form.category|as_crispy_field }}</div>
+                                                <div class="col-md-4 gst-field">{{ form.party|as_crispy_field }}</div>
+                                            </div>
+                                           
+                                        </div>
+                                        <div class="col-md-4">
+                                            <table class="table table-sm align-middle invoice-meta-table">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="w-50">
+                                                            {{ transaction_form.voucher_number.label }}
+                                                            {% if transaction_form.voucher_number.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ transaction_form.voucher_number }}</td>
+                                                    </tr>
+                                                    {% if form.bill_no %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ form.bill_no.label }}
+                                                            {% if form.bill_no.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ form.bill_no }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ transaction_form.date.label }}
+                                                            {% if transaction_form.date.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ transaction_form.date }}</td>
+                                                    </tr>
+                                                    {% if transaction_form.payment_term %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ transaction_form.payment_term.label }}
+                                                            {% if transaction_form.payment_term.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ transaction_form.payment_term }}</td>
+                                                    </tr>
+                                                    {% endif %}
+
+                                                    {% if transaction_form.due_date %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ transaction_form.due_date.label }}
+                                                            {% if transaction_form.due_date.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ transaction_form.due_date }}</td>
+                                                    </tr>
+                                                    {% endif %}
+
+                                                    {% if form.return_invoice %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ form.return_invoice.label }}
+                                                            {% if form.return_invoice.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ form.return_invoice }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                    {% if form.return_invoice_date %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ form.return_invoice_date.label }}
+                                                            {% if form.return_invoice_date.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ form.return_invoice_date }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                    {% if form.state %}
+                                                        <tr class="gst-field">
+                                                            <td>
+                                                                {{ form.state.label }}
+                                                                {% if form.state.field.required %}
+                                                                    <span class="asteriskField">*</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="p-0">{{ form.state }}</td>
+                                                        </tr>
+                                                    {% endif %}
+                                                    {% if form.nature_of_supply %}
+                                                    <tr class="gst-field">
+                                                        <td>
+                                                            {{ form.nature_of_supply.label }}
+                                                            {% if form.nature_of_supply.field.required %}
+                                                                <span class="asteriskField">*</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="p-0">{{ form.nature_of_supply }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                    </div>
+                                    <div class="col-12 p-0">
+                                        {{ formset.management_form }}
+
+                                        <table class="table table-success table-bordered custom-table item-formset my-3" id="expense-item">
+                                            <thead class="table-success">
+                                                <tr>
+                                                    <th style="width: 20%;" class="px-0 text-center">Item</th>
+                                                    <th style="width: 8%;" class="px-0 text-center">Quantity</th>
+                                                    <th style="width: 10%;" class="px-0 text-center">Price/Item (₹)</th>
+                                                    <th style="width: 8%;" class="px-0 text-center">Discount (%)</th>
+                                                    <th style="width: 10%;" class="px-0 text-center">Discount (₹)</th>
+                                                    <th style="width: 10%;" class="px-0 text-center gst-field">Taxable
+                                                        Value (₹)</th>
+                                                    <th style="width: 8%;" class="px-0 text-center gst-field">Tax (%)
+                                                    </th>
+                                                    <th style="width: 10%;" class="px-0 text-center gst-field">Tax (₹)
+                                                    </th>
+                                                    <th style="width: 10%;" class="px-0 text-center">Amount (₹)</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for form_ in formset.forms %}
+                                                <tr class="formset_row {% if form_.errors %}table-danger{% endif %} p-0">
+                                                    {% for hidden in form_.hidden_fields %}
+                                                    {{ hidden }}
+                                                    {% endfor %}
+                                                    <td class="p-0 item-td" style="width: 20%;"> <!-- Set width for the td -->
+                                                        {{ form_.particular }}
+                                                    </td>
+                                                    <td class="p-0" style="width: 8%;"> <!-- Set width for the td -->
+                                                        {{ form_.quantity }}
+                                                    </td>
+                                                    <td class="p-0" style="width: 10%;"> <!-- Set width for the td -->
+                                                        {{ form_.unit_price }}
+                                                    </td>
+                                                    <td class="p-0" style="width: 8%;"> <!-- Set width for the td -->
+                                                        {{ form_.discount_percentage }}
+                                                    </td>
+                                                    <td class="p-0" style="width: 10%;"> <!-- Set width for the td -->
+                                                        {{ form_.discount_amount }}
+                                                    </td>
+                                                    <td class="p-0 gst-field" style="width: 10%;">
+                                                        <!-- Set width for the td -->
+                                                        {{ form_.taxable_amount }}
+                                                    </td>
+                                                    <td class="p-0 gst-field" style="width: 8%;">
+                                                        <!-- Set width for the td -->
+                                                        {{ form_.tax }}
+                                                    </td>
+                                                    <td class="p-0 gst-field" style="width: 10%;">
+                                                        <!-- Set width for the td -->
+                                                        {{ form_.tax_amount }}
+                                                    </td>
+                                                    <td class="p-0" style="width: 10%;"> <!-- Set width for the td -->
+                                                        {{ form_.line_total }}
+                                                    </td>
+                                                    <td style="vertical-align: middle; align-items: center;" class="p-0">
+                                                        {{ form_.DELETE }}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+
+                                            <tfoot class="table-primary">
+                                                <tr class="subtotal">
+                                                    <td class="text-end font-weight-bold fs-6">Total</td>
+                                                    <td>{{ form.total_quantity }}</td>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <td>{{ form.items_discount_total }}</td>
+                                                    <td class="gst-field">{{ form.taxable_amount }}</td>
+                                                    <td class="gst-field"></td>
+                                                    <td class="gst-field">{{ form.tax_amount }}</td>
+                                                    <td>{{ form.sub_total }}</td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+
+                                        </table>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <section class="payment-formset-section mb-4 ">
+                                                    <div class="card bg-warning bg-opacity-25">
+                                                        <div class="card-header ">
+                                                            <h5 class="mb-0">{% if transaction_type == 'income' %}Receipt Details{% else %}Payment Details{% endif %}</h5>
+                                                        </div>
+                                                        <div class="card-body p-0">
+                                                            {{ payment_formset.management_form }}
+                                                            <div class="table-responsive">
+                                                                <table class="table table-warning table-bordered">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th class="w-30">Account</th>
+                                                                            <th class="w-30 text-center">Amount</th>
+                                                                            <th class="w-10">Remove</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {% for form_ in payment_formset.forms %}
+                                                                        <tr
+                                                                            class="payment-formset-row  {% if form_.errors %}table-danger{% endif %}">
+                                                                            {% for hidden in form_.hidden_fields %}
+                                                                            {{ hidden }}
+                                                                            {% endfor %}
+                                                                            <td class="p-0">
+                                                                                {{ form_.account }}
+                                                                                {% if form_.account.errors %}
+                                                                                <div class="invalid-feedback d-block">
+                                                                                    {{ form_.account.errors }}
+                                                                                </div>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                            <td class="p-0">
+                                                                                <div class="d-flex align-items-center">
+                                                                                    {% if forloop.first %}
+                                                                                    <div class="form-check ms-2 me-2">
+                                                                                        <input type="checkbox"
+                                                                                            class="form-check-input auto-payment-checkbox"
+                                                                                            id="auto-payment-checkbox-{{ forloop.counter }}"
+                                                                                            title="Auto-fill net amount">
+                                                                                        <label class="form-check-label"
+                                                                                            for="auto-payment-checkbox-{{ forloop.counter }}"></label>
+                                                                                    </div>
+                                                                                    {% endif %}
+                                                                                    {{ form_.amount }}
+
+                                                                                </div>
+                                                                                {% if form_.amount.errors %}
+                                                                                <div class="invalid-feedback d-block">
+                                                                                    {{ form_.amount.errors }}
+                                                                                </div>
+                                                                                {% endif %}
+
+                                                                            </td>
+                                                                            <td class="text-center">
+                                                                                <label class="form-check-label">
+                                                                                    {{ form_.DELETE }}
+                                                                                </label>
+                                                                            </td>
+                                                                        </tr>
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                    <tfoot>
+                                                                        <tr class="payment-total table-info">
+                                                                            <td class="text-end font-weight-bold">Total
+                                                                                Payment</td>
+                                                                            <td
+                                                                                class="font-weight-bold text-center payment-total-amount">
+                                                                                0.00</td>
+                                                                            <td></td>
+                                                                        </tr>
+                                                                    </tfoot>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                                <div class="col-lg-12">
+                                                    <div class="row">
+                                                        <div class="col-lg-6">
+                                                            {{ transaction_form.narration|as_crispy_field }}
+                                                        </div>
+
+                                                        <div class="col-lg-6">
+                                                            {{ transaction_form.remark|as_crispy_field }}
+                                                        </div>
+
+                                                        <div class="col-lg-12">
+                                                            {{ transaction_form.attachment|as_crispy_field }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                            <div class="col-md-6 ms-auto">
+
+                                                <!-- Discount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-3">
+                                                        <label class="form-label mb-0">Discount</label>
+                                                    </div>
+                                                    <div class="col-9">
+                                                        <div class="d-flex gap-2">
+                                                            <div class="flex-grow-1">
+                                                                <div class="input-group">
+                                                                    {{ form.discount_percentage }}
+                                                                    <span class="input-group-text">%</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="flex-grow-1">
+                                                                <div class="input-group">
+                                                                    {{ form.discount_amount }}
+                                                                    <span class="input-group-text">₹</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- GST Row -->
+                                                <div class="row mb-3 gst-field">
+                                                    <div class="col-4">
+                                                        <div class="input-group">
+                                                            {{ form.cgst_amount }}
+                                                            <span class="input-group-text">CGST</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <div class="input-group">
+                                                            {{ form.sgst_amount }}
+                                                            <span class="input-group-text">SGST</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <div class="input-group">
+                                                            {{ form.igst_amount }}
+                                                            <span class="input-group-text">IGST</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Auto Round Off Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-3">
+                                                        {{ form.auto_round_off.label_tag }}
+                                                    </div>
+                                                    <div class="col-9">
+                                                        <div
+                                                            class="d-flex align-items-center justify-content-end gap-3">
+                                                            <div class="form-check form-switch">
+                                                                {{ form.auto_round_off }}
+                                                            </div>
+                                                            <div class="input-group w-50">
+                                                                {{ form.round_off_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                
+
+                                                <!-- invoice amount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-4  ">
+                                                        {{ transaction_form.invoice_amount.label_tag }}
+                                                    </div>
+                                                    <div class="col-8">
+                                                        <div class="amount-field-container">
+                                                            <div class="input-group">
+                                                                {{ transaction_form.invoice_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                            </div>
+                                                            <div class="amount-in-words" id="net-amount-words"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- outstanding amount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-4  ">
+                                                        {{ transaction_form.outstanding_amount.label_tag }}
+                                                    </div>
+                                                    <div class="col-8">
+                                                        <div class="amount-field-container">
+                                                            <div class="input-group">
+                                                                {{ transaction_form.outstanding_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                                {{ transaction_form.outstanding_type }}
+                                                            </div>
+                                                            <div class="amount-in-words" id="outstanding-amount-words"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- total amount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-4  ">
+                                                        {{ transaction_form.total_amount.label_tag }}
+                                                    </div>
+                                                    <div class="col-8">
+                                                        <div class="amount-field-container">
+                                                            <div class="input-group">
+                                                                {{ transaction_form.total_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                            </div>
+                                                            <div class="amount-in-words" id="total-amount-words"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Received Amount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-4 text-success ">
+                                                        {{ transaction_form.received_amount.label_tag }}
+                                                    </div>
+                                                    <div class="col-8">
+                                                        <div class="amount-field-container">
+                                                            <div class="input-group">
+                                                                {{ transaction_form.received_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                            </div>
+                                                            <div class="amount-in-words" id="received-amount-words">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Balance Amount Row -->
+                                                <div class="row mb-3 align-items-center">
+                                                    <div class="col-4 text-warning ">
+                                                        {{ transaction_form.balance_amount.label_tag }}
+                                                    </div>
+                                                    <div class="col-8">
+                                                        <div class="amount-field-container">
+                                                            <div class="input-group">
+                                                                {{ transaction_form.balance_amount }}
+                                                                <span class="input-group-text">₹</span>
+                                                            </div>
+                                                            <div class="amount-in-words" id="balance-amount-words">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="col d-flex justify-content-between">
+                                        <div>
+                                            <button type="button" onclick="history.back()"
+                                                class="btn btn-outline-info"><i class="fa fa-arrow-left"></i>
+                                                Cancel</button>
+
+                                            {% if object and can_delete %}
+                                            <a href="{{ object.get_delete_url }}" class="btn btn-danger float-right">
+                                                <i class="fa fa-trash"></i> Delete
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <button type="submit" name="save_and_print" class="btn btn-primary">
+                                                <i class="fe fe-printer me-1"></i> Save and Print
+                                            </button>
+
+                                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i>
+                                                Save</button>
+                                                
+                                            <button type="submit" name="save_add_new" class="btn btn-primary"><i
+                                                    class="fe fe-save"></i> Save and Add Another</button>
+                                        </div>
+
+
+                                    </div>
+                                </div>
+
+
+                            </div>
+
+
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!--End::row-1 -->
+        {% include 'app/common/additional_form.html' %}
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block js_plugins %}
+<script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
+{% endblock js_plugins %}
+
+{% block javascript %}
+{{form.media}}
+{% include 'app/common/autocomplete.html' %}
+
+<!-- Configuration and utilities (load first) -->
+{% include 'transactions/incomeexpense_scripts/config.html' %}
+{% include 'transactions/incomeexpense_scripts/utils.html' %}
+
+<!-- Core managers -->
+{% include 'transactions/incomeexpense_scripts/amount_words_manager.html' %}
+{% include 'transactions/incomeexpense_scripts/payment_manager.html' %}
+
+<!-- Calculation engine -->
+{% include 'transactions/incomeexpense_scripts/calculations.html' %}
+
+<!-- Event handling -->
+{% include 'transactions/incomeexpense_scripts/event_handlers.html' %}
+
+<!-- Feature modules -->
+{% include 'transactions/incomeexpense_scripts/gst_manager.html' %}
+{% include 'transactions/incomeexpense_scripts/formset_manager.html' %}
+{% include 'transactions/incomeexpense_scripts/item_manager.html' %}
+{% include 'transactions/incomeexpense_scripts/party_manager.html' %}
+{% include 'transactions/incomeexpense_scripts/ui_helpers.html' %}
+
+<!-- Main initialization (load last) -->
+{% include 'transactions/incomeexpense_scripts/main.html' %}
+
+{% endblock javascript %}
+
+
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'app/css/incomeexpense.css' %}">
+<style>
+    /* Container look */
+    .invoice-meta-table {
+        width: 100%;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        border-collapse: separate;
+        border-spacing: 0;
+        overflow: hidden;
+    }
+    
+    /* Each row looks like a boxed row */
+    .invoice-meta-table tr td {
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    /* Remove last border */
+    .invoice-meta-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* LABEL column */
+    .invoice-meta-table td:first-child {
+        width: 45%;
+        background: #f8fafc;
+        font-size: 13px;
+        font-weight: 500;
+        color: #1f2937;
+        padding: 12px;
+        border-right: 1px solid #e5e7eb;
+        vertical-align: middle;
+    }
+    
+    /* VALUE column */
+    .invoice-meta-table td:last-child {
+        padding: 10px 12px;
+        background: #ffffff;
+        vertical-align: middle;
+    }
+    
+    /* Kill bootstrap borders completely */
+    .invoice-meta-table td {
+        border-left: none !important;
+        border-right: none !important;
+    }
+    
+    /* Inputs & selects – boxed, not underline */
+    .invoice-meta-table input,
+    .invoice-meta-table select {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 13px;
+        background: #fff;
+    }
+    
+    /* Required star */
+    .invoice-meta-table .asteriskField {
+        color: #dc2626;
+        margin-left: 2px;
+    }
+    
+
+    /* Readonly round off input styling */
+    #id_round_off_amount.readonly {
+        background-color: #f8f9fa !important;
+        cursor: not-allowed;
+        opacity: 0.8;
+    }
+    
+    /* Auto round off switch styling */
+    #id_auto_round_off:checked + label::after {
+        background-color: #28a745;
+    }
+
+</style>
+{% endblock %}

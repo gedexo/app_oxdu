@@ -67,6 +67,7 @@ class AmountRendererMixin:
 
 class TransactionTable(BaseTable):
     created = None
+
     class Meta:
         model = Transaction
         fields = ("transaction_type", "voucher_number", "date", "branch", "narration", "invoice_amount", "total_amount")
@@ -302,6 +303,18 @@ class ContraVoucherTable(BaseTable, AmountRendererMixin):
 class IncomeExpenseTable(BaseTable, StatusRendererMixin, AmountRendererMixin):
     """Table for displaying Income and Expense entries"""
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Calculate total for the footer
+        if self.data:
+            # We sum the invoice_amount from the related transaction
+            self.total_sum = sum(
+                (record.transaction.invoice_amount or Decimal('0')) 
+                for record in self.data
+            )
+        else:
+            self.total_sum = Decimal('0')
+
     voucher_number = columns.Column(
         accessor='transaction.voucher_number',
         verbose_name="Voucher #",
@@ -309,11 +322,12 @@ class IncomeExpenseTable(BaseTable, StatusRendererMixin, AmountRendererMixin):
         attrs={
             "td": {"class": "text-primary fw-medium"},
             "th": {"class": "w-15"}
-        }
+        },
+        footer="Total"
     )
     
     date = columns.DateTimeColumn(
-        accessor='date',
+        accessor='transaction.date', 
         format="d M, Y",
         verbose_name="Date",
         attrs={
@@ -323,16 +337,18 @@ class IncomeExpenseTable(BaseTable, StatusRendererMixin, AmountRendererMixin):
     )
     
     type = columns.Column(
+        accessor='transaction.transaction_type',
         verbose_name="Type",
         attrs={
-            "td": {"class": "text-capitalize"},
-            "th": {"class": "w-10"}
+            "td": {"class": "text-center"},
+            "th": {"class": "w-10 text-center"}
         }
     )
     
     party = columns.Column(
-        accessor='party.name',
+        accessor='party',
         verbose_name="Party",
+        empty_values=(),
         attrs={
             "td": {"class": "fw-normal"},
             "th": {"class": "w-20"}
@@ -349,48 +365,65 @@ class IncomeExpenseTable(BaseTable, StatusRendererMixin, AmountRendererMixin):
     )
     
     amount = columns.Column(
+        accessor='transaction.invoice_amount',
         verbose_name="Amount",
         attrs={
             "td": {"class": "text-end fw-medium"},
             "th": {"class": "w-15 text-end"}
-        }
-    )
-    
-    reference_number = columns.Column(
-        verbose_name="Ref #",
-        attrs={
-            "td": {"class": "text-muted"},
-            "th": {"class": "w-10"}
-        }
+        },
+        footer=lambda table: f"₹{table.total_sum:,.2f}"
     )
     
     def render_type(self, value):
         type_badge_classes = {
-            'income': 'badge bg-success',
-            'expense': 'badge bg-danger',
+            'income': 'badge bg-success-transparent text-success',
+            'expense': 'badge bg-danger-transparent text-danger',
         }
         badge_class = type_badge_classes.get(value, 'badge bg-secondary')
         display_value = value.replace('_', ' ').title()
         return format_html('<span class="{}">{}</span>', badge_class, display_value)
     
     def render_amount(self, value, record):
-        from decimal import Decimal
         if value is None:
             return "₹0.00"
         
-        # Determine color based on type
-        color_class = "text-success fw-medium" if record.type == 'income' else "text-danger fw-medium"
+        # Determine color based on transaction type
+        trans_type = record.transaction.transaction_type
+        color_class = "text-success fw-medium" if trans_type == 'income' else "text-danger fw-medium"
+        
         formatted = f"₹{value:,.2f}"
         return format_html('<span class="{}">{}</span>', color_class, formatted)
     
     def render_party(self, value):
-        return value if value else "-"
+        if not value:
+            return format_html('<span class="text-muted">No Party</span>')
+        return value.name
     
     def render_category(self, value):
         return value if value else "-"
+
+    action = columns.TemplateColumn(
+        template_code="""
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{{ record.get_update_url }}"
+                class="btn btn-sm btn-icon btn-outline-primary"
+                title="Edit">
+                    <i class="fe fe-edit"></i>
+                </a>
+                <a href="{{ record.get_absolute_url }}"
+                class="btn btn-sm btn-icon btn-outline-info"
+                title="View">
+                    <i class="fe fe-eye"></i>
+                </a>
+            </div>
+        """,
+        orderable=False,
+        verbose_name="Action",
+        attrs={"td": {"class": "text-center"}}
+    )
+    created = None
     
     class Meta(BaseTable.Meta):
         model = IncomeExpense
-        fields = ( "reference_number", "voucher_number", "date", "type",  "branch", "party", "category", "amount",)
+        fields = ("voucher_number", "date", "type", "branch", "party", "category", "amount", "action")
         attrs = {"class": "table table-vcenter text-nowrap table-bordered border-bottom table-striped"}
-

@@ -7,199 +7,124 @@ class GroupMasterForm(forms.ModelForm):
     class Meta:
         model = GroupMaster
         fields = "__all__"
-
+        # We removed the 'widgets' dictionary that hid the branch
+    
     def __init__(self, *args, **kwargs):
-        # Handle branch safely
         branch = kwargs.pop('branch', None)
         super().__init__(*args, **kwargs)
 
-        # 1. Set the initial branch if provided
-        if branch:
+        # 1. Handle Branch Field
+        # If editing an existing record (instance.pk exists), make branch Read-Only
+        if self.instance.pk:
+            self.fields['branch'].disabled = True 
+            self.fields['branch'].initial = self.instance.branch
+            # When disabled=True, Django ignores POST data and uses initial/instance data
+            # This fixes "This field is required" error while keeping it visible.
+        elif branch:
             self.fields['branch'].initial = branch
-        
-        # 2. Get the current branch from initial or instance
-        current_branch = branch or (self.instance.branch if self.instance.pk else None)
 
-        # 3. Filter parent queryset
+        # 2. Filter Parent Field
+        current_branch = branch or (self.instance.branch if self.instance.pk else None)
         if current_branch:
             self.fields["parent"].queryset = GroupMaster.objects.filter(
                 branch=current_branch
             ).exclude(pk=self.instance.pk if self.instance.pk else None)
         else:
-            # If no branch is known yet, queryset is empty
             self.fields["parent"].queryset = GroupMaster.objects.none()
 
+        # 3. Handle is_active (Fix "This field is required" for checkbox)
         if 'is_active' in self.fields:
             self.fields['is_active'].required = False
 
     def clean(self):
         cleaned = super().clean()
+        # Note: If field is disabled, cleaned_data['branch'] will contain the initial value
         branch = cleaned.get("branch")
         parent = cleaned.get("parent")
         code = cleaned.get("code")
 
         if parent and branch and parent.branch != branch:
-            raise forms.ValidationError(
-                "Parent group must be in the same branch"
-            )
+            raise forms.ValidationError("Parent group must be in the same branch")
         
-        # Check unique_together constraint manually, excluding current instance
         if branch and code:
             existing = GroupMaster.objects.filter(branch=branch, code=code)
             if self.instance.pk:
                 existing = existing.exclude(pk=self.instance.pk)
             
             if existing.exists():
-                raise forms.ValidationError({
-                    'code': 'Group master with this Branch and Code already exists.'
-                })
+                raise forms.ValidationError({'code': 'Group master with this Branch and Code already exists.'})
 
         return cleaned
         
     
 class SubGroupForm(forms.ModelForm):
-    """Form for inline subgroups"""
-    
     class Meta:
         model = GroupMaster
+        # Ensure 'parent' and 'branch' are excluded so they don't conflict
+        exclude = ('parent', 'branch', 'created_at', 'updated_at', 'deleted_at')
         fields = ('code', 'name', 'nature_of_group', 'main_group', 'description')
         widgets = {
-            'code': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Code'
-            }),
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Sub-group Name'
-            }),
-            'nature_of_group': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'main_group': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'description': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 2,
-                'placeholder': 'Description'
-            }),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Code'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Sub-group Name'}),
+            'nature_of_group': forms.Select(attrs={'class': 'form-control'}),
+            'main_group': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # Make all fields optional for empty forms
         for field in self.fields.values():
             field.required = False
-        
-        # Remove branch and is_active fields if they exist (shouldn't be in subgroups)
-        if 'branch' in self.fields:
-            del self.fields['branch']
-        if 'is_active' in self.fields:
-            # Set default for is_active field
-            self.fields['is_active'].initial = True
-            # Make not required
-            self.fields['is_active'].required = False
-        
-        # Note: We don't delete 'parent' field here because the inline formset needs it
-        # The parent validation will be handled in the view when saving
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        
-        # For subgroups in formset, the branch will be set by the parent group
-        # The validation will be properly handled when the subgroups are saved
-        # in the view where parent and branch are properly associated
-        
-        return cleaned_data
 
 
 from django.forms.models import BaseInlineFormSet
 
 class SubGroupFormSet(BaseInlineFormSet):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Set initial values for empty forms
-        if self.instance.pk:  # Only for existing parent instances
-            for form in self.forms:
-                if not form.instance.pk:
-                    # Set initial values based on parent instance if available
-                    form.initial['nature_of_group'] = self.instance.nature_of_group
-                    form.initial['main_group'] = self.instance.main_group
-    
-    def add_fields(self, form, index):
-        """Override to set initial branch value for subgroups"""
-        super().add_fields(form, index)
-        # Set initial branch from parent instance
-        if self.instance and self.instance.pk and hasattr(self.instance, 'branch'):
-            if 'branch' in form.fields:
-                form.fields['branch'].initial = self.instance.branch
-        
-        # Also ensure parent field is set to the main group
-        if self.instance and self.instance.pk:
-            if 'parent' in form.fields:
-                form.fields['parent'].initial = self.instance
-    
     def full_clean(self):
-        """Override to set branch on all forms before validation"""
-        # First, make sure all forms have the correct branch set
-        if self.instance and self.instance.pk and hasattr(self.instance, 'branch'):
+        """
+        Override validation to inject the parent's branch into the 
+        subgroup instances BEFORE model validation runs.
+        """
+        # self.instance is the Main Group (Parent)
+        if self.instance and getattr(self.instance, 'branch', None):
             for form in self.forms:
-                if form.instance:
-                    # Set the branch on the instance before validation
-                    form.instance.branch = self.instance.branch
-                    # Also set the parent on the instance
-                    form.instance.parent = self.instance
+                # 1. Inject Branch: Set branch on the subgroup instance
+                form.instance.branch = self.instance.branch
+                
+                # 2. Inject Parent: Ensure parent is set (InlineFormSet does this, but safety first)
+                form.instance.parent = self.instance
+                
+                # 3. Optional: Set defaults to ensure validation passes if fields are mandatory
+                if not form.instance.nature_of_group:
+                    form.instance.nature_of_group = self.instance.nature_of_group
+                if not form.instance.main_group:
+                    form.instance.main_group = self.instance.main_group
         
-        # Run validation after setting branch/parent
+        # Now run standard validation
         super().full_clean()
-        
-        # Check for duplicate codes within the formset itself
-        if any(self.errors):
-            return  # Skip if there are other errors
-        
-        seen_codes = set()
-        for form in self.forms:
-            if form.cleaned_data and not form.cleaned_data.get('DELETE'):
-                code = form.cleaned_data.get('code')
-                if code:
-                    if code in seen_codes:
-                        form.add_error('code', 'Duplicate code found in subgroups.')
-                    else:
-                        seen_codes.add(code)
-    
+
     def save_new(self, form, commit=True):
-        """Override to ensure proper parent assignment"""
-        # The parent will be set in the view, so we don't set it here
         obj = super().save_new(form, commit=False)
-        # Make sure is_active is set to True by default
-        if not hasattr(obj, 'is_active') or obj.is_active is None:
-            obj.is_active = True
-        if commit:
-            obj.save()
-        return obj
-    
-    def save_existing(self, form, instance, commit=True):
-        """Override to ensure is_active is maintained"""
-        obj = super().save_existing(form, instance, commit=False)
-        # Ensure is_active is properly set
-        if not hasattr(obj, 'is_active') or obj.is_active is None:
-            obj.is_active = True
+        
+        # Defensive check: Only access branch if instance exists and has it
+        if self.instance and getattr(self.instance, 'pk', None) and hasattr(self.instance, 'branch'):
+            obj.branch = self.instance.branch
+        
+        # parent is handled by BaseInlineFormSet automatically
+        
         if commit:
             obj.save()
         return obj
 
-# Formset Factory for Subgroups
+
 SubGroupFormSet = forms.inlineformset_factory(
-    GroupMaster,  # Parent model
-    GroupMaster,  # Child model (same model for tree structure)
+    GroupMaster,
+    GroupMaster,
     form=SubGroupForm,
-    formset=SubGroupFormSet,
-    fk_name='parent',  # Foreign key field name
-    extra=1,  # Number of empty forms to display
-    can_delete=True,  # Allow deletion
-    min_num=0,  # Minimum number of forms
-    validate_min=False,
+    formset=SubGroupFormSet, 
+    fk_name='parent',
+    extra=1,
+    can_delete=True
 )
 
 

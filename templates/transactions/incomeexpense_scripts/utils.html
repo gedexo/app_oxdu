@@ -1,0 +1,173 @@
+<script>
+    // utils.js - Utility functions
+let isCalculating = false; // Global flag to prevent recursive calculations
+
+// Debounce function to prevent excessive calculations during typing
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Enhanced Number to Words Conversion (Indian Style)
+function numberToWords(num) {
+    if (num === 0) return 'Zero';
+    if (num < 0) return 'Minus ' + numberToWords(Math.abs(num));
+
+    const a = [
+        '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+        'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+    ];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const g = ['', 'Thousand', 'Lakh', 'Crore'];
+
+    function inWords(num) {
+        if (num < 20) return a[num];
+        if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? ' ' + a[num % 10] : '');
+        if (num < 1000) return a[Math.floor(num / 100)] + ' Hundred' + (num % 100 ? ' and ' + inWords(num % 100) : '');
+        return '';
+    }
+
+    const n = Math.floor(num);
+    const decimals = Math.round((num - n) * 100);
+
+    let str = '';
+    let tempNum = n;
+    let i = 0;
+    const parts = [];
+
+    while (tempNum > 0) {
+        let divider;
+        if (i === 0) {
+            divider = 1000; // First group: thousands
+        } else if (i === 1) {
+            divider = 100; // Second group: lakhs (100 thousands)
+        } else {
+            divider = 100; // Subsequent groups: crores (100 lakhs each)
+        }
+
+        const part = tempNum % divider;
+        tempNum = Math.floor(tempNum / divider);
+
+        if (part > 0) {
+            parts.push(inWords(part) + (g[i] ? ' ' + g[i] : ''));
+        }
+        i++;
+    }
+
+    str = parts.reverse().join(' ').trim();
+
+    if (decimals > 0) {
+        str += ' and ' + inWords(decimals) + ' Paise';
+    }
+
+    return str + ' Only';
+}
+
+// Show toast notification
+function showToastNotification(message, type = 'info') {
+    const typeConfig = {
+        'success': { class: 'bg-success', icon: 'fas fa-check-circle' },
+        'error': { class: 'bg-danger', icon: 'fas fa-exclamation-circle' },
+        'warning': { class: 'bg-warning', icon: 'fas fa-exclamation-triangle' },
+        'info': { class: 'bg-info', icon: 'fas fa-info-circle' }
+    };
+
+    const config = typeConfig[type] || typeConfig['info'];
+
+    const toastHtml = `
+        <div class="toast align-items-center text-white ${config.class} border-0 position-fixed" 
+             role="alert" aria-live="assertive" aria-atomic="true" 
+             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${config.icon} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                        data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+
+    // Remove any existing toasts of the same type first
+    $(`.toast.${config.class}`).remove();
+
+    $('body').append(toastHtml);
+    const $toast = $('.toast').last();
+    const toast = new bootstrap.Toast($toast[0], {
+        autohide: type !== 'error',
+        delay: type === 'error' ? 0 : 4000
+    });
+    toast.show();
+
+    // Remove toast element after it's hidden
+    $toast.on('hidden.bs.toast', function () {
+        $(this).remove();
+    });
+}
+
+// Calculate price without tax
+function calculatePriceWithoutTax() {
+    const price = parseFloat($("#id_price").val()) || 0;
+    const tax = parseFloat($("#id_tax").val()) || 0;
+    const taxIncluded = $("#id_tax_included").val() === "True";
+    const priceWithoutTax = taxIncluded ? price / (1 + (tax / 100)) : price;
+    $("#id_price_with_out_tax").val(priceWithoutTax.toFixed(2));
+}
+
+// Submit item form via AJAX
+function submitItemForm(form, data, url, activeRow, modal, elementClass) {
+    $.ajax({
+        url: url,
+        type: "POST",
+        data: data,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+            if (activeRow && response.result) {
+                const newItem = response.result;
+                const selectElement = activeRow.find(elementClass);
+                selectElement.append(new Option(newItem.name, newItem.id, true, true));
+            }
+            form[0].reset();
+            modal.modal("hide");
+            fetchAndUpdateItemDetails(response, activeRow);
+        },
+        error: function (xhr) {
+            console.error("Submission failed:", xhr.responseText);
+        }
+    });
+}
+
+// Set column widths based on GST status
+function setColumnWidths(isGstEnabled) {
+    const table = $("#expense-item");
+    if (isGstEnabled) {
+        // With GST columns visible - original widths
+        table.find("th:nth-child(1)").css("width", "20%"); // Item
+        table.find("th:nth-child(2)").css("width", "8%");  // Quantity
+        table.find("th:nth-child(3)").css("width", "10%"); // Price/Item
+        table.find("th:nth-child(4)").css("width", "8%");  // Discount %
+        table.find("th:nth-child(5)").css("width", "10%"); // Discount ₹
+        table.find("th:nth-child(6)").css("width", "10%"); // Taxable Value (GST field)
+        table.find("th:nth-child(7)").css("width", "8%");  // Tax % (GST field)
+        table.find("th:nth-child(8)").css("width", "10%"); // Tax ₹ (GST field)
+        table.find("th:nth-child(9)").css("width", "10%"); // Amount
+    } else {
+        // Without GST columns - adjust widths
+        table.find("th:nth-child(1)").css("width", "30%"); // Item - increased
+        table.find("th:nth-child(2)").css("width", "12%"); // Quantity - increased
+        table.find("th:nth-child(3)").css("width", "15%"); // Price/Item - increased
+        table.find("th:nth-child(4)").css("width", "12%"); // Discount % - increased
+        table.find("th:nth-child(5)").css("width", "15%"); // Discount ₹ - increased
+        table.find("th:nth-child(6)").css("width", "16%"); // Amount - increased
+    }
+}
+</script>

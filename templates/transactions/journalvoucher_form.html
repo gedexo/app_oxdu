@@ -15,7 +15,7 @@
         padding: 12px 8px;
     }
     .table-formset tbody td {
-        padding: 0 !important; /* Remove padding for seamless inputs */
+        padding: 0 !important;
         border: 1px solid #e9ecef;
     }
     .table-formset input, .table-formset select {
@@ -25,7 +25,7 @@
         padding: 10px 12px;
     }
     .table-formset input:focus {
-        background-color: #fffdf0; /* Slight highlight on focus */
+        background-color: #fffdf0;
         z-index: 1;
     }
     .total-row {
@@ -44,11 +44,6 @@
     .delete-row-btn:hover {
         transform: scale(1.2);
     }
-    .card-header-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
     .voucher-metadata {
         background-color: #fcfcfc;
         border-bottom: 1px solid #eee;
@@ -56,23 +51,25 @@
         margin-bottom: 20px;
         border-radius: 8px;
     }
-    .add-row-container {
-        padding: 10px 0;
-    }
-    select2-container--default .select2-selection--single {
+    .select2-container--default .select2-selection--single {
         border: none !important;
         border-radius: 0 !important;
         height: 40px !important;
         padding-top: 5px;
     }
-
     .select2-container {
-        width: 100% !important; /* Ensure it fills the table cell */
+        width: 100% !important;
     }
-
     /* Hide the delete checkbox but keep functionality */
     .formset_row td:last-child input[type="checkbox"] {
         display: none;
+    }
+    .add-row-link {
+        display: inline-block;
+        margin-top: 10px;
+        font-weight: 500;
+        color: #0d6efd;
+        text-decoration: none;
     }
 </style>
 {% endblock extra_css %}
@@ -88,18 +85,6 @@
                         <div class="card-title mb-0">
                             <span class="text-muted fw-light">Accounting /</span> {{ title|title }}
                         </div>
-                        <div class="d-flex gap-2">
-                            {% for link in btn_sub_groups %}
-                            <div class="btn-group shadow-sm">
-                                <a href="{{ link.list_link }}" class="btn btn-white btn-sm border">
-                                    <i class="fas fa-list text-primary me-1"></i> {{ link.name }}
-                                </a>
-                                <a href="{{ link.create_link }}" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-plus"></i>
-                                </a>
-                            </div>
-                            {% endfor %}
-                        </div>
                     </div>
 
                     <div class="card-body p-0">
@@ -109,19 +94,19 @@
                             <!-- Top Metadata Section -->
                             <div class="voucher-metadata">
                                 <div class="row g-3">
-                                    <div class="col-xl-5">
+                                    <div class="col-xl-3">
                                         {{ form.voucher_number|as_crispy_field }}
                                     </div>
-                                    <div class="col-xl-5">
+                                    <div class="col-xl-3">
                                         {{ form.date|as_crispy_field }}
                                     </div>
-                                    <div class="col-xl-5">
+                                    <div class="col-xl-3">
                                         {{ form.branch|as_crispy_field }}
                                     </div>
-                                    <div class="col-xl-5">
+                                    <div class="col-xl-3">
                                         {{ form.reference|as_crispy_field }}
                                     </div>
-                                    <div class="col-xl-5">
+                                    <div class="col-xl-12">
                                         {{ form.narration|as_crispy_field }}
                                     </div>
                                 </div>
@@ -131,11 +116,11 @@
                             <div class="px-4 pb-4">
                                 {{ formset.management_form }}
                                 <div class="table-responsive">
-                                    <table class="table table-formset align-middle">
+                                    <table class="table table-formset align-middle" id="items-table">
                                         <thead>
                                             <tr>
                                                 <th style="width: 30%;">Account</th>
-                                                <th style="width: 30%;">Description</th>
+                                                <th style="width: 35%;">Description</th>
                                                 <th style="width: 15%; text-align: right;">Debit</th>
                                                 <th style="width: 15%; text-align: right;">Credit</th>
                                                 <th style="width: 5%;"></th>
@@ -151,8 +136,8 @@
                                                 <td>{{ form.credit_amount|add_class:"form-control credit_amount-input text-end" }}</td>
                                                 <td class="text-center">
                                                     {% if formset.can_delete %}
-                                                        <div class="d-none">{{ form.DELETE }}</div>
-                                                        {% endif %}
+                                                        <div class="delete-checkbox" style="display:none;">{{ form.DELETE }}</div>
+                                                    {% endif %}
                                                 </td>
                                             </tr>
                                             {% endfor %}
@@ -172,10 +157,14 @@
                                     </table>
                                 </div>
                                 
-                                <!-- Difference Alert (Hidden by default) -->
-                                <div id="balance-alert" class="alert alert-light-danger border-danger mt-2 d-none">
-                                    <i class="fe fe-info me-2"></i> 
-                                    Out of Balance by: <span id="balance-diff" class="fw-bold">0.00</span>
+                                <!-- Difference Alert -->
+                                <div id="balance-alert" class="alert alert-danger border-danger mt-3 d-none">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <div>
+                                            <strong>Out of Balance!</strong> Difference: <span id="balance-diff">0.00</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -185,11 +174,6 @@
                                     <button type="button" onclick="history.back()" class="btn btn-outline-secondary px-4">
                                         Cancel
                                     </button>
-                                    {% if object and can_delete %}
-                                    <a href="{{ object.get_delete_url }}" class="btn btn-outline-danger ms-2">
-                                        <i class="fe fe-trash-2"></i>
-                                    </a>
-                                    {% endif %}
                                 </div>
                                 <div class="d-flex gap-2">
                                     <button type="submit" name="save_add_new" class="btn btn-outline-primary">
@@ -208,6 +192,7 @@
     </div>
 </div>
 {% endblock content %}
+
 {% block javascript %}
 {{ form.media }}
 <script src="{% static 'app/assets/js/formset/formset.js' %}"></script>
@@ -216,31 +201,55 @@
 $(document).ready(function () {
 
     /* -----------------------------
-     * Enable / Disable Account Select
+     * Calculate Totals & Balance
+     * ----------------------------- */
+    function updateTotals() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        $('.formset_row:visible').each(function() {
+            // Check if the row is marked for deletion (if using the plugin's hidden DELETE input)
+            let isDeleted = $(this).find('input[id$="-DELETE"]').is(':checked');
+            
+            if (!isDeleted) {
+                let debit = parseFloat($(this).find('.debit_amount-input').val()) || 0;
+                let credit = parseFloat($(this).find('.credit_amount-input').val()) || 0;
+                totalDebit += debit;
+                totalCredit += credit;
+            }
+        });
+
+        $('#total-debit-display').val(totalDebit.toFixed(2));
+        $('#total-credit-display').val(totalCredit.toFixed(2));
+
+        let diff = Math.abs(totalDebit - totalCredit);
+        
+        if (diff > 0.001) {
+            $('#balance-diff').text(diff.toFixed(2));
+            $('#balance-alert').removeClass('d-none');
+        } else {
+            $('#balance-alert').addClass('d-none');
+        }
+    }
+
+    // Trigger calculation on input
+    $(document).on('input', '.debit_amount-input, .credit_amount-input', function() {
+        updateTotals();
+    });
+
+    /* -----------------------------
+     * Branch & Account Logic
      * ----------------------------- */
     function disableAccountSelect(row) {
-        let $select = row.find('.account-input');
-        $select.prop('disabled', true); 
-        // Do NOT clear .val('') here on update, 
-        // only if you specifically want to reset the form
+        row.find('.account-input').prop('disabled', true);
     }
 
     function enableAccountSelect(row) {
-        let $select = row.find('.account-input');
-        $select.prop('disabled', false);
+        row.find('.account-input').prop('disabled', false);
     }
 
-    /* -----------------------------
-     * Load Accounts via AJAX
-     * ----------------------------- */
     function loadAccountsForRow(row, branchId, selectedId = null) {
         let $account = row.find('.account-input');
-
-        // Only empty if we don't have a selectedId (meaning this is a fresh change)
-        if (!selectedId) {
-            $account.empty().append('<option value="">Select Account</option>');
-        }
-
         if (!branchId) {
             disableAccountSelect(row);
             return;
@@ -251,20 +260,11 @@ $(document).ready(function () {
             type: "GET",
             data: { branch: branchId },
             success: function (data) {
-                // Clear and rebuild only if we are changing branches
                 $account.empty().append('<option value="">Select Account</option>');
-                
                 data.forEach(function (item) {
                     let isSelected = (selectedId && item.id == selectedId);
-                    $account.append(
-                        $('<option>', {
-                            value: item.id,
-                            text: item.name,
-                            selected: isSelected
-                        })
-                    );
+                    $account.append($('<option>', { value: item.id, text: item.name, selected: isSelected }));
                 });
-
                 enableAccountSelect(row);
                 $account.trigger('change.select2');
             }
@@ -272,42 +272,16 @@ $(document).ready(function () {
     }
 
     /* -----------------------------
-     * Initialize Existing Rows (FOR UPDATE VIEW)
-     * ----------------------------- */
-    function initExistingRows() {
-        let branchId = $('#id_branch').val();
-
-        $('.formset_row').each(function () {
-            let row = $(this);
-            
-            // 1. Initialize Select2 FIRST
-            initializeSelect2ForFormRow(
-                row,
-                '.account-input',
-                "#passenger-form-modal", // adjust if your modal ID is different
-                "Search Account"
-            );
-
-            // 2. If branch exists but account select is empty, load them
-            // In UPDATE view, Django already rendered the options. 
-            // We only need to load via AJAX if the branch changes.
-            if (!branchId) {
-                disableAccountSelect(row);
-            }
-        });
-    }
-
-    /* -----------------------------
-     * Formset Init
+     * Initialize Formset
      * ----------------------------- */
     $('.formset_row').formset({
-        addText: '<span>Add Row</span>',
-        deleteText: '<i class="fa-solid fa-xmark"></i>',
+        addText: '<i class="mt-1"></i> Add Row',
+        deleteText: '<i class="fas fa-times"></i>',
         prefix: '{{ formset.prefix }}',
         formCssClass: 'formset_row',
         added: function (row) {
-            initializeSelect2ForFormRow(row, '.account-input', "#passenger-form-modal", "Search Account");
-            bindSelect2Focus('.select2');
+            // Initialize Select2 for new row
+            initializeSelect2ForFormRow(row, '.account-input', null, "Search Account");
             
             let branchId = $('#id_branch').val();
             if (branchId) {
@@ -330,8 +304,18 @@ $(document).ready(function () {
         });
     });
 
+    // Initial load logic
+    function initExistingRows() {
+        let branchId = $('#id_branch').val();
+        $('.formset_row').each(function () {
+            let row = $(this);
+            initializeSelect2ForFormRow(row, '.account-input', null, "Search Account");
+            if (!branchId) disableAccountSelect(row);
+        });
+        updateTotals(); // Calculate totals on page load
+    }
+
     initExistingRows();
-    updateTotals();
 });
 </script>
 {% endblock javascript %}

@@ -1,0 +1,561 @@
+<script>
+    // calculations.js - All calculation functions (Complete Updated Version)
+
+    // Calculate all amounts for a single row with proper tax calculation
+    function calculateRowAmounts(row) {
+        if (isCalculating) return;
+
+        const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+        const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+        const discountAmount = parseFloat(row.find('.discount_amount-input').val()) || 0;
+        const isGstEnabled = $('#id_is_gst').is(":checked");
+
+        // Calculate subtotal (before discount and tax)
+        const subtotal = quantity * unitPrice;
+
+        // Calculate discount percentage if discount amount changed
+        const discountPercentage = subtotal > 0 ? (discountAmount * 100) / subtotal : 0;
+        const currentDiscountPercentage = parseFloat(row.find('.discount_percentage-input').val()) || 0;
+        if (Math.abs(discountPercentage - currentDiscountPercentage) > 0.01) {
+            row.find('.discount_percentage-input').val(discountPercentage.toFixed(2));
+        }
+
+        // Calculate taxable amount (after discount)
+        const taxableAmount = Math.max(subtotal - discountAmount, 0);
+
+        let taxAmount = 0;
+        let lineTotal = 0;
+
+        if (isGstEnabled) {
+            // Get tax rate from stored row data (from data-options)
+            const taxRate = row.data('taxRate') || 0;
+
+            // Update the taxable value display ONLY if user hasn't manually changed it
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0 && !row.data('userChangedTaxableAmount')) {
+                taxableInput.off('input.taxable change.taxable keyup.taxable');
+                taxableInput.val(taxableAmount.toFixed(2))
+                    .prop('readonly', false)
+                    .css('background-color', '#fff');
+                setTimeout(() => {
+                    if (typeof bindTaxableValueEvents === 'function') {
+                        bindTaxableValueEvents();
+                    }
+                }, 100);
+            }
+
+            // Tax Amount = (Taxable Amount × Tax Rate) ÷ 100
+            taxAmount = taxRate > 0 ? (taxableAmount * taxRate) / 100 : 0;
+
+            // Line Total = Taxable Amount + Tax Amount (when GST enabled)
+            lineTotal = taxableAmount + taxAmount;
+        } else {
+            // When GST is disabled
+            row.find('.tax-input').val('');
+            row.data('taxRate', 0);
+            taxAmount = 0;
+
+            // Preserve taxable value but make it readonly
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0) {
+                taxableInput.prop('readonly', true)
+                    .css('background-color', '#f8f9fa');
+                // Only update if not manually changed
+                if (!row.data('userChangedTaxableAmount')) {
+                    taxableInput.val(taxableAmount.toFixed(2));
+                }
+            }
+
+            // Line Total = Taxable Amount (no tax when GST disabled)
+            lineTotal = taxableAmount;
+        }
+
+        // Only update tax amount field if value changed
+        const currentTaxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+        if (Math.abs(taxAmount - currentTaxAmount) > 0.01) {
+            row.find('.tax_amount-input').val(taxAmount.toFixed(2));
+        }
+
+        // Only update line total field if value changed
+        const currentLineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+        if (Math.abs(lineTotal - currentLineTotal) > 0.01) {
+            row.find('.line_total-input').val(lineTotal.toFixed(2));
+        }
+
+        // Update overall totals (but prevent infinite loops)
+        setTimeout(() => {
+            if (!isCalculating && typeof calculateAllTotals === 'function') {
+                calculateAllTotals();
+            }
+        }, 50);
+    }
+
+    // Calculate tax amount specifically from taxable-value-input and tax rate (UPDATED)
+    function calculateTaxAmountFromInputs(row) {
+        const isGstEnabled = $('#id_is_gst').is(":checked");
+
+        if (!isGstEnabled) {
+            // Clear tax amount when GST is disabled
+            row.find('.tax_amount-input').val('0.00');
+
+            // Line total = taxable amount only (no tax)
+            const taxableAmount = parseFloat(row.find('.taxable-value-input').val()) || 0;
+            row.find('.line_total-input').val(taxableAmount.toFixed(2));
+            return 0;
+        }
+
+        // Get values from the specific input fields
+        const taxableAmount = parseFloat(row.find('.taxable-value-input').val()) || 0;
+
+        // Get tax rate from stored row data or from data-options
+        let taxPercentage = row.data('taxRate');
+        if (taxPercentage === undefined || taxPercentage === null) {
+            const $taxSelect = row.find('.tax-input');
+            const selectedValue = $taxSelect.val();
+            if (selectedValue && typeof getTaxRateFromDataOptions === 'function') {
+                taxPercentage = getTaxRateFromDataOptions($taxSelect, selectedValue);
+                row.data('taxRate', taxPercentage);
+            } else {
+                taxPercentage = 0;
+            }
+        }
+
+        // Only calculate tax if tax percentage is greater than 0
+        let taxAmount = 0;
+        if (taxPercentage > 0 && taxableAmount > 0) {
+            taxAmount = (taxableAmount * taxPercentage) / 100;
+        }
+
+        // Only update if value changed
+        const currentTaxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+        if (Math.abs(taxAmount - currentTaxAmount) > 0.01) {
+            row.find('.tax_amount-input').val(taxAmount.toFixed(2));
+        }
+
+        // Calculate and update line total
+        const lineTotal = taxableAmount + taxAmount;
+        const currentLineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+        if (Math.abs(lineTotal - currentLineTotal) > 0.01) {
+            row.find('.line_total-input').val(lineTotal.toFixed(2));
+        }
+
+        // Update overall totals
+        setTimeout(() => {
+            if (!isCalculating && typeof calculateAllTotals === 'function') {
+                calculateAllTotals();
+            }
+        }, 50);
+
+        return taxAmount;
+    }
+
+    // Calculate discount amount from percentage
+    function calculateRowDiscountFromPercentage(row) {
+        if (isCalculating) return;
+
+        const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+        const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+        const discountPercentage = parseFloat(row.find('.discount_percentage-input').val()) || 0;
+        const isGstEnabled = $('#id_is_gst').is(":checked");
+
+        // Validate percentage (0-100)
+        if (discountPercentage < 0 || discountPercentage > 100) {
+            row.find('.discount_percentage-input').val('0');
+            return;
+        }
+
+        const subtotal = quantity * unitPrice;
+        const discountAmount = (subtotal * discountPercentage) / 100;
+
+        isCalculating = true;
+        row.find('.discount_amount-input').val(discountAmount.toFixed(2));
+        isCalculating = false;
+
+        // Calculate taxable amount
+        const taxableAmount = Math.max(subtotal - discountAmount, 0);
+
+        let taxAmount = 0;
+        let lineTotal = 0;
+
+        if (isGstEnabled) {
+            // Get tax rate from stored data (from data-options)
+            const taxRate = row.data('taxRate') || 0;
+            if (taxRate > 0) {
+                taxAmount = (taxableAmount * taxRate) / 100;
+            }
+            lineTotal = taxableAmount + taxAmount;
+
+            // Update the taxable value display ONLY if user hasn't manually changed it
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0 && !row.data('userChangedTaxableAmount')) {
+                taxableInput.off('input.taxable change.taxable keyup.taxable');
+                taxableInput.val(taxableAmount.toFixed(2));
+                setTimeout(() => {
+                    if (typeof bindTaxableValueEvents === 'function') {
+                        bindTaxableValueEvents();
+                    }
+                }, 100);
+            }
+        } else {
+            // No tax when GST disabled
+            taxAmount = 0;
+            lineTotal = taxableAmount;
+
+            // Clear taxable value input
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0) {
+                taxableInput.val('0.00');
+            }
+        }
+
+        // Only update if value changed
+        const currentTaxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+        if (Math.abs(taxAmount - currentTaxAmount) > 0.01) {
+            row.find('.tax_amount-input').val(taxAmount.toFixed(2));
+        }
+
+        const currentLineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+        if (Math.abs(lineTotal - currentLineTotal) > 0.01) {
+            row.find('.line_total-input').val(lineTotal.toFixed(2));
+        }
+
+        calculateAllTotals();
+    }
+
+    // Calculate discount percentage from amount
+    function calculateRowDiscountFromAmount(row) {
+        if (isCalculating) return;
+
+        const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+        const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+        const discountAmount = parseFloat(row.find('.discount_amount-input').val()) || 0;
+        const isGstEnabled = $('#id_is_gst').is(":checked");
+
+        const subtotal = quantity * unitPrice;
+
+        // Validate discount amount doesn't exceed subtotal
+        if (discountAmount > subtotal) {
+            row.find('.discount_amount-input').val(subtotal.toFixed(2));
+            return;
+        }
+
+        const discountPercentage = subtotal > 0 ? (discountAmount * 100) / subtotal : 0;
+
+        isCalculating = true;
+        row.find('.discount_percentage-input').val(discountPercentage.toFixed(2));
+        isCalculating = false;
+
+        // Calculate taxable amount
+        const taxableAmount = Math.max(subtotal - discountAmount, 0);
+
+        let taxAmount = 0;
+        let lineTotal = 0;
+
+        if (isGstEnabled) {
+            // Get tax rate from stored data (from data-options)
+            const taxRate = row.data('taxRate') || 0;
+            if (taxRate > 0) {
+                taxAmount = (taxableAmount * taxRate) / 100;
+            }
+            lineTotal = taxableAmount + taxAmount;
+
+            // Update the taxable value display ONLY if user hasn't manually changed it
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0 && !row.data('userChangedTaxableAmount')) {
+                taxableInput.off('input.taxable change.taxable keyup.taxable');
+                taxableInput.val(taxableAmount.toFixed(2));
+                setTimeout(() => {
+                    if (typeof bindTaxableValueEvents === 'function') {
+                        bindTaxableValueEvents();
+                    }
+                }, 100);
+            }
+        } else {
+            // No tax when GST disabled
+            taxAmount = 0;
+            lineTotal = taxableAmount;
+
+            // Clear taxable value input
+            const taxableInput = row.find('.taxable-value-input');
+            if (taxableInput.length > 0) {
+                taxableInput.val('0.00');
+            }
+        }
+
+        // Only update if value changed
+        const currentTaxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+        if (Math.abs(taxAmount - currentTaxAmount) > 0.01) {
+            row.find('.tax_amount-input').val(taxAmount.toFixed(2));
+        }
+
+        const currentLineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+        if (Math.abs(lineTotal - currentLineTotal) > 0.01) {
+            row.find('.line_total-input').val(lineTotal.toFixed(2));
+        }
+
+        calculateAllTotals();
+    }
+
+    // Enhanced payment calculation with better error handling
+    function calculatePaymentTotals() {
+        let totalReceivedAmount = 0;
+        const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+
+        $('.payment-formset-row').each(function () {
+            let $amountField;
+
+            // Find amount field using PaymentManager if available
+            if (PaymentManager && typeof PaymentManager.findAmountField === 'function') {
+                $amountField = PaymentManager.findAmountField($(this));
+            } else {
+                // Fallback method
+                $amountField = $(this).find('input[name*="amount"]').first();
+            }
+
+            if ($amountField.length > 0) {
+                const paymentAmount = parseFloat($amountField.val()) || 0;
+                totalReceivedAmount += paymentAmount;
+            }
+        });
+
+        const balanceAmount = netAmount - totalReceivedAmount;
+
+        // Update the form fields
+        $('#id_received_amount').val(totalReceivedAmount.toFixed(2));
+        $('#id_balance_amount').val(balanceAmount.toFixed(2));
+
+        // Update payment footer total
+        if (typeof updatePaymentFooterTotal === 'function') {
+            updatePaymentFooterTotal(totalReceivedAmount);
+        }
+
+        // Add visual feedback for balance status
+        const $balanceField = $('#id_balance_amount');
+        const $balanceLabel = $("label[for='id_balance_amount']");
+
+        // Remove previous classes
+        $balanceField.removeClass('text-success text-warning text-danger');
+        $balanceLabel.removeClass('text-success text-warning text-danger');
+
+        if (Math.abs(balanceAmount) < 0.01) {
+            $balanceField.addClass('text-success'); // Fully paid
+            $balanceLabel.addClass('text-success');
+        } else if (balanceAmount > 0) {
+            $balanceField.addClass('text-warning'); // Partial payment
+            $balanceLabel.addClass('text-warning');
+        } else {
+            $balanceField.addClass('text-danger'); // Overpaid
+            $balanceLabel.addClass('text-danger');
+        }
+
+        // Update amount words
+        if (AmountWordsManager) {
+            if (typeof AmountWordsManager.updateReceivedAmountWords === 'function') {
+                AmountWordsManager.updateReceivedAmountWords();
+            }
+            if (typeof AmountWordsManager.updateBalanceAmountWords === 'function') {
+                AmountWordsManager.updateBalanceAmountWords();
+            }
+        }
+    }
+
+    // Calculate all totals (main calculation function)
+    function calculateAllTotals() {
+        if (isCalculating) return;
+
+        let itemDiscountTotal = 0;
+        let subTotal = 0;
+        let taxTotal = 0;
+        let cgstTotal = 0;
+        let sgstTotal = 0;
+        let igstTotal = 0;
+        let quantityTotal = 0;
+        let taxableAmountTotal = 0;
+        let paymentAmountTotal = 0;
+
+        // Calculate totals from all rows
+        $('.formset_row').each(function () {
+            const row = $(this);
+            const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+            const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+            const discountAmount = parseFloat(row.find('.discount_amount-input').val()) || 0;
+            const taxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+            const lineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+
+            const rowSubtotal = quantity * unitPrice;
+            const rowTaxableAmount = Math.max(rowSubtotal - discountAmount, 0);
+
+            // Calculate GST amounts (assuming equal split for CGST/SGST, or IGST for inter-state)
+            // Check if transaction is inter-state
+            let isInterState = false;
+
+
+            let rowCgst = 0;
+            let rowSgst = 0;
+            let rowIgst = 0;
+
+            if (isInterState) {
+                // Inter-state: IGST = Tax Amount
+                rowIgst = taxAmount;
+            } else {
+                window.PartyMan
+                // Intra-state: CGST = SGST = Tax Amount / 2
+                rowCgst = taxAmount / 2;
+                rowSgst = taxAmount / 2;
+            }
+
+            itemDiscountTotal += discountAmount;
+            quantityTotal += quantity;
+            taxTotal += taxAmount;
+            cgstTotal += rowCgst;
+            sgstTotal += rowSgst;
+            igstTotal += rowIgst;
+            subTotal += lineTotal;
+            taxableAmountTotal += rowTaxableAmount;
+        });
+
+        // Calculate payment amounts total
+        $('.payment-formset-row').each(function () {
+            let $amountField;
+
+            // Find amount field using PaymentManager if available
+            if (PaymentManager && typeof PaymentManager.findAmountField === 'function') {
+                $amountField = PaymentManager.findAmountField($(this));
+            } else {
+                // Fallback method
+                $amountField = $(this).find('input[name*="amount"]').first();
+            }
+
+            if ($amountField.length > 0) {
+                const paymentAmount = parseFloat($amountField.val()) || 0;
+                paymentAmountTotal += paymentAmount;
+            }
+        });
+
+        // Update subtotal fields
+        const fieldsToUpdate = {
+            '#id_items_discount_total': itemDiscountTotal.toFixed(2),
+            '#id_total_quantity': quantityTotal.toString(),
+            '#id_sub_total': subTotal.toFixed(2),
+            '#id_taxable_amount': taxableAmountTotal.toFixed(2)
+        };
+
+        if ($('#id_is_gst').is(":checked")) {
+            fieldsToUpdate['#id_tax_amount'] = taxTotal.toFixed(2);
+            fieldsToUpdate['#id_cgst_amount'] = cgstTotal.toFixed(2);
+            fieldsToUpdate['#id_sgst_amount'] = sgstTotal.toFixed(2);
+            fieldsToUpdate['#id_igst_amount'] = igstTotal.toFixed(2);
+        }
+
+        // Update all fields at once
+        Object.entries(fieldsToUpdate).forEach(([selector, value]) => {
+            $(selector).val(value);
+        });
+
+        // Update payment total in footer
+        if (typeof updatePaymentFooterTotal === 'function') {
+            updatePaymentFooterTotal(paymentAmountTotal);
+        }
+
+        // Calculate final totals
+        calculateFinalTotals();
+    }
+
+    // Calculate final net amount and total amount with outstanding
+    function calculateFinalTotals() {
+        const subTotal = parseFloat($('#id_sub_total').val()) || 0;
+        const globalDiscountAmount = parseFloat($('#id_discount_amount').val()) || 0;
+        let roundOffAmount = parseFloat($('#id_round_off_amount').val()) || 0;
+
+        // Auto calculate round off if enabled
+        if ($("#id_auto_round_off").is(":checked")) {
+            const beforeRoundOff = subTotal - globalDiscountAmount;
+            // Proper rounding: round to nearest rupee and calculate adjustment
+            const roundedAmount = Math.round(beforeRoundOff);
+            roundOffAmount = roundedAmount - beforeRoundOff;
+            $('#id_round_off_amount').val(roundOffAmount.toFixed(2));
+        } else {
+            // When auto round off is disabled, ensure round off amount is 0
+            roundOffAmount = 0;
+            $('#id_round_off_amount').val('0.00');
+        }
+
+        const invoiceAmount = subTotal - globalDiscountAmount + roundOffAmount;
+        $('#id_invoice_amount').val(invoiceAmount.toFixed(2));
+
+        // Calculate total amount with outstanding
+        calculateTotalAmountWithOutstanding();
+
+        // Update net amount words immediately
+        if (AmountWordsManager && typeof AmountWordsManager.updateNetAmountWords === 'function') {
+            AmountWordsManager.updateNetAmountWords();
+        }
+
+        // Update payment calculations
+        calculatePaymentTotals();
+    }
+
+    // Calculate total amount considering outstanding amount and type
+    function calculateTotalAmountWithOutstanding() {
+        const invoiceAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+        const outstandingAmount = parseFloat($('#id_outstanding_amount').val()) || 0;
+        const outstandingType = $('#id_outstanding_type').val();
+
+        let totalAmount = invoiceAmount;
+
+        // DR (Debit) = Add to invoice amount, CR (Credit) = Subtract from invoice amount
+        if (outstandingType === 'DR') {
+            totalAmount = invoiceAmount + outstandingAmount;
+        } else if (outstandingType === 'CR') {
+            totalAmount = invoiceAmount - outstandingAmount;
+        }
+
+        // Ensure total amount is never negative
+        totalAmount = Math.max(totalAmount, 0);
+
+        $('#id_total_amount').val(totalAmount.toFixed(2));
+    }
+
+    // Global discount calculations
+    function calculateGlobalDiscountFromPercentage() {
+        const discountPercentage = parseFloat($('#id_discount_percentage').val()) || 0;
+        const subTotal = parseFloat($("#id_sub_total").val()) || 0;
+        const discountAmount = (subTotal * discountPercentage) / 100;
+
+        isCalculating = true;
+        $('#id_discount_amount').val(discountAmount.toFixed(2));
+        isCalculating = false;
+
+        calculateFinalTotals();
+    }
+
+    function calculateGlobalDiscountFromAmount() {
+        const discountAmount = parseFloat($('#id_discount_amount').val()) || 0;
+        const subTotal = parseFloat($("#id_sub_total").val()) || 0;
+        const discountPercentage = subTotal > 0 ? (discountAmount * 100) / subTotal : 0;
+
+        isCalculating = true;
+        $('#id_discount_percentage').val(discountPercentage.toFixed(2));
+        isCalculating = false;
+
+        calculateFinalTotals();
+    }
+
+    // Event binding for outstanding amount and type changes
+    function bindOutstandingAmountEvents() {
+        $('#id_outstanding_amount').on('input change keyup', function() {
+            calculateTotalAmountWithOutstanding();
+        });
+
+        $('#id_outstanding_type').on('change', function() {
+            calculateTotalAmountWithOutstanding();
+        });
+    }
+
+    // Initialize outstanding amount events when document is ready
+    $(document).ready(function() {
+        if (typeof bindOutstandingAmountEvents === 'function') {
+            bindOutstandingAmountEvents();
+        }
+    });
+</script>

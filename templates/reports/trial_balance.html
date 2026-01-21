@@ -1,0 +1,451 @@
+<!-- templates/reports/trial_balance.html -->
+{% extends 'reports/base_report.html' %}
+{% load static i18n extras humanize %}
+
+{% block extra_css %}
+<style>
+    /* Modern Report Styles */
+    :root {
+        --tbl-stripe-color: #f8f9fa;
+        --tbl-hover-color: #f1f3f5;
+    }
+
+    .report-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    .report-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important;
+    }
+
+    /* Table Typography & Layout */
+    .table-modern th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+        white-space: nowrap;
+    }
+    
+    .table-modern td {
+        vertical-align: middle;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #f1f3f5;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    /* Sticky Header */
+    .table-responsive {
+        max-height: 75vh;
+        overflow-y: auto;
+        border-radius: 0.5rem;
+    }
+    .table-modern thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    /* Hierarchy Visuals */
+    .indent-indicator {
+        border-left: 2px solid #dee2e6;
+        padding-left: 10px;
+        margin-right: 5px;
+        height: 100%;
+        display: inline-block;
+    }
+    
+    /* Group Rows */
+    .group-row {
+        background-color: #fff9e6 !important; /* Soft yellow for groups */
+    }
+    .group-row td {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    /* Footer Totals */
+    tfoot tr {
+        background-color: #212529 !important;
+        color: #fff;
+    }
+    tfoot td, tfoot th {
+        border: none !important;
+    }
+    
+    /* Sidebar Widgets */
+    .nature-item {
+        transition: background 0.2s;
+    }
+    .nature-item:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block report_title %}Trial Balance{% endblock %}
+{% block report_icon %}<i class="fe fe-book-open text-primary fs-3"></i>{% endblock %}
+{% block report_title_text %}Trial Balance Report{% endblock %}
+
+{% block report_subtitle %}
+<div class="d-flex flex-wrap gap-2 mt-2">
+    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
+      <i class="fe fe-calendar me-1"></i> {{ date_from|date:"d M Y" }} &mdash; {{ date_to|date:"d M Y" }}
+    </span>
+    
+    <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-2">
+      <i class="fe fe-git-branch me-1"></i>
+      {% if request.GET.branch %}
+         {# Try to find the name of the selected branch #}
+         {% for b in branches %}
+            {% if b.id|stringformat:"s" == request.GET.branch %}{{ b.name }}{% endif %}
+         {% empty %}
+             Branch ID: {{ request.GET.branch }}
+         {% endfor %}
+      {% else %}
+        All Active Branches
+      {% endif %}
+    </span>
+
+    {% if is_balanced %}
+    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
+      <i class="fe fe-check-circle me-1"></i> Books Balanced
+    </span>
+    {% else %}
+    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
+      <i class="fe fe-alert-triangle me-1"></i> Diff: ₹{{ difference|floatformat:2|intcomma }}
+    </span>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block report_actions %}
+<div class="dropdown">
+  <button class="btn btn-white border shadow-sm dropdown-toggle d-flex align-items-center text-muted fw-medium" type="button" data-bs-toggle="dropdown">
+    <i class="fe fe-filter me-2"></i> Report Options
+  </button>
+  <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg border-0 rounded-3" style="min-width: 400px;">
+    <h6 class="dropdown-header text-uppercase fw-bold mb-3">Filter Report</h6>
+    <form method="GET">
+      <div class="row g-3">
+        
+        <!-- CRITICAL FIX: Safe Branch Selector -->
+        <div class="col-12">
+            <label class="form-label small fw-bold text-muted">Branch Selection</label>
+            <select name="branch" class="form-select form-select-sm">
+                <option value="">All Branches</option>
+                
+                {# OPTION 1: Use 'branches' context variable if available (Recommended) #}
+                {% if branches %}
+                    {% for branch in branches %}
+                        <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                            {{ branch.name }}
+                        </option>
+                    {% endfor %}
+                
+                {# OPTION 2: Fallback to FilterSet field ONLY if it exists to avoid crashes #}
+                {% elif filterset.form.fields.branch %}
+                     {% for branch in filterset.form.fields.branch.queryset %}
+                        <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                            {{ branch.name }}
+                        </option>
+                     {% endfor %}
+
+                {# OPTION 3: Fallback to 'filter' context variable #}
+                {% elif filter.form.fields.branch %}
+                     {% for branch in filter.form.fields.branch.queryset %}
+                        <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"s" %}selected{% endif %}>
+                            {{ branch.name }}
+                        </option>
+                     {% endfor %}
+                {% endif %}
+            </select>
+            {% if not branches and not filter.form.fields.branch and not filterset.form.fields.branch %}
+                <div class="form-text text-danger small">
+                    <i class="fe fe-alert-circle"></i> No branches found. Please pass <code>branches</code> in view context.
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="col-6">
+          <label class="form-label small fw-bold text-muted">From</label>
+          <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from|date:'Y-m-d' }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label small fw-bold text-muted">To</label>
+          <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to|date:'Y-m-d' }}">
+        </div>
+
+        <div class="col-12">
+            <div class="bg-light p-3 rounded-2">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="show_zero_balance" value="true" id="show_zero_balance" {% if request.GET.show_zero_balance == 'true' %}checked{% endif %}>
+                    <label class="form-check-label small" for="show_zero_balance">Show Zero Balance Accounts</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="show_grouped" value="true" id="show_grouped" {% if request.GET.show_grouped == 'true' %}checked{% endif %}>
+                    <label class="form-check-label small" for="show_grouped">Group View</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 mt-3">
+          <button type="submit" class="btn btn-primary w-100">
+            Apply Filters
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block report_content %}
+<div class="main-content app-content bg-light-subtle pb-5">
+  <div class="container-fluid">
+    
+    <!-- Modern Summary Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Total Debits -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card report-card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-body position-relative">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="avatar avatar-md bg-success-subtle text-success rounded-3 me-3">
+                            <i class="fe fe-arrow-up-right fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-uppercase fs-11 fw-bold mb-0">Total Debits</p>
+                            <h4 class="fw-bold mb-0 text-dark">₹{{ totals.closing_debit|floatformat:2|intcomma }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-success" style="height: 4px;"></div>
+            </div>
+        </div>
+
+        <!-- Total Credits -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card report-card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-body position-relative">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="avatar avatar-md bg-danger-subtle text-danger rounded-3 me-3">
+                            <i class="fe fe-arrow-down-left fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-uppercase fs-11 fw-bold mb-0">Total Credits</p>
+                            <h4 class="fw-bold mb-0 text-dark">₹{{ totals.closing_credit|floatformat:2|intcomma }}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-danger" style="height: 4px;"></div>
+            </div>
+        </div>
+
+        <!-- Status Card -->
+        <div class="col-xl-6 col-md-12">
+            <div class="card report-card h-100 border-0 shadow-sm rounded-4">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-md {% if is_balanced %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %} rounded-circle me-3">
+                            <i class="fe {% if is_balanced %}fe-check{% else %}fe-alert-octagon{% endif %} fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted text-uppercase fs-11 fw-bold mb-0">Trial Balance Status</p>
+                            <h5 class="fw-bold mb-0 {% if is_balanced %}text-success{% else %}text-danger{% endif %}">
+                                {% if is_balanced %}Balanced{% else %}Out of Balance{% endif %}
+                            </h5>
+                        </div>
+                    </div>
+                    {% if not is_balanced %}
+                    <div class="text-end">
+                        <span class="text-muted small d-block">Difference</span>
+                        <span class="badge bg-danger fs-6">₹{{ difference|floatformat:2|intcomma }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Main Table Section -->
+      <div class="col-lg-9">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover table-modern mb-0" id="trial-balance-table">
+                <thead>
+                  <tr>
+                    <th class="ps-4" style="width: 10%;">Code</th>
+                    <th style="width: 40%;">Account Name</th>
+                    <th style="width: 10%;">Type</th>
+                    <th class="text-end" style="width: 10%;">Op. Debit</th>
+                    <th class="text-end" style="width: 10%;">Op. Credit</th>
+                    <th class="text-end" style="width: 10%;">Cl. Debit</th>
+                    <th class="text-end pe-4" style="width: 10%;">Cl. Credit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for account in accounts %}
+                  <tr class="{% if account.is_group_total %}group-row{% endif %}">
+                    <td class="ps-4">
+                      <span class="badge bg-light text-muted border font-monospace">{{ account.code|default:"#" }}</span>
+                    </td>
+                    <td>
+                      <div style="padding-left: {% if account.indent_level %}{{ account.indent_level|add:account.indent_level }}rem{% else %}0{% endif %};">
+                          {% if account.indent_level > 0 %}
+                            <span class="indent-indicator"></span>
+                          {% endif %}
+                          
+                          {% if account.is_group_total %}
+                            <span class="text-dark fw-bold">{{ account.name }}</span>
+                          {% else %}
+                            <a href="{% url 'reports:ledger_report' %}?account={{ account.id }}&date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}" 
+                               class="text-dark text-decoration-none fw-medium stretched-link">
+                              {{ account.name }}
+                            </a>
+                          {% endif %}
+                          
+                          {% if account.is_group_total %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis ms-2 px-1 py-0" style="font-size: 0.65rem;">GRP</span>
+                          {% endif %}
+                      </div>
+                    </td>
+                    <td>
+                        <span class="text-muted small text-truncate d-block" style="max-width: 100px;">
+                            {{ account.under.name|default:"-" }}
+                        </span>
+                    </td>
+                    
+                    <!-- Amounts -->
+                    <td class="text-end font-monospace text-secondary">
+                        {% if account.opening_debit_amount > 0 %}₹{{ account.opening_debit_amount|floatformat:2|intcomma }}{% else %}-{% endif %}
+                    </td>
+                    <td class="text-end font-monospace text-secondary">
+                        {% if account.opening_credit_amount > 0 %}₹{{ account.opening_credit_amount|floatformat:2|intcomma }}{% else %}-{% endif %}
+                    </td>
+                    <td class="text-end font-monospace {% if account.closing_debit_amount > 0 %}text-dark fw-bold{% else %}text-muted{% endif %}">
+                        {% if account.closing_debit_amount > 0 %}₹{{ account.closing_debit_amount|floatformat:2|intcomma }}{% else %}-{% endif %}
+                    </td>
+                    <td class="text-end pe-4 font-monospace {% if account.closing_credit_amount > 0 %}text-dark fw-bold{% else %}text-muted{% endif %}">
+                        {% if account.closing_credit_amount > 0 %}₹{{ account.closing_credit_amount|floatformat:2|intcomma }}{% else %}-{% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                      <td colspan="7" class="text-center py-5">
+                          <div class="d-flex flex-column align-items-center">
+                              <div class="mb-3 text-muted opacity-50">
+                                  <i class="fe fe-folder-minus fs-1"></i>
+                              </div>
+                              <h6 class="text-muted">No accounts found for this period/filter.</h6>
+                          </div>
+                      </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th colspan="3" class="ps-4 py-3 text-uppercase text-white-50">Grand Total</th>
+                    <th class="text-end font-monospace text-white-50">₹{{ totals.opening_debit|floatformat:2|intcomma }}</th>
+                    <th class="text-end font-monospace text-white-50">₹{{ totals.opening_credit|floatformat:2|intcomma }}</th>
+                    <th class="text-end font-monospace text-success">₹{{ totals.closing_debit|floatformat:2|intcomma }}</th>
+                    <th class="text-end pe-4 font-monospace text-danger">₹{{ totals.closing_credit|floatformat:2|intcomma }}</th>
+                  </tr>
+                  <!-- Balance Check Footer -->
+                  <tr class="{% if is_balanced %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                    <td colspan="5" class="ps-4 py-3 fw-bold {% if is_balanced %}text-success-emphasis{% else %}text-danger-emphasis{% endif %}">
+                        <i class="fe {% if is_balanced %}fe-check-circle{% else %}fe-alert-triangle{% endif %} me-2"></i>
+                        {% if is_balanced %}TRIAL BALANCE MATCHED{% else %}DIFFERENCE DETECTED{% endif %}
+                    </td>
+                    <td colspan="2" class="text-end pe-4 py-3 font-monospace fw-bold {% if is_balanced %}text-success-emphasis{% else %}text-danger-emphasis{% endif %}">
+                      {% if not is_balanced %}
+                         DIFF: ₹{{ difference|floatformat:2|intcomma }}
+                      {% else %}
+                         OK
+                      {% endif %}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Sidebar -->
+      <div class="col-lg-3">
+        {% if summary_by_nature %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom border-light py-3">
+            <h6 class="card-title mb-0 fw-bold d-flex align-items-center">
+                <i class="fe fe-pie-chart me-2 text-primary"></i> Summary by Nature
+            </h6>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush rounded-bottom-4">
+              {% for nature, amounts in summary_by_nature.items %}
+              <div class="list-group-item nature-item px-4 py-3 border-light">
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="fw-medium text-dark">{{ nature }}</span>
+                </div>
+                
+                <!-- Mini Progress Bars for Visual Comparison -->
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>DR</span>
+                        <span>CR</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        {% with total=amounts.closing_debit|add:amounts.closing_credit %}
+                        {% if total > 0 %}
+                            {% widthratio amounts.closing_debit total 100 as deb_percent %}
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ deb_percent }}%"></div>
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: {{ 100|add:deb_percent|stringformat:'s'|slice:'1:' }}%"></div> 
+                        {% else %}
+                            <div class="progress-bar w-100 bg-light"></div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <div class="row g-0 small mt-2">
+                  <div class="col-6">
+                    <span class="text-success fw-bold font-monospace">₹{{ amounts.closing_debit|floatformat:0|intcomma }}</span>
+                  </div>
+                  <div class="col-6 text-end">
+                    <span class="text-danger fw-bold font-monospace">₹{{ amounts.closing_credit|floatformat:0|intcomma }}</span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="card bg-primary-subtle border-0 rounded-4">
+            <div class="card-body p-4">
+                <div class="d-flex">
+                    <i class="fe fe-info text-primary me-3 fs-4"></i>
+                    <div>
+                        <h6 class="text-primary fw-bold mb-1">Did you know?</h6>
+                        <p class="text-primary-emphasis small mb-0 opacity-75">
+                            You can click on any account name to view the detailed ledger transactions for the selected period.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>    
+    </div>
+  </div>
+</div>
+{% endblock %}

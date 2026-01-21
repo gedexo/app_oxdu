@@ -1,0 +1,664 @@
+<script>
+    // item-manager.js - Item selection and management (Complete Updated Version)
+function initializeItemEvents() {
+    // Store active row when select2 is opened
+    $('.item-select').on("select2:open", function () {
+        $("#item-form").data("activeRow", $(this).closest(".formset_row"));
+    });
+
+    // Handle item selection change
+    $(document).on('change', '.item-select', function () {
+        const row = $(this).closest(".formset_row");
+        const item_id = $(this).val();
+
+        if (!item_id) return;
+
+        $.ajax({
+            url: `/transactions/incomeexpenseproduct/${item_id}/detail/`,
+            type: "GET",
+            dataType: "json",
+            success: function (response) {
+                if (response.result) {
+                    console.log("Fetched item details:", response.result);
+                    row.find('.item-select').data("item", response.result);
+                    fetchAndUpdateItemDetails(response, row);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching item details:", xhr.responseText);
+            }
+        });
+    });
+
+    // Handle item search and filtering
+    $('.item-select').on('select2:opening', function() {
+        const $select = $(this);
+        const row = $select.closest('.formset_row');
+        
+        // Store current row context for filtering
+        $select.data('currentRow', row);
+    });
+}
+
+// Fetch and update item details (CORRECTED - tax is ID, not rate)
+function fetchAndUpdateItemDetails(response, row) {
+    if (!response.success) {
+        console.error("Failed to fetch item details:", response.message || "Unknown error.");
+        return;
+    }
+
+    const data = response.result;
+    const taxId = data.tax; // This is the tax ID, not the rate
+    const priceIncTax = parseFloat(data.price_inc_tax) || 0;
+    const priceExcTax = parseFloat(data.price_exc_tax) || 0;
+    
+    // Determine which price to use based on GST status and business logic
+    const unitPrice = handleItemPricing(data, row);
+    
+    if (unitPrice === false) {
+        // Pricing validation failed
+        return;
+    }
+
+    // Update basic item details
+    row.find('.unit-price-input').val(unitPrice.toFixed(2));
+    row.find('.quantity-input').val(1);
+
+    // Set tax type and rate based on GST status
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    
+    if (isGstEnabled && taxId) {
+        const $taxSelect = row.find('.tax-input');
+        
+        console.log('Setting tax for item. Tax ID from API:', taxId);
+        console.log('Available tax options:', $taxSelect.find('option').map(function() {
+            return {
+                value: $(this).val(),
+                text: $(this).text()
+            };
+        }).get());
+        
+        // Check if the tax ID exists in the dropdown options
+        const taxOption = $taxSelect.find(`option[value="${taxId}"]`);
+        
+        if (taxOption.length > 0) {
+            console.log('Found matching tax option with ID:', taxId);
+            
+            // Set the tax select value
+            $taxSelect.val(taxId);
+            
+            // Get the actual tax rate from data-options
+            const taxRate = getTaxRateFromDataOptions($taxSelect, taxId);
+            console.log('Tax rate for ID', taxId, 'is:', taxRate);
+            
+            // Store the tax rate in row data
+            row.data('taxRate', taxRate);
+            
+            // Trigger change event to update calculations
+            $taxSelect.trigger('change');
+        } else {
+            // Tax ID not found in dropdown
+            console.warn(`Tax ID ${taxId} not found in dropdown options`);
+            
+            // Clear selection but still try to get rate info
+            $taxSelect.val('');
+            row.data('taxRate', 0);
+            
+            // Optionally show user notification
+            if (typeof showToastNotification === 'function') {
+                showToastNotification(
+                    `Item "${data.name}" has a tax configuration that is not available in the dropdown. Please select tax manually.`, 
+                    'warning'
+                );
+            }
+            
+            // Still trigger change to update display
+            $taxSelect.trigger('change');
+        }
+    } else {
+        // Clear tax selection when GST disabled or no tax
+        const $taxSelect = row.find('.tax-input');
+        $taxSelect.val('');
+        row.data('taxRate', 0);
+        $taxSelect.trigger('change');
+    }
+
+    // Clear discounts for new item
+    row.find('.discount_amount-input').val('0');
+    row.find('.discount_percentage-input').val('0');
+
+    // Store comprehensive item data (store taxId for reference)
+    row.data('itemData', {
+        id: data.id,
+        name: data.name,
+        category: data.category || 'Unknown',
+        branch: data.branch || null,
+        hsnOrSac: data.hsn_or_sac || null,
+        taxId: taxId, // Store the tax ID
+        priceIncTax: priceIncTax,
+        priceExcTax: priceExcTax,
+        unitPrice: unitPrice,
+        description: data.description || '',
+        unit: data.unit || 'Nos'
+    });
+
+    // Calculate row amounts
+    if (typeof calculateRowAmounts === 'function') {
+        calculateRowAmounts(row);
+    }
+
+    // Focus on quantity field for user convenience
+    const quantityField = row.find('.quantity-input');
+    if (quantityField.length > 0) {
+        setTimeout(() => {
+            quantityField.focus().select();
+        }, 100);
+    }
+
+    // Show item details in tooltip or info section
+    updateItemInfoDisplay(row, data);
+}
+
+// Function to get tax rate from data-options using tax ID
+function getTaxRateFromDataOptions(taxSelect, taxId) {
+    try {
+        // Get data-options from the select element
+        let dataOptions = taxSelect.data('options');
+        
+        // If dataOptions is a string, parse it
+        if (typeof dataOptions === 'string') {
+            dataOptions = JSON.parse(dataOptions);
+        }
+        
+        // If no data-options, try to get from attribute
+        if (!dataOptions) {
+            const dataOptionsStr = taxSelect.attr('data-options');
+            if (dataOptionsStr) {
+                dataOptions = JSON.parse(dataOptionsStr);
+            }
+        }
+        
+        if (!dataOptions || typeof dataOptions !== 'object') {
+            console.error('No valid data-options found on tax select');
+            return 0;
+        }
+        
+        // Convert taxId to string for comparison (in case it comes as number)
+        const taxIdStr = String(taxId);
+        
+        // Get the rate for this tax ID
+        if (dataOptions.hasOwnProperty(taxIdStr)) {
+            const rate = parseFloat(dataOptions[taxIdStr]) || 0;
+            console.log('Found tax rate:', rate, 'for tax ID:', taxIdStr);
+            return rate;
+        }
+        
+        console.warn('Tax ID', taxIdStr, 'not found in data-options:', dataOptions);
+        return 0;
+        
+    } catch (error) {
+        console.error('Error getting tax rate from data-options:', error);
+        return 0;
+    }
+}
+
+// Updated updateItemInfoDisplay function
+function updateItemInfoDisplay(row, itemData) {
+    const $infoContainer = row.find('.item-info');
+    
+    if ($infoContainer.length > 0) {
+        // Get the actual tax rate from the row data
+        const taxRate = row.data('taxRate') || 0;
+        const taxInfo = taxRate > 0 ? `Tax: ${taxRate}%` : 'Tax: 0%';
+        const hsnInfo = itemData.hsn_or_sac ? `HSN/SAC: ${itemData.hsn_or_sac}` : '';
+        const priceInfo = `Inc Tax: ₹${parseFloat(itemData.price_inc_tax).toFixed(2)} | Exc Tax: ₹${parseFloat(itemData.price_exc_tax).toFixed(2)}`;
+        
+        const infoHtml = `
+            <small class="text-muted">
+                <strong>${itemData.name}</strong><br>
+                Category: ${itemData.category || 'N/A'}<br>
+                ${hsnInfo ? hsnInfo + '<br>' : ''}
+                ${priceInfo}<br>
+                ${taxInfo}
+            </small>
+        `;
+        $infoContainer.html(infoHtml);
+    }
+}
+
+// Function to handle different price scenarios
+function handleItemPricing(itemData, row) {
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    const validation = validateItemData(itemData);
+    
+    if (!validation.isValid) {
+        console.error('Item data validation failed:', validation.errors);
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Invalid item data: ' + validation.errors.join(', '), 'error');
+        }
+        return false;
+    }
+    
+    let unitPrice;
+    
+    if (isGstEnabled) {
+        // When GST is enabled, use price excluding tax for calculations
+        unitPrice = parseFloat(itemData.price_exc_tax) || 0;
+        if (unitPrice === 0 && itemData.price_inc_tax > 0) {
+            // If price_exc_tax is 0, use price_inc_tax as is
+            // The tax will be calculated based on the tax rate from the dropdown
+            unitPrice = parseFloat(itemData.price_inc_tax) || 0;
+        }
+    } else {
+        // When GST is disabled, use price including tax
+        unitPrice = parseFloat(itemData.price_inc_tax) || 0;
+        if (unitPrice === 0 && itemData.price_exc_tax > 0) {
+            unitPrice = parseFloat(itemData.price_exc_tax) || 0;
+        }
+    }
+    
+    return unitPrice;
+}
+
+// Enhanced validation for the new data structure
+function validateItemData(itemData) {
+    const errors = [];
+    
+    if (!itemData.id) {
+        errors.push('Item ID is missing');
+    }
+    
+    if (!itemData.name) {
+        errors.push('Item name is missing');
+    }
+    
+    if (!itemData.price_inc_tax && !itemData.price_exc_tax) {
+        errors.push('Both inclusive and exclusive prices are missing');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
+// Helper function to determine price based on tax inclusion preference
+function getItemPrice(itemData, preferExcludingTax = true) {
+    const priceIncTax = parseFloat(itemData.price_inc_tax) || 0;
+    const priceExcTax = parseFloat(itemData.price_exc_tax) || 0;
+    
+    if (preferExcludingTax) {
+        return priceExcTax > 0 ? priceExcTax : priceIncTax;
+    } else {
+        return priceIncTax > 0 ? priceIncTax : priceExcTax;
+    }
+}
+
+// Price calculation events for item modal
+function bindPriceCalculationEvents() {
+    $("#id_price, #id_tax").on("input", function() {
+        if (typeof calculatePriceWithoutTax === 'function') {
+            calculatePriceWithoutTax();
+        }
+    });
+    
+    $("#id_tax_included").on("change", function() {
+        if (typeof calculatePriceWithoutTax === 'function') {
+            calculatePriceWithoutTax();
+        }
+    });
+}
+
+// Clear item selection and reset row
+function clearItemSelection(row) {
+    const $itemSelect = row.find('.item-select');
+    
+    // Clear selection
+    if ($itemSelect.hasClass('select2-hidden-accessible')) {
+        $itemSelect.val(null).trigger('change');
+    } else {
+        $itemSelect.val('');
+    }
+    
+    // Reset all fields
+    row.find('.unit-price-input').val('0.00');
+    row.find('.quantity-input').val('1');
+    row.find('.tax-input').val('').trigger('change');
+    row.find('.discount_amount-input').val('0');
+    row.find('.discount_percentage-input').val('0');
+    row.find('.taxable-value-input').val('0.00');
+    row.find('.tax_amount-input').val('0.00');
+    row.find('.line_total-input').val('0.00');
+    
+    // Clear stored data
+    row.removeData('itemData');
+    row.removeData('userChangedTaxableAmount');
+    row.removeData('taxRate');
+    
+    // Clear info display
+    row.find('.item-info').html('');
+    
+    // Recalculate totals
+    if (typeof calculateAllTotals === 'function') {
+        calculateAllTotals();
+    }
+}
+
+// Get item data from row
+function getItemDataFromRow(row) {
+    return row.data('itemData') || null;
+}
+
+// Validate item selection in row
+function validateItemSelection(row) {
+    const $itemSelect = row.find('.item-select');
+    const selectedValue = $itemSelect.val();
+    
+    if (!selectedValue || selectedValue === '') {
+        return {
+            valid: false,
+            message: 'Please select an item'
+        };
+    }
+    
+    const itemData = getItemDataFromRow(row);
+    if (!itemData) {
+        return {
+            valid: false,
+            message: 'Item data not loaded properly'
+        };
+    }
+    
+    return {
+        valid: true,
+        message: 'Item selection valid',
+        data: itemData
+    };
+}
+
+// Filter items based on category or search term
+function filterItems(searchTerm, categoryId = null) {
+    const $itemSelects = $('.item-select');
+    
+    $itemSelects.each(function() {
+        const $select = $(this);
+        
+        // If this is a Select2 instance
+        if ($select.hasClass('select2-hidden-accessible')) {
+            // Let Select2 handle its own filtering
+            return;
+        }
+        
+        // Filter regular select options
+        $select.find('option').each(function() {
+            const $option = $(this);
+            const optionText = $option.text().toLowerCase();
+            const optionCategory = $option.data('category');
+            
+            let show = true;
+            
+            // Filter by search term
+            if (searchTerm && !optionText.includes(searchTerm.toLowerCase())) {
+                show = false;
+            }
+            
+            // Filter by category
+            if (categoryId && optionCategory && optionCategory != categoryId) {
+                show = false;
+            }
+            
+            $option.toggle(show);
+        });
+    });
+}
+
+// Duplicate item to another row
+function duplicateItemToRow(sourceRow, targetRow) {
+    const itemData = getItemDataFromRow(sourceRow);
+    
+    if (!itemData) {
+        console.warn('No item data found in source row');
+        return false;
+    }
+    
+    // Set the same item in target row
+    const $targetSelect = targetRow.find('.item-select');
+    
+    if ($targetSelect.hasClass('select2-hidden-accessible')) {
+        $targetSelect.val(itemData.id).trigger('change');
+    } else {
+        $targetSelect.val(itemData.id).trigger('change');
+    }
+    
+    return true;
+}
+
+// Get all selected items summary
+function getSelectedItemsSummary() {
+    const items = [];
+    let totalQuantity = 0;
+    let totalValue = 0;
+    
+    $('.formset_row').each(function() {
+        const row = $(this);
+        const itemData = getItemDataFromRow(row);
+        
+        if (itemData) {
+            const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+            const unitPrice = parseFloat(row.find('.unit-price-input').val()) || 0;
+            const lineTotal = parseFloat(row.find('.line_total-input').val()) || 0;
+            const taxRate = row.data('taxRate') || 0;
+            const taxAmount = parseFloat(row.find('.tax_amount-input').val()) || 0;
+            
+            items.push({
+                id: itemData.id,
+                name: itemData.name,
+                category: itemData.category,
+                hsnOrSac: itemData.hsnOrSac,
+                branch: itemData.branch,
+                taxId: itemData.taxId,
+                quantity: quantity,
+                unitPrice: unitPrice,
+                lineTotal: lineTotal,
+                taxRate: taxRate,
+                taxAmount: taxAmount,
+                priceIncTax: itemData.priceIncTax,
+                priceExcTax: itemData.priceExcTax,
+                unit: itemData.unit
+            });
+            
+            totalQuantity += quantity;
+            totalValue += lineTotal;
+        }
+    });
+    
+    return {
+        items: items,
+        totalItems: items.length,
+        totalQuantity: totalQuantity,
+        totalValue: totalValue
+    };
+}
+
+// Auto-suggest items based on previous transactions
+function autoSuggestItems(partyId = null, limit = 5) {
+    if (!partyId) {
+        partyId = $('#id_party').val();
+    }
+    
+    if (!partyId) return;
+    
+    // Make API call to get frequently used items for this party
+    $.get(`/transactions/party/${partyId}/frequent-items/`, { limit: limit })
+        .done(function(response) {
+            if (response.success && response.items && response.items.length > 0) {
+                displayItemSuggestions(response.items);
+            }
+        })
+        .fail(function(xhr) {
+            console.warn('Failed to load item suggestions:', xhr.responseText);
+        });
+}
+
+// Display item suggestions
+function displayItemSuggestions(items) {
+    let suggestionsHtml = '<div class="item-suggestions mt-2">';
+    suggestionsHtml += '<small class="text-muted">Frequently used items:</small><br>';
+    
+    items.forEach(item => {
+        suggestionsHtml += `
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1 suggestion-item" 
+                    data-item-id="${item.id}" data-item-name="${item.name}">
+                ${item.name}
+            </button>
+        `;
+    });
+    
+    suggestionsHtml += '</div>';
+    
+    // Add to the first empty row or create new row
+    const $emptyRow = $('.formset_row').filter(function() {
+        return !$(this).find('.item-select').val();
+    }).first();
+    
+    if ($emptyRow.length > 0) {
+        $emptyRow.find('.item-select').closest('td').append(suggestionsHtml);
+        
+        // Bind click events to suggestions
+        $emptyRow.find('.suggestion-item').on('click', function() {
+            const itemId = $(this).data('item-id');
+            const $itemSelect = $emptyRow.find('.item-select');
+            
+            if ($itemSelect.hasClass('select2-hidden-accessible')) {
+                $itemSelect.val(itemId).trigger('change');
+            } else {
+                $itemSelect.val(itemId).trigger('change');
+            }
+            
+            // Remove suggestions after selection
+            $(this).closest('.item-suggestions').remove();
+        });
+    }
+}
+
+// Get tax information for selected item
+function getItemTaxInfo(row) {
+    const itemData = getItemDataFromRow(row);
+    const taxRate = row.data('taxRate') || 0;
+    const $taxSelect = row.find('.tax-input');
+    const selectedTaxType = $taxSelect.find('option:selected').text();
+    
+    return {
+        itemTaxId: itemData ? itemData.taxId : null,
+        selectedTaxRate: taxRate,
+        selectedTaxType: selectedTaxType || 'None',
+        hasTax: taxRate > 0,
+        hsnOrSac: itemData ? itemData.hsnOrSac : null,
+        priceIncTax: itemData ? itemData.priceIncTax : 0,
+        priceExcTax: itemData ? itemData.priceExcTax : 0
+    };
+}
+
+// Get item pricing information
+function getItemPricingInfo(row) {
+    const itemData = getItemDataFromRow(row);
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    
+    if (!itemData) return null;
+    
+    return {
+        priceIncTax: parseFloat(itemData.priceIncTax) || 0,
+        priceExcTax: parseFloat(itemData.priceExcTax) || 0,
+        currentUnitPrice: parseFloat(row.find('.unit-price-input').val()) || 0,
+        taxId: itemData.taxId,
+        isGstEnabled: isGstEnabled,
+        recommendedPrice: isGstEnabled ? (parseFloat(itemData.priceExcTax) || 0) : (parseFloat(itemData.priceIncTax) || 0)
+    };
+}
+
+// Initialize item manager
+function initializeItemManager() {
+    // Initialize item events
+    initializeItemEvents();
+    
+    // Bind price calculation events
+    bindPriceCalculationEvents();
+    
+    // Auto-suggest items when party changes
+    $('#id_party').on('change', function() {
+        const partyId = $(this).val();
+        if (partyId) {
+            setTimeout(() => autoSuggestItems(partyId), 500);
+        }
+    });
+    
+    // Show initialization message
+    if (typeof showToastNotification === 'function') {
+        showToastNotification('Item Manager initialized', 'info');
+    }
+}
+
+// Export ItemManager object for external access
+const ItemManager = {
+    initialize: initializeItemManager,
+    initializeEvents: initializeItemEvents,
+    fetchAndUpdateItemDetails: fetchAndUpdateItemDetails,
+    clearItemSelection: clearItemSelection,
+    getItemDataFromRow: getItemDataFromRow,
+    validateItemSelection: validateItemSelection,
+    validateItemData: validateItemData,
+    filterItems: filterItems,
+    duplicateItemToRow: duplicateItemToRow,
+    getSelectedItemsSummary: getSelectedItemsSummary,
+    autoSuggestItems: autoSuggestItems,
+    getItemTaxInfo: getItemTaxInfo,
+    getItemPrice: getItemPrice,
+    getItemPricingInfo: getItemPricingInfo,
+    handleItemPricing: handleItemPricing,
+    getTaxRateFromDataOptions: getTaxRateFromDataOptions,
+    
+    // Utility methods
+    hasValidSelection: function(row) {
+        return this.validateItemSelection(row).valid;
+    },
+    
+    getSelectedItemsCount: function() {
+        return $('.formset_row .item-select').filter(function() {
+            return $(this).val() && $(this).val() !== '';
+        }).length;
+    },
+    
+    clearAllSelections: function() {
+        $('.formset_row').each(function() {
+            ItemManager.clearItemSelection($(this));
+        });
+        
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('All item selections cleared', 'info');
+        }
+    },
+    
+    // Pricing utilities
+    switchPricingMode: function(useInclusivePricing = false) {
+        $('.formset_row').each(function() {
+            const row = $(this);
+            const itemData = getItemDataFromRow(row);
+            
+            if (itemData) {
+                const newPrice = useInclusivePricing ? 
+                    parseFloat(itemData.priceIncTax) : 
+                    parseFloat(itemData.priceExcTax);
+                
+                if (newPrice > 0) {
+                    row.find('.unit-price-input').val(newPrice.toFixed(2));
+                }
+            }
+        });
+        
+        // Recalculate all totals
+        if (typeof calculateAllTotals === 'function') {
+            calculateAllTotals();
+        }
+    }
+};
+</script>

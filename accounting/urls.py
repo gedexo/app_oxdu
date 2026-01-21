@@ -5,12 +5,9 @@ app_name = "accounting"
 
 urlpatterns = [
     #ajax
-    path('ajax/get-next-group-code/', views.get_next_group_code_ajax, name='get_next_group_code_ajax'),
-    path(
-        "ajax/groups/", views.ajax_group_master_by_branch, name="ajax_group_master_by_branch"
-    ),
+    path("ajax/next-group-code/", views.ajax_get_next_group_code, name="ajax_get_next_group_code"),
+    path("ajax/groups/", views.ajax_group_master_by_branch, name="ajax_group_master_by_branch"),
     path('api/account/<int:pk>/type/', views.get_account_type_api, name='account_type_api'),
-
 
     # Accounting Base View
     path("base/", views.AccountingBase.as_view(), name="accounting_base"),
@@ -29,14 +26,4 @@ urlpatterns = [
     path("account/<str:pk>/update/", views.AccountUpdateView.as_view(), name="account_update"),
     path("account/<str:pk>/delete/", views.AccountDeleteView.as_view(), name="account_delete"),
     
-    # financial reports
-    path("trial-balance/", views.TrialBalanceView.as_view(), name="trial_balance"),
-    path("balance-sheet/", views.BalanceSheetView.as_view(), name="balance_sheet"),
-    path("profit-loss/", views.ProfitAndLossView.as_view(), name="profit_loss"),
-    path("cash-flow/", views.CashFlowStatementView.as_view(), name="cash_flow"),
-    path("ledger-report/", views.LedgerReportView.as_view(), name="ledger_report"),
-    
-    # income and expense
-    path("incomes/", views.IncomeRedirectView.as_view(), name="income_list"),
-    path("expenses/", views.ExpenseRedirectView.as_view(), name="expense_list"),
 ]   

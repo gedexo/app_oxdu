@@ -1,6 +1,6 @@
 from core.base import BaseAdmin
 
-from .models import Activity, Batch, BranchActivity, ChatSession, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PdfBook, PlacementHistory, PublicMessage, Syllabus, BatchSyllabusStatus, SyllabusMaster, RequestSubmission, RequestSubmissionStatusHistory, Event
+from .models import Activity, Batch, BranchActivity, ChatSession, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PdfBook, PlacementHistory, PublicMessage, Syllabus, BatchSyllabusStatus, SyllabusMaster, RequestSubmission, RequestSubmissionStatusHistory, Event, State
 from django.contrib import admin
 
 
@@ -103,4 +103,8 @@ class EventAdmin(BaseAdmin):
 
 @admin.register(ChatSession)
 class ChatSessionAdmin(BaseAdmin):
+    pass
+
+@admin.register(State)
+class StateAdmin(BaseAdmin):
     pass

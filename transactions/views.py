@@ -23,8 +23,9 @@ from transactions.utils import generate_next_voucher_number
 
 from . import forms
 from .models import IncomeExpense, Transaction, TransactionEntry, ContraVoucher
-
-from accounting.models import Account
+# Assuming GroupMaster is imported from accounting.models or similar in your full project, 
+# though it wasn't explicitly in the import list of the snippet, it's used in the code.
+from accounting.models import Account, GroupMaster 
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,65 @@ def load_party_accounts(request):
         data = [{'id': a.id, 'name': f"{a.name} ({a.under.name if a.under else ''})"} for a in accounts]
 
     return JsonResponse(data, safe=False)
+
+
+def load_accounts_by_branch(request):
+    """
+    API endpoint to load accounts based on selected branch and type
+    Expected parameters:
+    - branch_id: ID of the selected branch
+    - type: Type of accounts to load ('income', 'expense', or 'party')
+    """
+    branch_id = request.GET.get('branch_id')
+    account_type = request.GET.get('type', '').lower()
+    data = []
+
+    if branch_id and account_type:
+        try:
+            from django.db.models import Q
+            from branches.models import Branch
+            
+            # Get the branch object
+            branch = Branch.objects.filter(id=branch_id).first()
+            
+            # Start with branch filter
+            accounts = Account.objects.filter(branch_id=branch_id, is_active=True)
+            
+            # Apply type-specific filters
+            if account_type == 'income':
+                # Filter for income accounts using utility functions
+                from accounting.utils import get_direct_income_group_ids, get_indirect_income_group_ids
+                if branch:
+                    income_group_ids = get_direct_income_group_ids(branch) + get_indirect_income_group_ids(branch)
+                    accounts = accounts.filter(under_id__in=income_group_ids)
+            elif account_type == 'expense':
+                # Filter for expense accounts using utility functions
+                from accounting.utils import get_direct_expense_group_ids, get_indirect_expense_group_ids
+                if branch:
+                    expense_group_ids = get_direct_expense_group_ids(branch) + get_indirect_expense_group_ids(branch)
+                    accounts = accounts.filter(under_id__in=expense_group_ids)
+            elif account_type == 'party':
+                # Check if 'is_gst' parameter is provided to determine if it's a party transaction
+                is_party = request.GET.get('is_party', '').lower() in ['true', '1', 'yes']
+                if is_party:
+                    # If is_party is true, show Sundry Creditors and Sundry Debtors accounts
+                    from accounting.utils import get_sundry_creditors_group_ids, get_sundry_debtors_group_ids
+                    if branch:
+                        party_group_ids = get_sundry_creditors_group_ids(branch) + get_sundry_debtors_group_ids(branch)
+                        accounts = accounts.filter(under_id__in=party_group_ids)
+                else:
+                    # Otherwise show CUSTOMER/SUPPLIER ledger types
+                    accounts = accounts.filter(ledger_type__in=['CUSTOMER', 'SUPPLIER'])
+            elif account_type == 'payment':
+                # Filter for payment accounts (BANK_ACCOUNT and CASH_ACCOUNT)
+                accounts = accounts.filter(under__locking_group__in=['BANK_ACCOUNT', 'CASH_ACCOUNT'])
+            
+            accounts = accounts.select_related('under', 'branch')
+            data = [{'id': a.id, 'name': str(a)} for a in accounts]
+        except Exception as e:
+            logger.error(f"Error loading accounts by branch: {str(e)}")
+    
+    return JsonResponse({'accounts': data}, safe=False)
 
 
 def load_category_accounts(request):
@@ -144,6 +204,720 @@ class IncomeExpenseMixin(TransactionMixin):
             {"name": "Expense", "prefix": "transactions:expense", "view_perm": "transactions.view_incomeexpense", "add_perm": "transactions.add_incomeexpense"},
         ]
 
+
+def get_account_by_locking_type(locking_account_type, branch=None, transaction_type=None):
+    """
+    Get account by locking type.
+    """
+    # Adjust locking type for GST accounts based on transaction type
+    if transaction_type and locking_account_type in ['CGST_PAYABLE', 'SGST_PAYABLE', 'IGST_PAYABLE']:
+        if transaction_type == 'expense':
+            # Expense uses RECEIVABLE (input tax credit)
+            locking_account_type = locking_account_type.replace('PAYABLE', 'RECEIVABLE')
+    
+    try:
+        # 1. Try to find branch-specific account
+        return Account.objects.get(
+            locking_account=locking_account_type,
+            branch=branch
+        )
+    except Account.DoesNotExist:
+        # 2. Fallback: Get the first available account of this type (Global/Other branch)
+        account = Account.objects.filter(locking_account=locking_account_type).first()
+        if not account:
+            raise ValidationError(f"{locking_account_type} account not found. Please configure system accounts.")
+        return account
+    except Account.MultipleObjectsReturned:
+        # 3. If multiple found for this branch, return the first
+        return Account.objects.filter(
+            locking_account=locking_account_type,
+            branch=branch
+        ).first()
+
+
+def create_transaction_entry(transaction, account, debit_amount, credit_amount, description, creator):
+    """
+    Create a transaction entry (Line Item)
+    """
+    if not account:
+        raise ValidationError(f"Account required for: {description}")
+    
+    if not hasattr(account, 'pk') or not account.pk:
+        raise ValidationError(f"Invalid account for: {description}")
+    
+    # REMOVED 'branch' and 'company' from here as they are not in the TransactionEntry model
+    return TransactionEntry.objects.create(
+        transaction=transaction,
+        account=account,
+        debit_amount=debit_amount,
+        credit_amount=credit_amount,
+        description=description,
+        creator=creator
+    )
+
+def create_gst_entry(transaction, account_type, amount, entry_type, description_prefix, branch, transaction_type, creator):
+    """
+    Create GST accounting entry
+    """
+    account = get_account_by_locking_type(
+        account_type, 
+        branch=branch, 
+        transaction_type=transaction_type
+    )
+    
+    debit = amount if entry_type == 'DR' else Decimal('0.00')
+    credit = amount if entry_type == 'CR' else Decimal('0.00')
+    
+    create_transaction_entry(
+        transaction=transaction,
+        account=account,
+        debit_amount=debit,
+        credit_amount=credit,
+        description=f"{description_prefix} (Voucher: {transaction.voucher_number})",
+        creator=creator
+    )
+
+
+def create_rounding_entry(transaction, round_off_amount, transaction_type, branch, creator):
+    """
+    Create rounding off accounting entry
+    """
+    rounding_account = get_account_by_locking_type(
+        'ROUNDING_OFF',
+        branch=branch
+    )
+    
+    if round_off_amount > 0:
+        if transaction_type == 'income':
+            debit, credit = Decimal('0.00'), abs(round_off_amount)
+        else:
+            debit, credit = abs(round_off_amount), Decimal('0.00')
+    else:
+        if transaction_type == 'income':
+            debit, credit = abs(round_off_amount), Decimal('0.00')
+        else:
+            debit, credit = Decimal('0.00'), abs(round_off_amount)
+    
+    create_transaction_entry(
+        transaction=transaction,
+        account=rounding_account,
+        debit_amount=debit,
+        credit_amount=credit,
+        description=f"Rounding off (Voucher: {transaction.voucher_number})",
+        creator=creator
+    )
+
+
+
+def calculate_payment_total_from_entries(transaction, transaction_type):
+    """
+    Calculate total payments from existing transaction entries
+    
+    Args:
+        transaction: Transaction instance
+        transaction_type: 'income' or 'expense'
+    
+    Returns:
+        Decimal total payment amount
+    """
+    payment_entries = TransactionEntry.objects.filter(
+        transaction=transaction,
+        account__under__locking_group__in=['BANK_ACCOUNT', 'CASH_ACCOUNT']
+    )
+    
+    if transaction_type == 'income':
+        # Income: payments are debits to bank/cash
+        return sum(entry.debit_amount for entry in payment_entries)
+    else:
+        # Expense: payments are credits to bank/cash
+        return sum(entry.credit_amount for entry in payment_entries)
+
+
+def create_income_accounting_entries(instance, transaction_type, branch, creator):
+    """
+    Create all accounting entries for income transactions
+    """
+    transaction = instance.transaction
+    
+    # Extract amounts
+    taxable_amount = instance.taxable_amount or Decimal('0.00')
+    cgst_amount = instance.cgst_amount or Decimal('0.00')
+    sgst_amount = instance.sgst_amount or Decimal('0.00')
+    igst_amount = instance.igst_amount or Decimal('0.00')
+    discount_amount = instance.discount_amount or Decimal('0.00')
+    round_off_amount = instance.round_off_amount or Decimal('0.00')
+    invoice_amount = transaction.invoice_amount or Decimal('0.00')
+
+    # Calculate paid and unpaid amounts
+    total_paid = calculate_payment_total_from_entries(transaction, transaction_type)
+    unpaid_amount = invoice_amount - total_paid
+
+    # Entry 1: CR Income Category
+    category_amount = taxable_amount if instance.is_gst else (invoice_amount - round_off_amount)
+    if category_amount > 0:
+        create_transaction_entry(
+            transaction=transaction,
+            account=instance.category,
+            debit_amount=Decimal('0.00'),
+            credit_amount=category_amount,
+            description=f"Income - {instance.category.name} (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+    # Entry 2: DR Discount
+    if discount_amount > 0:
+        discount_account = get_account_by_locking_type('SALES_DISCOUNT', branch=branch)
+        create_transaction_entry(
+            transaction=transaction,
+            account=discount_account,
+            debit_amount=discount_amount,
+            credit_amount=Decimal('0.00'),
+            description=f"Discount allowed (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+    # Entry 3-5: CR GST Accounts
+    if instance.is_gst:
+        if cgst_amount > 0:
+            create_gst_entry(transaction, 'CGST_PAYABLE', cgst_amount, 'CR', 'CGST collected', 
+                           branch, transaction_type, creator)
+        if sgst_amount > 0:
+            create_gst_entry(transaction, 'SGST_PAYABLE', sgst_amount, 'CR', 'SGST collected',
+                           branch, transaction_type, creator)
+        if igst_amount > 0:
+            create_gst_entry(transaction, 'IGST_PAYABLE', igst_amount, 'CR', 'IGST collected',
+                           branch, transaction_type, creator)
+
+    # Entry 6: Rounding Off
+    if round_off_amount != 0:
+        create_rounding_entry(transaction, round_off_amount, transaction_type, branch, creator)
+
+    # Entry 7: DR Party (only unpaid amount)
+    if instance.party and hasattr(instance.party, 'pk') and instance.party.pk and unpaid_amount > 0:
+        create_transaction_entry(
+            transaction=transaction,
+            account=instance.party,
+            debit_amount=unpaid_amount,
+            credit_amount=Decimal('0.00'),
+            description=f"Receivable from {instance.party.name} (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+
+
+def create_expense_accounting_entries(instance, transaction_type, branch, creator):
+    """
+    Create all accounting entries for expense transactions
+    """
+    transaction = instance.transaction
+    
+    taxable_amount = instance.taxable_amount or Decimal('0.00')
+    cgst_amount = instance.cgst_amount or Decimal('0.00')
+    sgst_amount = instance.sgst_amount or Decimal('0.00')
+    igst_amount = instance.igst_amount or Decimal('0.00')
+    discount_amount = instance.discount_amount or Decimal('0.00')
+    round_off_amount = instance.round_off_amount or Decimal('0.00')
+    invoice_amount = transaction.invoice_amount or Decimal('0.00')
+
+    total_paid = calculate_payment_total_from_entries(transaction, transaction_type)
+    unpaid_amount = invoice_amount - total_paid
+
+    # Entry 1: DR Expense Category
+    category_amount = taxable_amount if instance.is_gst else (invoice_amount - round_off_amount)
+    if category_amount > 0:
+        create_transaction_entry(
+            transaction=transaction,
+            account=instance.category,
+            debit_amount=category_amount,
+            credit_amount=Decimal('0.00'),
+            description=f"Expense - {instance.category.name} (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+    # Entry 2: CR Discount
+    if discount_amount > 0:
+        discount_account = get_account_by_locking_type('PURCHASE_DISCOUNT', branch=branch)
+        create_transaction_entry(
+            transaction=transaction,
+            account=discount_account,
+            debit_amount=Decimal('0.00'),
+            credit_amount=discount_amount,
+            description=f"Discount received (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+    # Entry 3-5: DR GST Accounts
+    if instance.is_gst:
+        if cgst_amount > 0:
+            create_gst_entry(transaction, 'CGST_RECEIVABLE', cgst_amount, 'DR', 'CGST paid',
+                           branch, transaction_type, creator)
+        if sgst_amount > 0:
+            create_gst_entry(transaction, 'SGST_RECEIVABLE', sgst_amount, 'DR', 'SGST paid',
+                           branch, transaction_type, creator)
+        if igst_amount > 0:
+            create_gst_entry(transaction, 'IGST_RECEIVABLE', igst_amount, 'DR', 'IGST paid',
+                           branch, transaction_type, creator)
+
+    # Entry 6: Rounding Off
+    if round_off_amount != 0:
+        create_rounding_entry(transaction, round_off_amount, transaction_type, branch, creator)
+
+    # Entry 7: CR Party (only unpaid amount)
+    if instance.party and hasattr(instance.party, 'pk') and instance.party.pk and unpaid_amount > 0:
+        create_transaction_entry(
+            transaction=transaction,
+            account=instance.party,
+            debit_amount=Decimal('0.00'),
+            credit_amount=unpaid_amount,
+            description=f"Payable to {instance.party.name} (Voucher: {transaction.voucher_number})",
+            creator=creator
+        )
+
+
+
+def create_payment_entries(payment_formset, transaction, income_expense, transaction_type, creator):
+    """
+    Create payment accounting entries from payment formset
+    
+    Args:
+        payment_formset: Payment formset instance
+        transaction: Transaction instance
+        income_expense: IncomeExpense instance
+        transaction_type: 'income' or 'expense'
+        creator: User instance
+    
+    Returns:
+        Decimal total payment amount
+    """
+    total_payment = Decimal('0.00')
+    
+    for form in payment_formset:
+        if not form.cleaned_data or form.cleaned_data.get('DELETE'):
+            continue
+        
+        amount = form.cleaned_data.get('amount', 0)
+        payment_account = form.cleaned_data.get('account')
+        
+        if not amount or amount <= 0 or not payment_account:
+            continue
+        
+        total_payment += Decimal(str(amount))
+        
+        # Get payment method description
+        payment_method = "Unknown"
+        if payment_account and hasattr(payment_account, 'under'):
+            if hasattr(payment_account.under, 'locking_group'):
+                if payment_account.under.locking_group == 'CASH_ACCOUNT':
+                    payment_method = "Cash"
+                elif payment_account.under.locking_group == 'BANK_ACCOUNT':
+                    payment_method = "Bank"
+                else:
+                    payment_method = payment_account.name
+        
+        # Create entries based on transaction type
+        if transaction_type == 'income':
+            # DR Bank/Cash (receiving money)
+            opposite = income_expense.party if income_expense.party else income_expense.category
+            create_transaction_entry(
+                transaction=transaction,
+                account=payment_account,
+                debit_amount=amount,
+                credit_amount=Decimal('0.00'),
+                description=f"Payment via {payment_account.name} for {opposite.name} (Voucher: {transaction.voucher_number})",
+                creator=creator
+            )
+            
+            # CR Party (if GST enabled and party exists)
+            if income_expense.is_gst and income_expense.party:
+                create_transaction_entry(
+                    transaction=transaction,
+                    account=income_expense.party,
+                    debit_amount=Decimal('0.00'),
+                    credit_amount=amount,
+                    description=f"Payment received from {income_expense.party.name} via {payment_method} - {transaction.voucher_number}",
+                    creator=creator
+                )
+        else:  # expense
+            # CR Bank/Cash (paying money)
+            opposite = income_expense.party if income_expense.party else income_expense.category
+            create_transaction_entry(
+                transaction=transaction,
+                account=payment_account,
+                debit_amount=Decimal('0.00'),
+                credit_amount=amount,
+                description=f"Payment via {payment_account.name} for {opposite.name} (Voucher: {transaction.voucher_number})",
+                creator=creator
+            )
+            
+            # DR Party (if GST enabled and party exists)
+            if income_expense.is_gst and income_expense.party:
+                create_transaction_entry(
+                    transaction=transaction,
+                    account=income_expense.party,
+                    debit_amount=amount,
+                    credit_amount=Decimal('0.00'),
+                    description=f"Payment made to {income_expense.party.name} via {payment_method} - {transaction.voucher_number}",
+                    creator=creator
+                )
+    
+    return total_payment
+    
+    
+class BaseTransactionCreateView(TransactionMixin, mixins.HybridCreateView):
+    """Optimized base view for creating income and expense transactions"""
+    model = IncomeExpense
+    form_class = forms.IncomeExpenseForm
+    exclude = None
+    title = None
+    url = None
+    transaction_type = None
+    template_name = "transactions/incomeexpense_form.html"
+    inline_formset = forms.IncomeExpenseItemFormSet
+    transaction_form_class = forms.TransactionForm
+    auto_complete_formset_fields = False
+
+    def get_success_url(self):
+        """Redirect based on transaction type"""
+        if self.transaction_type == 'income':
+            return reverse_lazy('transactions:income_list')
+        return reverse_lazy('transactions:expense_list')
+    
+    def get_auto_complete_custom_filters(self):
+        try:
+            branch = self.get_branch()
+            filter_kwargs = {'branch': branch}
+            
+            direct_locking_group = "DIRECT_INCOME" if self.transaction_type == "income" else "DIRECT_EXPENSES"
+            indirect_locking_group = "INDIRECT_INCOME" if self.transaction_type == "income" else "INDIRECT_EXPENSES"
+            
+            group_ids = []
+            for locking_group in [direct_locking_group, indirect_locking_group]:
+                group = GroupMaster.objects.filter(locking_group=locking_group, **filter_kwargs).first()
+                if group:
+                    group_ids.extend(group.get_descendants(include_self=True).values_list("id", flat=True))
+        except Exception:
+            group_ids = []
+
+        return {
+            "category": {"under__id__in": group_ids} if group_ids else {},
+            "party": {"ledger_type__in": ("CUSTOMER", "SUPPLIER")}
+        }
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['transaction_type'] = self.transaction_type
+        context['transaction_form'] = self._get_transaction_form()
+        
+        payment_formset_class = (forms.PaymentOptionIncomeFormSet if self.transaction_type == 'income' 
+                               else forms.PaymentOptionExpenseFormSet)
+        
+        context['payment_formset'] = payment_formset_class(
+            self.request.POST or None,
+            prefix='payments',
+            form_kwargs={'branch': self.get_branch(), 'transaction_type': self.transaction_type}
+        )
+        
+        from masters.models import State
+        context['branch_state'] = State.objects.filter(is_active=True)
+        return context
+    
+    def _get_transaction_form(self, prefix=None):
+        form = self.transaction_form_class(
+            self.request.POST or None,
+            self.request.FILES or None,
+            prefix=prefix,
+            transaction_type=self.transaction_type
+        )
+        if not form.data:
+            form.initial['voucher_number'] = self.get_next_voucher_number()
+        
+        if self.transaction_type == 'expense' and 'received_amount' in form.fields:
+            form.fields['received_amount'].label = "Paid Amount"
+        return form
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['transaction_type'] = self.transaction_type
+        return kwargs
+    
+    def get_formset(self, custom_filters_map=None):
+        if not self.inline_formset: return None
+        return self.inline_formset(
+            self.request.POST or None, 
+            self.request.FILES or None, 
+            instance=getattr(self, 'object', None),
+            form_kwargs={'transaction_type': self.transaction_type, 'branch': self.get_branch()}
+        )
+    
+    def get_next_voucher_number(self, lookup_field="voucher_number"):
+        return generate_next_voucher_number(
+            model=Transaction,
+            branch=self.get_branch() or None,
+            transaction_type=self.transaction_type,
+            lookup_field=lookup_field
+        )
+    
+    @transaction.atomic
+    def form_valid(self, form):
+        try:
+            transaction_form = self._get_transaction_form()
+            formset = self.get_formset()
+            payment_formset_class = (forms.PaymentOptionIncomeFormSet if self.transaction_type == 'income' 
+                                   else forms.PaymentOptionExpenseFormSet)
+            payment_formset = payment_formset_class(
+                self.request.POST,
+                prefix='payments',
+                form_kwargs={'branch': self.get_branch(), 'transaction_type': self.transaction_type}
+            )
+
+            if not (transaction_form.is_valid() and (not formset or formset.is_valid()) and (not payment_formset or payment_formset.is_valid())):
+                return self.form_invalid(form, transaction_form=transaction_form, formset=formset, payment_formset=payment_formset)
+
+            # --- SAVE TRANSACTION ---
+            transaction_obj = transaction_form.save(commit=False)
+            # Use the branch from the income expense form if available, otherwise from get_branch()
+            if hasattr(form, 'cleaned_data') and 'branch' in form.cleaned_data and form.cleaned_data['branch']:
+                transaction_obj.branch = form.cleaned_data['branch']
+            else:
+                transaction_obj.branch = self.get_branch()
+            transaction_obj.creator = self.request.user
+            transaction_obj.transaction_type = self.transaction_type
+            
+            # FIX: Manually assign status/is_active to bypass form validation issues
+            transaction_obj.status = "posted"
+            transaction_obj.is_active = True
+            if not transaction_obj.priority: transaction_obj.priority = "normal"
+            
+            # Ensure unique voucher number
+            if self._voucher_exists(transaction_obj.voucher_number):
+                transaction_obj.voucher_number = self.get_next_voucher_number()
+            transaction_obj.save()
+
+            # --- SAVE INCOME/EXPENSE ---
+            income_expense = form.save(commit=False)
+            income_expense.transaction = transaction_obj
+            income_expense.creator = self.request.user
+            # Ensure branch is set from the form data
+            if hasattr(form, 'cleaned_data') and 'branch' in form.cleaned_data and form.cleaned_data['branch']:
+                income_expense.branch = form.cleaned_data['branch']
+            elif not income_expense.branch_id:
+                income_expense.branch = self.get_branch()
+            income_expense.is_active = True # FIX
+            income_expense.save()
+            
+            if formset:
+                formset.instance = income_expense
+                formset.save()
+
+            # Entries creation
+            if self.transaction_type == 'income':
+                create_income_accounting_entries(income_expense, self.transaction_type, self.get_branch(), self.request.user)
+            else:
+                create_expense_accounting_entries(income_expense, self.transaction_type, self.get_branch(), self.request.user)
+
+            if payment_formset and payment_formset.total_form_count() > 0:
+                create_payment_entries(payment_formset, transaction_obj, income_expense, self.transaction_type, self.request.user)
+            
+            self.object = income_expense
+            messages.success(self.request, f"{self.transaction_type.title()} created successfully.")
+            return HttpResponseRedirect(self.get_success_url())
+            
+        except Exception as e:
+            print(f"TERMINAL ERROR: {str(e)}")
+            messages.error(self.request, f"Submission failed: {str(e)}")
+            return self.form_invalid(form)
+
+    def _voucher_exists(self, voucher_number, exclude_pk=None):
+        query = Transaction.objects.filter(voucher_number=voucher_number, transaction_type=self.transaction_type, branch=self.get_branch())
+        if exclude_pk: query = query.exclude(pk=exclude_pk)
+        return query.exists()
+
+    def form_invalid(self, form, transaction_form=None, formset=None, payment_formset=None):
+        if transaction_form is None: transaction_form = self._get_transaction_form()
+        if formset is None: formset = self.get_formset()
+        if payment_formset is None:
+            payment_formset_class = (forms.PaymentOptionIncomeFormSet if self.transaction_type == 'income' else forms.PaymentOptionExpenseFormSet)
+            payment_formset = payment_formset_class(self.request.POST, prefix='payments', form_kwargs={'branch': self.get_branch(), 'transaction_type': self.transaction_type})
+        
+        print("\n=== FORM VALIDATION FAILED ===")
+        self._display_form_errors(form, 'Main Form')
+        self._display_form_errors(transaction_form, 'Transaction Form')
+        if formset: self._display_formset_errors(formset, 'Items Formset')
+        if payment_formset: self._display_formset_errors(payment_formset, 'Payments Formset')
+        print("==============================\n")
+
+        return self.render_to_response(self.get_context_data(form=form, transaction_form=transaction_form, formset=formset, payment_formset=payment_formset))
+
+    def _display_form_errors(self, form, form_name):
+        if hasattr(form, 'errors') and form.errors:
+            print(f"--- {form_name} Errors ---")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    print(f"Field: {field} | Error: {error}")
+                    messages.error(self.request, f"{form_name} - {field}: {error}")
+
+    def _display_formset_errors(self, formset, formset_name):
+        if hasattr(formset, 'errors') and formset.errors:
+            print(f"--- {formset_name} Errors ---")
+            for i, form_errors in enumerate(formset.errors):
+                if form_errors:
+                    for field, errors in form_errors.items():
+                        for error in errors:
+                            print(f"Row {i+1} | Field: {field} | Error: {error}")
+                            messages.error(self.request, f"{formset_name} {i+1} - {field}: {error}")
+
+
+class BaseTransactionUpdateView(TransactionMixin, mixins.HybridUpdateView):
+    """Optimized base view for updating income and expense transactions"""
+    model = IncomeExpense
+    form_class = forms.IncomeExpenseForm
+    template_name = "transactions/incomeexpense_form.html"
+    inline_formset = forms.IncomeExpenseItemFormSet
+    transaction_form_class = forms.TransactionForm
+    
+    def get_success_url(self):
+        if self.transaction_type == 'income':
+            return reverse_lazy('transactions:income_list')
+        return reverse_lazy('transactions:expense_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        transaction_instance = self.object.transaction
+        
+        context['transaction_type'] = self.transaction_type
+        # Pass instance to helper
+        context['transaction_form'] = self._get_transaction_form(instance=transaction_instance)
+        
+        payment_formset_class = (forms.PaymentOptionIncomeFormSet if self.transaction_type == 'income' 
+                               else forms.PaymentOptionExpenseFormSet)
+        
+        existing_payments = TransactionEntry.objects.filter(
+            transaction=transaction_instance,
+            account__under__locking_group__in=['BANK_ACCOUNT', 'CASH_ACCOUNT']
+        )
+        
+        context['payment_formset'] = payment_formset_class(
+            self.request.POST or None,
+            instance=transaction_instance,
+            queryset=existing_payments,
+            prefix='payments',
+            form_kwargs={'branch': self.get_branch(), 'transaction_type': self.transaction_type}
+        )
+        return context
+
+    def _get_transaction_form(self, instance=None, prefix=None):
+        return self.transaction_form_class(
+            self.request.POST or None,
+            self.request.FILES or None,
+            instance=instance,
+            prefix=prefix,
+            transaction_type=self.transaction_type
+        )
+
+    def get_formset(self, custom_filters_map=None):
+        return self.inline_formset(
+            self.request.POST or None, 
+            self.request.FILES or None, 
+            instance=self.object,
+            form_kwargs={'transaction_type': self.transaction_type, 'branch': self.get_branch()}
+        )
+    
+    @transaction.atomic
+    def form_valid(self, form):
+        try:
+            transaction_obj = self.object.transaction
+            transaction_form = self._get_transaction_form(instance=transaction_obj)
+            formset = self.get_formset()
+            
+            payment_formset_class = (forms.PaymentOptionIncomeFormSet if self.transaction_type == 'income' 
+                                   else forms.PaymentOptionExpenseFormSet)
+            payment_formset = payment_formset_class(
+                self.request.POST,
+                instance=transaction_obj,
+                prefix='payments',
+                form_kwargs={'branch': self.get_branch(), 'transaction_type': self.transaction_type}
+            )
+
+            # --- FIX: Call is_valid() on ALL forms/formsets first ---
+            is_valid_txn = transaction_form.is_valid()
+            is_valid_items = formset.is_valid() if formset else True
+            is_valid_payments = payment_formset.is_valid() # This creates .cleaned_data
+
+            if not (is_valid_txn and is_valid_items and is_valid_payments):
+                 return self.form_invalid(form, transaction_form=transaction_form, formset=formset, payment_formset=payment_formset)
+
+            # --- Now cleaned_data is safe to use ---
+            income_expense_obj = form.save(commit=False)
+            total_amount = transaction_form.cleaned_data.get('invoice_amount') or Decimal('0.00')
+
+            # Logic for Simple (Non-GST) Entry
+            if not income_expense_obj.is_gst:
+                if total_amount <= 0:
+                    messages.error(self.request, "Net amount must be greater than zero.")
+                    return self.form_invalid(form, transaction_form=transaction_form, payment_formset=payment_formset)
+                
+                # Check if payment formset has at least one valid entry
+                has_payment = any(
+                    f.cleaned_data and not f.cleaned_data.get('DELETE') 
+                    for f in payment_formset.forms 
+                    if f.cleaned_data.get('amount') and f.cleaned_data.get('account')
+                )
+                
+                if not has_payment:
+                    messages.error(self.request, "Please select a Cash or Bank account and enter the amount.")
+                    return self.form_invalid(form, transaction_form=transaction_form, payment_formset=payment_formset)
+
+            # Proceed with saving...
+            updated_transaction = transaction_form.save(commit=False)
+            updated_transaction.status = "posted"
+            # Ensure transaction branch is consistent with income expense branch
+            if hasattr(self, 'object') and self.object and self.object.branch:
+                updated_transaction.branch = self.object.branch
+            else:
+                updated_transaction.branch = self.get_branch()
+            updated_transaction.save()
+            
+            income_expense_obj.transaction = updated_transaction
+            # Only set branch if it's not already set by the form
+            if not income_expense_obj.branch_id:
+                income_expense_obj.branch = self.get_branch()  # Set branch on income/expense object
+            income_expense_obj.save()
+            
+            if formset:
+                formset.save()
+
+            # Refresh Accounting Entries
+            TransactionEntry.objects.filter(transaction=updated_transaction).delete()
+
+            if self.transaction_type == 'income':
+                create_income_accounting_entries(income_expense_obj, self.transaction_type, self.get_branch(), self.request.user)
+            else:
+                create_expense_accounting_entries(income_expense_obj, self.transaction_type, self.get_branch(), self.request.user)
+
+            # Save payment entries
+            create_payment_entries(payment_formset, updated_transaction, income_expense_obj, self.transaction_type, self.request.user)
+            
+            messages.success(self.request, f"{self.transaction_type.title()} updated successfully.")
+            return HttpResponseRedirect(self.get_success_url())
+            
+        except Exception as e:
+            messages.error(self.request, f"Update failed: {str(e)}")
+            return self.form_invalid(form)
+
+    def form_invalid(self, form, transaction_form=None, formset=None, payment_formset=None):
+        # Implementation of error reporting
+        if transaction_form: self._display_form_errors(transaction_form, "Transaction")
+        if formset: self._display_formset_errors(formset, "Items")
+        if payment_formset: self._display_formset_errors(payment_formset, "Payments")
+        
+        return super().form_invalid(form)
+
+    def _display_form_errors(self, form, form_name):
+        return BaseTransactionCreateView._display_form_errors(self, form, form_name)
+
+    def _display_formset_errors(self, formset, formset_name):
+        return BaseTransactionCreateView._display_formset_errors(self, formset, formset_name)
+
     
 class ContraVoucherMixin:
     
@@ -200,13 +974,6 @@ class ContraVoucherMixin:
             raise ValidationError(
                 "Both from account and to account are required for contra voucher"
             )
-        
-        # ---------------------------------------------------------
-        # CHANGE: Removed self._validate_contra_accounts() call
-        # ---------------------------------------------------------
-        # The form has already validated that these are valid Cash/Bank 
-        # accounts (including nested sub-groups). Re-checking here with 
-        # simple logic would break the hierarchy support.
 
         # 1. DEBIT the Receiver (To Account)
         # "Debit what comes in"
@@ -630,7 +1397,29 @@ class JournalVoucherUpdateView(TransactionMixin, mixins.HybridUpdateView):
     def form_invalid(self, form, formset=None):
         if formset is None:
             formset = self.get_formset()
-        # Show errors in messages
+
+        # ================= TERMINAL PRINTING START =================
+        print("\n" + "="*50)
+        print("JOURNAL VOUCHER FORM ERRORS (TERMINAL)")
+        print("="*50)
+        
+        if form.errors:
+            print(f"Main Form Errors: {form.errors.as_json()}")
+
+        if formset:
+            # Print non-form errors (e.g., errors across the whole formset)
+            if formset.non_form_errors():
+                print(f"Formset Non-Form Errors: {formset.non_form_errors()}")
+            
+            # Print individual form errors within the formset
+            for i, f in enumerate(formset.forms):
+                if f.errors:
+                    print(f"Row {i+1} Errors: {f.errors.as_json()}")
+        
+        print("="*50 + "\n")
+        # ================= TERMINAL PRINTING END =================
+
+        # Keep your existing logic for UI messages
         for field, errors in form.errors.items():
             for error in errors:
                 messages.error(self.request, f"{field}: {error}")
@@ -639,6 +1428,7 @@ class JournalVoucherUpdateView(TransactionMixin, mixins.HybridUpdateView):
                 for field, errors in f.errors.items():
                     for error in errors:
                         messages.error(self.request, f"Row {i+1} - {field}: {error}")
+                        
         return self.render_to_response(self.get_context_data(form=form, formset=formset))
 
     # ----------------------------
@@ -1066,429 +1856,100 @@ class ContraVoucherDeleteView(TransactionMixin, mixins.HybridDeleteView):
 
 
 class IncomeListView(IncomeExpenseMixin,TransactionMixin,mixins.HybridListView):
-    model = IncomeExpense
-    template_name = "transactions/transaction_list.html"
-
-    table_class = tables.IncomeExpenseTable
-    filterset_class = filters.IncomeExpenseFilter
-
-    transaction_type = "income"
-    branch_field_name = "transaction__branch"
-
-    select_related_fields = ("party", "category", "transaction")
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-
-        return (
-            queryset
-            .select_related(*self.select_related_fields)
-            .filter(transaction__transaction_type=self.transaction_type)
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_income'] = True
-
-        context.update({
-            "title": "Incomes",
-            "can_add": True,
-            "new_link": reverse_lazy("transactions:income_create"),
-        })
-
-        return context
-
-
-class ExpenseListView(IncomeExpenseMixin, TransactionMixin, mixins.HybridListView):
     template_name = 'transactions/transaction_list.html'
-    model = IncomeExpense
-    table_class = tables.IncomeExpenseTable
+    model=IncomeExpense
+    table_class=tables.IncomeExpenseTable
     filterset_class = filters.IncomeExpenseFilter
-    new_link = "transactions:expense_create"
-    transaction_type = "expense"
-    branch_field_name = "transaction__branch"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = "Expenses"
-        context['is_expense'] = True
-        context["can_add"] = True
-        context["new_link"] = reverse_lazy("transactions:expense_create")
-        return context
+    new_link ="transactions:income_create"
+    title = "Incomes"
+    transaction_type ="income"
+    branch_field_name="transaction__branch"
 
     def get_queryset(self):
         return super().get_queryset().select_related('party', 'category', 'transaction').filter(transaction__transaction_type=self.transaction_type)
 
-
-class IncomeExpenseCreateView(mixins.HybridCreateView):
-    model = IncomeExpense
-    template_name = "transactions/income_expense_form.html"
-    branch_field_name = "transaction__branch"
-    
-    def get_form_class(self):
-        from .forms import IncomeCreateForm, ExpenseCreateForm
-        # Determine type based on URL pattern first, then fallback to GET parameter
-        if 'expenses' in self.request.path or self.request.GET.get('type') == 'expense':
-            return ExpenseCreateForm
-        else:
-            return IncomeCreateForm
-    
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_income_expense'] = True
-        # Determine type based on URL pattern first, then fallback to GET parameter
-        context['transaction_type'] = 'expense' if 'expenses' in self.request.path else self.request.GET.get('type', 'income')
-        return context
+        context = super().get_context_data(**kwargs) 
+        context["new_link"] = reverse_lazy(self.new_link)
+        context["title"] = self.title
+        return context       
+
+
+class ExpenseListview(IncomeListView):
+    title="Expenses"
+    new_link="transactions:expense_create"
+    transaction_type="expense"
+
+
+class IncomeCreateView(BaseTransactionCreateView):
+    """Create view for income transactions"""
+    title = "New Income"
+    url = "transactions:income_list"
+    transaction_type = "income"
+    create_url = reverse_lazy('transactions:income_create')
+    auto_complete_disable_add_fields = ["party"]
+    auto_complete_add_urls = {
+        'category': lambda: f"{reverse_lazy('accounting:account_create')}?account_type=income",
+    }
+
+
+class ExpenseCreateView(BaseTransactionCreateView):
+    """Create view for expense transactions"""
+    title = "New Expense"
+    url = "transactions:expense_list"
+    transaction_type = "expense"
+    create_url = reverse_lazy('transactions:expense_create')
+    auto_complete_disable_add_fields = ["party"]
+    auto_complete_add_urls = {
+        'category': lambda: f"{reverse_lazy('accounting:account_create')}?account_type=expense",
+    }
+
+class IncomeUpdateView(BaseTransactionUpdateView):
+    """Update view for income transactions"""
+    title = "Update Income"
+    url = "transactions:income_list"
+    transaction_type = "income"
+    create_url = reverse_lazy('transactions:income_create')
+    auto_complete_disable_add_fields = [ "party"]
+    auto_complete_add_urls = {
+        'category': lambda: f"{reverse_lazy('accounting:account_create')}?account_type=income",
+    }
     
-    def form_valid(self, form):
-        with transaction.atomic():
-
-            transaction_type = (
-                'expense'
-                if 'expenses' in self.request.path
-                else self.request.GET.get('type', 'income')
-            )
-
-            selected_branch = form.cleaned_data["branch"]
-
-            from .models import Transaction
-
-            transaction_obj = Transaction.objects.create(
-                transaction_type=transaction_type,
-                status='posted',
-                date=form.cleaned_data.get('date', timezone.now()),
-                narration=form.cleaned_data.get('description', ''),
-                invoice_amount=form.cleaned_data.get('amount', 0),
-                total_amount=form.cleaned_data.get('amount', 0),
-                branch=selected_branch,   # ✅ USER SELECTED
-                creator=self.request.user,
-                voucher_number=self._generate_voucher_number()
-            )
-
-            income_expense = form.save(commit=False)
-            income_expense.type = transaction_type
-            income_expense.transaction = transaction_obj
-            income_expense.branch = selected_branch
-            income_expense.save()
-
-            self._create_transaction_entries(income_expense, transaction_obj)
-
-            self.object = income_expense
-
-            return super().form_valid(form)
-    
-    def get_success_url(self):
-        # Redirect to the appropriate list page based on the type
-        if self.object and self.object.type == 'expense':
-            return reverse_lazy('transactions:expense_list')
-        else:
-            return reverse_lazy('transactions:income_list')
-    
-    def _generate_voucher_number(self):
-        # Determine the transaction type based on URL pattern
-        transaction_type = 'expense' if 'expenses' in self.request.path else self.request.GET.get('type', 'income')
-        prefix = 'INC' if transaction_type == 'income' else 'EXP'
-        from django.utils import timezone
-        from django.db.models import Max
-        from django.db.models.functions import Cast
-        from django.db.models import CharField
-        import re
-        
-        # Get the latest voucher number for this type
-        latest = Transaction.objects.filter(
-            transaction_type=transaction_type,
-            voucher_number__startswith=prefix
-        ).aggregate(Max('voucher_number'))
-        
-        if latest['voucher_number__max']:
-            # Extract number from voucher (e.g., "INC0001" -> "0001")
-            number_part = re.findall(r'\d+', latest['voucher_number__max'])
-            if number_part:
-                last_num = int(number_part[-1])
-                next_num = last_num + 1
-            else:
-                next_num = 1
-        else:
-            next_num = 1
-        
-        return f"{prefix}{next_num:04d}"
-    
-    def _create_transaction_entries(self, income_expense, transaction_obj):
-        """Create accounting entries for the income/expense"""
-        
-        # Determine accounts based on type
-        if income_expense.type == 'income':
-            # For income: debit the cash/bank account (party), credit the income account (category)
-            debit_account = income_expense.party  # Cash/Bank account (money coming in)
-            credit_account = income_expense.category  # Income account (revenue)
-        else:  # expense
-            # For expense: debit the expense account (category), credit the cash/bank account (party)
-            debit_account = income_expense.category  # Expense account
-            credit_account = income_expense.party  # Cash/Bank account (money going out)
-        
-        # Create the debit entry
-        if debit_account:
-            TransactionEntry.objects.create(
-                transaction=transaction_obj,
-                account=debit_account,
-                debit_amount=income_expense.amount,
-                credit_amount=0,
-                description=income_expense.description or f"{income_expense.get_type_display()} transaction"
-            )
-        
-        # Create the credit entry
-        if credit_account:
-            TransactionEntry.objects.create(
-                transaction=transaction_obj,
-                account=credit_account,
-                debit_amount=0,
-                credit_amount=income_expense.amount,
-                description=income_expense.description or f"{income_expense.get_type_display()} transaction"
-            )
+class ExpenseUpdateView(BaseTransactionUpdateView):
+    """Update view for expense transactions"""
+    title = "Update Expense"
+    url = "transactions:expense_list"
+    transaction_type = "expense"
+    create_url = reverse_lazy('transactions:expense_create')
+    auto_complete_disable_add_fields = [ "party"]
+    auto_complete_add_urls = {
+        'category': lambda: f"{reverse_lazy('accounting:account_create')}?account_type=expense",
+    }
 
 
-class IncomeExpenseUpdateView(mixins.HybridUpdateView):
-    model = IncomeExpense
-    template_name = "transactions/income_expense_form.html"
-    branch_field_name = "transaction__branch"
-    
-    def get_form_class(self):
-        from .forms import IncomeExpenseUpdateForm
-        return IncomeExpenseUpdateForm
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_income_expense'] = True
-        context['transaction_type'] = self.object.type
-        return context
-    
-    def form_valid(self, form):
-        with transaction.atomic():
-            # Update the associated transaction
-            transaction_obj = self.object.transaction
-            transaction_obj.date = form.cleaned_data.get('date', timezone.now())
-            transaction_obj.narration = form.cleaned_data.get('description', '')
-            transaction_obj.invoice_amount = form.cleaned_data.get('amount', 0)
-            transaction_obj.total_amount = form.cleaned_data.get('amount', 0)
-            transaction_obj.save()
-            
-            # Update the IncomeExpense record
-            income_expense = form.save(commit=False)
-            # Preserve the original type since it should not be changed after creation
-            income_expense.type = self.object.type
-            income_expense.save()
-            
-            # Update transaction entries
-            self._update_transaction_entries(income_expense, transaction_obj)
-            
-            self.object = income_expense
-            return super().form_valid(form)
-    
-    def _update_transaction_entries(self, income_expense, transaction_obj):
-        """Update accounting entries for the income/expense"""
-        from .models import TransactionEntry
-        
-        # Delete existing entries
-        TransactionEntry.objects.filter(transaction=transaction_obj).delete()
-        
-        # Recreate entries based on type
-        if income_expense.type == 'income':
-            # For income: debit the cash/bank account (party), credit the income account (category)
-            debit_account = income_expense.party  # Cash/Bank account (money coming in)
-            credit_account = income_expense.category  # Income account (revenue)
-        else:  # expense
-            # For expense: debit the expense account (category), credit the cash/bank account (party)
-            debit_account = income_expense.category  # Expense account
-            credit_account = income_expense.party  # Cash/Bank account (money going out)
-        
-        # Create the debit entry
-        if debit_account:
-            TransactionEntry.objects.create(
-                transaction=transaction_obj,
-                account=debit_account,
-                debit_amount=income_expense.amount,
-                credit_amount=0,
-                description=income_expense.description or f"{income_expense.get_type_display()} transaction"
-            )
-        
-        # Create the credit entry
-        if credit_account:
-            TransactionEntry.objects.create(
-                transaction=transaction_obj,
-                account=credit_account,
-                debit_amount=0,
-                credit_amount=income_expense.amount,
-                description=income_expense.description or f"{income_expense.get_type_display()} transaction"
-            )
+class IncomeDetailView(mixins.HybridDetailView):
+    model=IncomeExpense
+    # template_name="transactions/income_expense_detail.html"
+    title = "Income Detail"
+    url = "transactions:income_list"
+    transaction_type = "income"
+    create_url = reverse_lazy('transactions:income_create')
+
+class ExpenseDetailView(mixins.HybridDetailView):
+    model=IncomeExpense
+    # template_name="transactions/income_expense_detail.html"
+    title = "Expense Detail"
+    url = "transactions:expense_list"
+    transaction_type = "expense"
+    create_url = reverse_lazy('transactions:expense_create')
 
 
-class IncomeExpenseDetailView(mixins.HybridDetailView):
-    model = IncomeExpense
-    template_name = "transactions/income_expense_detail.html"
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_income_expense'] = True
-        return context
+class IncomeDeleteview(BaseTransactionDeleteView):
+    permission_required="transactions.delete_income"
 
-
-class IncomeExpenseDeleteView(mixins.HybridDeleteView):
-    model = IncomeExpense
-    
-    def delete(self, request, *args, **kwargs):
-        with transaction.atomic():
-            income_expense = self.get_object()
-            # Also delete the associated transaction
-            if income_expense.transaction:
-                income_expense.transaction.delete()
-            return super().delete(request, *args, **kwargs)
+class ExpenseDeleteview(BaseTransactionDeleteView):
+    pass
 
 
 class IncomeExpenseReportView(mixins.HybridTemplateView):
     template_name = "transactions/income_expense_report.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # --- 1. Filter Handling ---
-        today = timezone.now().date()
-        current_year = today.year
-        
-        # Get params from request
-        selected_month = self.request.GET.get('month')
-        selected_year = self.request.GET.get('year')
-        
-        # Default to current year if nothing selected, or use selected values
-        try:
-            year_val = int(selected_year) if selected_year else current_year
-        except ValueError:
-            year_val = current_year
-
-        # Determine Date Range and Grouping Strategy
-        if selected_month:
-            # Filter by specific Month in a Year -> Group by Day
-            try:
-                month_val = list(calendar.month_name).index(selected_month)
-                _, last_day = calendar.monthrange(year_val, month_val)
-                start_date = date(year_val, month_val, 1)
-                end_date = date(year_val, month_val, last_day)
-                group_by_func = TruncDay('date')
-                date_format = "%d %b" # e.g., 01 Jan
-                
-                # Generate all days in month for chart labels
-                all_periods = [
-                    date(year_val, month_val, d) 
-                    for d in range(1, last_day + 1)
-                ]
-            except ValueError:
-                # Fallback if invalid month name
-                start_date = date(year_val, 1, 1)
-                end_date = date(year_val, 12, 31)
-                group_by_func = TruncMonth('date')
-                date_format = "%b %Y"
-                all_periods = [date(year_val, m, 1) for m in range(1, 13)]
-        else:
-            # Filter by Year (or default) -> Group by Month
-            start_date = date(year_val, 1, 1)
-            end_date = date(year_val, 12, 31)
-            group_by_func = TruncMonth('date')
-            date_format = "%b %Y" # e.g., Jan 2024
-            
-            # Generate all months for chart labels
-            all_periods = [date(year_val, m, 1) for m in range(1, 13)]
-
-        # --- 2. Database Queries ---
-        base_qs = IncomeExpense.objects.filter(
-            date__date__range=[start_date, end_date],
-            is_active=True
-        )
-
-        # Aggregate Totals (KPI Cards)
-        totals = base_qs.aggregate(
-            total_inc=Sum('amount', filter=Q(type='income')),
-            total_exp=Sum('amount', filter=Q(type='expense'))
-        )
-        
-        total_income = totals['total_inc'] or Decimal('0.00')
-        total_expense = totals['total_exp'] or Decimal('0.00')
-        balance = total_income - total_expense
-        
-        # Calculate Margin
-        if total_income > 0:
-            profit_margin = round((balance / total_income) * 100, 1)
-        else:
-            profit_margin = 0
-
-        # --- 3. Chart Data Preparation ---
-        # Get data grouped by period (Day or Month)
-        income_groups = base_qs.filter(type='income')\
-            .annotate(period=group_by_func)\
-            .values('period')\
-            .annotate(total=Sum('amount'))\
-            .order_by('period')
-            
-        expense_groups = base_qs.filter(type='expense')\
-            .annotate(period=group_by_func)\
-            .values('period')\
-            .annotate(total=Sum('amount'))\
-            .order_by('period')
-
-        # Convert QuerySets to Dictionaries for O(1) lookup
-        # Key needs to match the iteration loop below (date object)
-        inc_dict = {item['period'].date(): item['total'] for item in income_groups}
-        exp_dict = {item['period'].date(): item['total'] for item in expense_groups}
-
-        # Arrays for Chart.js
-        chart_labels = []
-        chart_income = []
-        chart_expense = []
-        table_data = []
-
-        for period in all_periods:
-            # Format Label
-            label_str = period.strftime(date_format)
-            chart_labels.append(label_str)
-            
-            # Get Values (default to 0)
-            inc_val = inc_dict.get(period, Decimal('0.00'))
-            exp_val = exp_dict.get(period, Decimal('0.00'))
-            p_l = inc_val - exp_val
-            
-            chart_income.append(float(inc_val))
-            chart_expense.append(float(exp_val))
-            
-            # Only add to table if there was activity to keep table clean
-            if inc_val > 0 or exp_val > 0:
-                table_data.append({
-                    'get_date_display': label_str,
-                    'income': inc_val,
-                    'expense': exp_val,
-                    'get_profit_loss': p_l
-                })
-
-        # --- 4. Context for Template ---
-        context.update({
-            'title': "Income & Expense Report",
-            
-            # Filter Data
-            'months_list': list(calendar.month_name)[1:], # ['January', 'February'...]
-            'available_years': range(current_year, current_year - 5, -1), # Last 5 years
-            'selected_month': selected_month,
-            'selected_year': int(selected_year) if selected_year else current_year,
-            
-            # KPI Data
-            'total_income': total_income,
-            'total_expense': total_expense,
-            'balance': balance,
-            'profit_margin': profit_margin,
-            
-            # Chart Data (Serialized for JS)
-            'labels': json.dumps(chart_labels),
-            'income_data': json.dumps(chart_income),
-            'expense_data': json.dumps(chart_expense),
-            
-            # Table Data
-            'table_data': table_data,
-        })
-        
-        return context

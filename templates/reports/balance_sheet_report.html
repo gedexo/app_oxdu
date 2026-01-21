@@ -1,0 +1,288 @@
+{% extends 'reports/base_report.html' %}
+{% load static i18n extras %}
+
+{% block report_title %}{{ report_title }}{% endblock %}
+
+{% block report_subtitle %}
+<div class="d-flex flex-wrap gap-3 mt-3">
+    <!-- Status Badges -->
+    <div class="stat-pill">
+        <i class="fe fe-calendar text-muted me-2"></i>
+        <span class="text-dark fw-medium">As of {{ as_of_date|date:"d M Y" }}</span>
+    </div>
+    <div class="stat-pill">
+        <i class="fe fe-map-pin text-muted me-2"></i>
+        <span class="text-dark fw-medium">{{ branch.name|default:"All Branches" }}</span>
+    </div>
+    {% if is_balanced %}
+    <div class="stat-pill border-success-subtle bg-success-subtle text-success">
+        <i class="fe fe-check-circle me-1"></i> <span class="fw-bold">Balanced</span>
+    </div>
+    {% else %}
+    <div class="stat-pill border-danger-subtle bg-danger-subtle text-danger">
+        <i class="fe fe-alert-triangle me-1"></i> <span class="fw-bold">Difference: ₹{{ balance_difference|floatformat:2 }}</span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block report_actions %}
+<div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary btn-sm shadow-sm px-3" onclick="window.print();">
+        <i class="fe fe-printer me-1"></i> Print
+    </button>
+    
+    <div class="dropdown">
+        <button class="btn btn-white btn-sm shadow-sm border px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fe fe-filter me-1"></i> Branch
+        </button>
+        <div class="dropdown-menu dropdown-menu-end shadow-lg border-0">
+            <a class="dropdown-item" href="?as_of_date={{ as_of_date|date:'Y-m-d' }}&branch_filter=all">All Branches</a>
+            <div class="dropdown-divider"></div>
+            {% for branch in all_branches %}
+            <a class="dropdown-item" href="?as_of_date={{ as_of_date|date:'Y-m-d' }}&branch_filter={{ branch.id }}">{{ branch.name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <button class="btn btn-primary btn-sm shadow-sm px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fe fe-calendar me-1"></i> Date
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="min-width: 250px;">
+            <form method="GET">
+                <label class="form-label small fw-bold text-uppercase text-muted">Select Statement Date</label>
+                <input type="text" name="as_of_date" class="form-control flatpickr mb-2" value="{{ as_of_date|date:'Y-m-d' }}">
+                {% if selected_branch_filter %}<input type="hidden" name="branch_filter" value="{{ selected_branch_filter }}">{% endif %}
+                <button type="submit" class="btn btn-primary btn-sm w-100">Update Report</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block report_content %}
+<div class="container-fluid px-0 mt-4">
+    
+    <!-- Top Summary Row (KPIs) -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card shadow-sm border-0 card p-3">
+                <div class="text-muted small fw-bold text-uppercase mb-1">Current Ratio</div>
+                <div class="h4 mb-0 fw-bold text-primary">{{ current_ratio }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card shadow-sm border-0 card p-3">
+                <div class="text-muted small fw-bold text-uppercase mb-1">Quick Ratio</div>
+                <div class="h4 mb-0 fw-bold text-info">{{ quick_ratio }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card shadow-sm border-0 card p-3">
+                <div class="text-muted small fw-bold text-uppercase mb-1">Debt to Equity</div>
+                <div class="h4 mb-0 fw-bold text-dark">{{ debt_to_equity_ratio }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card shadow-sm border-0 card p-3">
+                <div class="text-muted small fw-bold text-uppercase mb-1">Working Capital</div>
+                <div class="h4 mb-0 fw-bold text-success">₹{{ working_capital|floatformat:0 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Balance Sheet Grid -->
+    <div class="row g-4">
+        <!-- LEFT: Assets -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <span class="text-primary me-2">|</span> ASSETS
+                        </h5>
+                        <div class="badge bg-primary-subtle text-primary px-3 py-2">Total Assets</div>
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    {% for group in balance_sheet_data.asset_groups %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center bg-light-subtle border-bottom py-2 mb-2">
+                            <h6 class="mb-0 fw-bold text-dark small text-uppercase letter-spacing-1">{{ group.name }}</h6>
+                            <span class="fw-bold text-dark">₹{{ group.amount|floatformat:2 }}</span>
+                        </div>
+                        <div class="ps-2">
+                            {% for acc in group.accounts %}
+                            <div class="d-flex justify-content-between account-row py-1">
+                                <a href="{{ acc.url }}" target="_blank" class="text-decoration-none text-muted small hover-primary">{{ acc.name }}</a>
+                                <span class="text-dark small fw-medium">₹{{ acc.amount|floatformat:2 }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-flex justify-content-between py-3 px-3 bg-info-subtle rounded-3 mb-4">
+                        <span class="fw-bold text-info-emphasis small">Stock Closing Value</span>
+                        <span class="fw-bold text-info-emphasis">₹{{ stock_closing_value|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="mt-auto pt-4 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="h6 mb-0 fw-bold text-muted">TOTAL ASSETS</span>
+                            <span class="h4 mb-0 fw-bold text-primary">₹{{ total_assets|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Equity & Liabilities -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold text-dark">
+                            <span class="text-success me-2">|</span> EQUITY & LIABILITIES
+                        </h5>
+                        <div class="badge bg-success-subtle text-success px-3 py-2">Total Funding</div>
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <!-- Equity -->
+                    <p class="text-muted small fw-bold text-uppercase border-bottom pb-1">Equity & Reserves</p>
+                    {% for group in balance_sheet_data.equity_groups %}
+                    <div class="mb-3 ps-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark small">{{ group.name }}</span>
+                            <span class="fw-bold text-dark small">₹{{ group.amount|floatformat:2 }}</span>
+                        </div>
+                        {% for acc in group.accounts %}
+                        <div class="d-flex justify-content-between account-row py-1 ps-2">
+                            <a href="{{ acc.url }}" target="_blank" class="text-decoration-none text-muted small">{{ acc.name }}</a>
+                            <span class="text-dark small fw-medium">₹{{ acc.amount|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    {% if net_profit != 0 %}
+                    <div class="d-flex justify-content-between py-2 px-3 bg-success-subtle rounded-3 mb-4 border border-success-subtle">
+                        <span class="fw-bold text-success small">Net Profit (Current Year)</span>
+                        <span class="fw-bold text-success">₹{{ net_profit|floatformat:2 }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Liabilities -->
+                    <p class="text-muted small fw-bold text-uppercase border-bottom pb-1 mt-4">Current & Long Term Liabilities</p>
+                    {% for group in balance_sheet_data.liability_groups %}
+                    <div class="mb-3 ps-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark small">{{ group.name }}</span>
+                            <span class="fw-bold text-dark small">₹{{ group.amount|floatformat:2 }}</span>
+                        </div>
+                        {% for acc in group.accounts %}
+                        <div class="d-flex justify-content-between account-row py-1 ps-2">
+                            <a href="{{ acc.url }}" target="_blank" class="text-decoration-none text-muted small">{{ acc.name }}</a>
+                            <span class="text-dark small fw-medium">₹{{ acc.amount|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="mt-auto pt-4 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="h6 mb-0 fw-bold text-muted">TOTAL LIAB. & EQUITY</span>
+                            <span class="h4 mb-0 fw-bold text-success">₹{{ total_liabilities_and_equity|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-soft: #eef2ff;
+        --text-main: #334155;
+    }
+
+    body {
+        background-color: #f8fafc;
+        color: var(--text-main);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .letter-spacing-1 { letter-spacing: 0.05rem; }
+
+    /* Pill Badges */
+    .stat-pill {
+        display: flex;
+        align-items: center;
+        padding: 0.4rem 1rem;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+    }
+
+    /* Account Rows */
+    .account-row {
+        border-radius: 6px;
+        transition: all 0.2s;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    .account-row:hover {
+        background-color: #f1f5f9;
+    }
+    .hover-primary:hover {
+        color: #0d6efd !important;
+        text-decoration: underline !important;
+    }
+
+    /* Card Styling */
+    .card {
+        border-radius: 16px;
+    }
+
+    /* Print Optimization */
+    @media print {
+        .btn, .dropdown, .stat-pill:not(.border-success-subtle) { display: none !important; }
+        body { background: white; }
+        .card { box-shadow: none !important; border: 1px solid #eee !important; }
+        .container-fluid { width: 100%; max-width: 100%; }
+        .col-lg-6 { width: 50%; float: left; }
+    }
+</style>
+{% endblock %}
+
+{% block javascript %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize flatpickr
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr('.flatpickr', {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd M Y',
+            static: true
+        });
+    }
+  });
+</script>
+{% endblock %}

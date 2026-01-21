@@ -80,3 +80,32 @@ def get_item(dictionary, key):
 def add_class(field, css_class):
     """Adds a CSS class to a Django form field."""
     return field.as_widget(attrs={"class": css_class})
+
+
+@register.filter
+def abs_value(value):
+    """Return the absolute value of the argument."""
+    try:
+        return abs(float(value))
+    except (ValueError, TypeError):
+        return 0
+
+    
+@register.filter
+def intcomma(value):
+    """
+    Convert an integer to a string containing commas every three digits.
+    For example: 12345 becomes "12,345".
+    """
+    try:
+        # Convert to float first to handle decimal values
+        float_val = float(value)
+        # Format with commas for thousands
+        if float_val == int(float_val):
+            # It's an integer
+            return "{:,}".format(int(float_val))
+        else:
+            # It's a decimal, format with 2 decimal places
+            return "{:,.2f}".format(float_val)
+    except (ValueError, TypeError):
+        return str(value)

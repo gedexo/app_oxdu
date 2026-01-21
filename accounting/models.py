@@ -5,7 +5,9 @@ from mptt.models import MPTTModel
 from mptt.models import TreeForeignKey
 from simple_history.models import HistoricalRecords
 from django.utils.functional import cached_property
-from django.db.models import Sum
+from django.db.models import Sum, Manager
+from django.utils import timezone
+from datetime import datetime
 
 from core.base import BaseModel
 from core.choices import ACCOUNTING_MASTER_CHOICES, MAIN_GROUP_CHOICES
@@ -65,7 +67,174 @@ class GroupMaster(MPTTModel, BaseModel):
         return self.parent is not None
 
     
+class AccountQuerySet(models.QuerySet):
+    def with_balances(self, date_from=None, date_to=None):
+        from django.db.models import Sum, Q, F, DecimalField
+        from django.db.models.functions import Coalesce
+        from transactions.models import TransactionEntry, Transaction
+        from django.utils import timezone
+        from datetime import datetime
+        
+        # Start with base queryset
+        qs = self
+        
+        # Filter transaction entries
+        entry_filters = Q()
+        
+        # Include only posted transactions
+        entry_filters &= Q(transaction__status='posted')
+        
+        if date_to:
+            # Include all entries up to and including date_to
+            entry_filters &= Q(transaction__date__lte=timezone.make_aware(
+                datetime.combine(date_to, datetime.max.time())
+            ))
+        
+        if date_from:
+            # Include entries from date_from onwards
+            entry_filters &= Q(transaction__date__gte=timezone.make_aware(
+                datetime.combine(date_from, datetime.min.time())
+            ))
+        
+        # Add soft-delete filters if they exist
+        from django.core.exceptions import FieldDoesNotExist
+        try:
+            if hasattr(TransactionEntry, 'deleted'):
+                entry_filters &= Q(deleted__isnull=True)
+        except FieldDoesNotExist:
+            pass
+        try:
+            if hasattr(Transaction, 'deleted'):
+                entry_filters &= Q(transaction__deleted__isnull=True)
+        except FieldDoesNotExist:
+            pass
+        
+        # First, join with filtered transaction entries to get balances
+        # We'll join the accounts with their transaction entries based on the date and status filters
+        from django.db.models import Case, When
+        
+        # Filter the queryset to include only accounts with related transaction entries
+        # based on the date and status criteria
+        if date_from and date_to:
+            # Both date_from and date_to are specified
+            return qs.annotate(
+                total_debit=Coalesce(
+                    Sum(
+                        'transactionentry__debit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__gte=date_from,
+                            transactionentry__transaction__date__date__lte=date_to
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                ),
+                total_credit=Coalesce(
+                    Sum(
+                        'transactionentry__credit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__gte=date_from,
+                            transactionentry__transaction__date__date__lte=date_to
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                )
+            ).annotate(
+                current_balance_annotated=F('total_debit') - F('total_credit')
+            )
+        elif date_from:
+            # Only date_from is specified
+            return qs.annotate(
+                total_debit=Coalesce(
+                    Sum(
+                        'transactionentry__debit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__gte=date_from
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                ),
+                total_credit=Coalesce(
+                    Sum(
+                        'transactionentry__credit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__gte=date_from
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                )
+            ).annotate(
+                current_balance_annotated=F('total_debit') - F('total_credit')
+            )
+        elif date_to:
+            # Only date_to is specified
+            return qs.annotate(
+                total_debit=Coalesce(
+                    Sum(
+                        'transactionentry__debit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__lte=date_to
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                ),
+                total_credit=Coalesce(
+                    Sum(
+                        'transactionentry__credit_amount',
+                        filter=Q(
+                            transactionentry__transaction__status='posted',
+                            transactionentry__transaction__date__date__lte=date_to
+                        )
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                )
+            ).annotate(
+                current_balance_annotated=F('total_debit') - F('total_credit')
+            )
+        else:
+            # Neither date_from nor date_to is specified
+            return qs.annotate(
+                total_debit=Coalesce(
+                    Sum(
+                        'transactionentry__debit_amount',
+                        filter=Q(transactionentry__transaction__status='posted')
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                ),
+                total_credit=Coalesce(
+                    Sum(
+                        'transactionentry__credit_amount',
+                        filter=Q(transactionentry__transaction__status='posted')
+                    ),
+                    0,
+                    output_field=DecimalField(max_digits=19, decimal_places=2)
+                )
+            ).annotate(
+                current_balance_annotated=F('total_debit') - F('total_credit')
+            )
+
+
+class AccountManager(Manager):
+    def get_queryset(self):
+        return AccountQuerySet(self.model, using=self._db)
+    
+    def with_balances(self, date_from=None, date_to=None):
+        return self.get_queryset().with_balances(date_from, date_to)
+
+
 class Account(BaseModel):
+    objects = AccountManager()
     LEDGER_TYPES = (('STUDENT', 'Student'), ('EMPLOYEE', 'Employee'), ('GENERAL', 'General Ledger'))
     # Branch and Price Slab
     branch = models.ForeignKey('branches.Branch', on_delete=models.CASCADE, null=True, blank=True)

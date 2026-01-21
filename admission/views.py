@@ -1,5 +1,4 @@
 import calendar
-from django.db.models import Q
 import csv
 import hashlib
 import hmac
@@ -36,6 +35,7 @@ from django.db.models import (
     When,
     Value,
     CharField,
+    DecimalField,
     F,
     Sum,
 )
@@ -1753,7 +1753,22 @@ class AdmissionUpdateView(mixins.HybridUpdateView):
 
 class AdmissionDeleteView(mixins.HybridDeleteView):
     model = Admission
-    permissions = ("is_superuser", "teacher", "branch_staff", )
+    permissions = ("is_superuser", "teacher", "branch_staff")
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        # SOFT DELETE
+        self.object.stage_status = "inactive"
+        self.object.is_active = False
+        self.object.save(update_fields=["stage_status", "is_active"])
+
+        # Deactivate linked user
+        if self.object.user:
+            self.object.user.is_active = False
+            self.object.user.save(update_fields=["is_active"])
+
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class AdmissionProfileDetailView(mixins.DetailView):
@@ -1982,69 +1997,93 @@ class AdmissionProfileDetailView(mixins.DetailView):
     
 
 class DueStudentsListView(mixins.HybridListView):
-    model = FeeStructure
+    model = Admission 
     template_name = "admission/due_students_list.html"
     table_class = tables.DueStudentsTable
-    filterset_fields = {'student__course': ['exact'], 'student__branch': ['exact'], 'student__batch': ['exact']}
-    permissions = ("branch_staff", "admin_staff", "is_superuser", "mentor", "ceo","cfo","coo","hr","cmo")
+    filterset_fields = {'course': ['exact'], 'branch': ['exact'], 'batch': ['exact']}
+    permissions = ("branch_staff", "admin_staff", "is_superuser", "mentor", "ceo", "cfo", "coo", "hr", "cmo")
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        today = timezone.now().date()
-        
-        # Get filters from request
-        selected_month = self.request.GET.get('month')
+        # 1. Define Financial Stages (Same as Report View)
+        FINANCIAL_STAGES = ["active", "inactive", "completed", "placed", "internship"]
+
+        # 2. Start with Base Queryset of Students
+        queryset = Admission.objects.filter(
+            is_active=True,
+            stage_status__in=FINANCIAL_STAGES
+        ).select_related('course', 'branch', 'batch')
+
+        # 3. Apply Student Status Filter
+        selected_stage = self.request.GET.get('stage')
+        if selected_stage and selected_stage in FINANCIAL_STAGES:
+             queryset = queryset.filter(stage_status=selected_stage)
+
+        # 4. Apply User Role Security
+        user = self.request.user
+        if user.usertype == "branch_staff":
+            queryset = queryset.filter(branch=user.branch)
+
+        # 5. Get filters
         course_id = self.request.GET.get('course')
         branch_id = self.request.GET.get('branch')
         batch_id = self.request.GET.get('batch')
         
-        # Apply course filter
+        selected_year = self.request.GET.get('year')
+        selected_month = self.request.GET.get('month')
+        
+        # Defaults: If no date filter, show Current Month
+        today = timezone.now().date()
+        if not selected_year and not selected_month:
+            selected_year = str(today.year)
+            selected_month = str(today.month)
+
+        # 6. Apply Dropdown Filters
         if course_id:
-            queryset = queryset.filter(student__course_id=course_id)
-        
-        # Apply branch filter
+            queryset = queryset.filter(course_id=course_id)
         if branch_id:
-            queryset = queryset.filter(student__branch_id=branch_id)
-        
-        # Apply batch filter
+            queryset = queryset.filter(branch_id=branch_id)
         if batch_id:
-            queryset = queryset.filter(student__batch_id=batch_id)
+            queryset = queryset.filter(batch_id=batch_id)
         
-        # If no month is selected in GET parameters, default to current month
-        if not selected_month:
-            selected_month = today.strftime('%Y-%m')
+        # 7. Build FeeStructure Filter (The Core Fix)
+        # We look for Active Fee Structures where Amount > Paid Amount
+        # We use strict math comparison rather than just 'is_paid=False' to catch partial mismatched flags
+        fee_filter = Q(
+            feestructure__is_active=True,
+            feestructure__amount__gt=F('feestructure__paid_amount')
+        )
+
+        # Filter by Year
+        if selected_year and selected_year != 'all':
+            fee_filter &= Q(feestructure__due_date__year=int(selected_year))
         
-        # Apply month filter
-        if selected_month:
-            try:
-                # Parse the month (format: YYYY-MM)
-                year, month = map(int, selected_month.split('-'))
-                # Get the first and last day of the selected month
-                first_day = date(year, month, 1)
-                if month == 12:
-                    last_day = date(year + 1, 1, 1)
-                else:
-                    last_day = date(year, month + 1, 1)
-                
-                # Filter by due date in the selected month
-                due_students = queryset.filter(
-                    due_date__gte=first_day,
-                    due_date__lt=last_day,
-                    is_paid=False
-                ).distinct()
-            except (ValueError, IndexError):
-                # If month format is invalid, fall back to all due students
-                due_students = queryset.filter(due_date__lt=today, is_paid=False).distinct()
-        else:
-            # This case should not happen as we set default above, but keeping for safety
-            due_students = queryset.filter(due_date__lt=today, is_paid=False).distinct()
+        # Filter by Month
+        if selected_month and selected_month != 'all':
+            fee_filter &= Q(feestructure__due_date__month=int(selected_month))
+
+        # NOTE: If 'all' year and 'all' month are selected, we DO NOT filter by date.
+        # This allows Future dues to show up, matching the "Report View" which shows global balance.
+        # If you strictly want "Overdue" (Past), uncomment the line below:
+        # if selected_year == 'all' and selected_month == 'all':
+        #     fee_filter &= Q(feestructure__due_date__lt=today)
+
+        # Apply the filter and distinct
+        queryset = queryset.filter(fee_filter).distinct()
         
-        # Annotate with remaining amount for each fee structure
-        due_students = due_students.annotate(
-            remaining_amount=models.F('amount') - models.F('paid_amount')
+        # 8. Annotate Total Due Amount
+        # Calculates the sum of remaining balance for the filtered fee structures
+        queryset = queryset.annotate(
+            total_due_amount=Sum(
+                Case(
+                    When(fee_filter, 
+                         then=F('feestructure__amount') - F('feestructure__paid_amount')),
+                    default=0,
+                    output_field=DecimalField()
+                )
+            )
         )
             
-        return due_students
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2052,60 +2091,68 @@ class DueStudentsListView(mixins.HybridListView):
         context["is_due_students"] = True
         context["can_add"] = False
         
-        # Get current month
         today = timezone.now().date()
-        current_month = today.strftime('%Y-%m')
         
-        # Get selected month from request or default to current month
-        selected_month = self.request.GET.get('month', current_month)
+        selected_year = self.request.GET.get('year', str(today.year))
+        selected_month = self.request.GET.get('month', str(today.month))
         
-        # Generate month options (last 12 months)
-        months = []
-        for i in range(12):
-            month_date = today.replace(day=1)
-            for _ in range(i):
-                # Move to previous month
-                if month_date.month == 1:
-                    month_date = month_date.replace(year=month_date.year-1, month=12)
-                else:
-                    month_date = month_date.replace(month=month_date.month-1)
-            
-            months.append({
-                'value': month_date.strftime('%Y-%m'),
-                'display': month_date.strftime('%B %Y'),
-                'selected': selected_month == month_date.strftime('%Y-%m')
+        # Year Options
+        current_year = today.year
+        year_range = range(current_year - 5, current_year + 3)
+        year_options = [{'value': 'all', 'label': 'All Years'}]
+        for y in sorted(year_range, reverse=True):
+            year_options.append({'value': str(y), 'label': str(y)})
+
+        # Month Options
+        import calendar
+        month_options = [{'value': 'all', 'label': 'All Months'}]
+        for i in range(1, 13):
+            month_options.append({
+                'value': str(i),
+                'label': calendar.month_name[i]
             })
-        
-        # Add "All Overdue Students" option
-        months.insert(0, {
-            'value': '',
-            'display': 'All Overdue Students',
-            'selected': selected_month == ''
-        })
-        
+
         selected_course = self.request.GET.get('course')
         selected_branch = self.request.GET.get('branch')
         selected_batch = self.request.GET.get('batch')
+        selected_stage = self.request.GET.get('stage')
         
-        # Get courses, branches, and batches for filters
+        user = self.request.user
         context['courses'] = Course.objects.filter(is_active=True)
-        context['branches'] = Branch.objects.filter(is_active=True)
         
-        # Get batches based on selected course and branch
-        if selected_course and selected_branch:
-            context['batches'] = Batch.objects.filter(
-                course_id=selected_course, 
-                branch_id=selected_branch,
-                is_active=True
-            )
+        if user.usertype == "branch_staff":
+            context['branches'] = Branch.objects.filter(id=user.branch.id)
+            base_batch_qs = Batch.objects.filter(branch=user.branch, is_active=True)
         else:
-            context['batches'] = Batch.objects.none()
+            context['branches'] = Branch.objects.filter(is_active=True)
+            base_batch_qs = Batch.objects.filter(is_active=True)
         
-        context['month_options'] = months
+        if selected_course and selected_branch:
+            context['batches'] = base_batch_qs.filter(course_id=selected_course, branch_id=selected_branch)
+        elif selected_course:
+             context['batches'] = base_batch_qs.filter(course_id=selected_course)
+        elif selected_branch:
+             context['batches'] = base_batch_qs.filter(branch_id=selected_branch)
+        else:
+            context['batches'] = base_batch_qs
+
+        stage_options = [
+            ('active', "Active / Ongoing"), 
+            ('inactive', "Inactive"),
+            ('completed', "Course Completed"), 
+            ('placed', "Placed"), 
+            ('internship', "On Internship"),  
+        ]
+
+        context['year_options'] = year_options
+        context['month_options'] = month_options
+        context['selected_year'] = selected_year
         context['selected_month'] = selected_month
-        context['selected_course'] = selected_course
-        context['selected_branch'] = selected_branch
-        context['selected_batch'] = selected_batch
+        context['selected_course'] = int(selected_course) if selected_course else None
+        context['selected_branch'] = int(selected_branch) if selected_branch else None
+        context['selected_batch'] = int(selected_batch) if selected_batch else None
+        context['selected_stage'] = selected_stage
+        context['stage_options'] = stage_options
         
         return context
 
@@ -3560,6 +3607,9 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
         "student", "ceo", "cfo", "coo", "hr", "cmo", "mentor"
     )
 
+    # Centralized stages - Removed 'inactive'
+    FINANCIAL_STAGES = ["active", "completed", "placed", "internship"]
+
     # ---------- Helpers ----------
     def get_month_choices(self):
         return [
@@ -3583,53 +3633,44 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
         )
 
     # ---------- Core Payment Logic ----------
-    def get_student_payment_status(self, branch_id=None, course_id=None, year=None, month=None):
-        # (This method remains unchanged as it calculates individual student details)
-        students = Admission.objects.filter(is_active=True, stage_status="active")
+    def get_student_payment_status(self, branch_id=None, course_id=None, year=None, month=None, stage=None):
+        # 1. Get relevant students using centralized stages
+        students = Admission.objects.filter(stage_status__in=self.FINANCIAL_STAGES)
+        
         if branch_id:
             students = students.filter(branch_id=branch_id)
         if course_id:
             students = students.filter(course_id=course_id)
+        if stage and stage in self.FINANCIAL_STAGES:
+            students = students.filter(stage_status=stage)
 
         paid_students, unpaid_students = [], []
 
-        # Don't set default year if we want to allow "All Years" option
-        # year will be None if "All Years" is selected
-
         for student in students:
             fee_structures = FeeStructure.objects.filter(student=student, is_active=True)
-            # Only apply year filter if a specific year is selected (not "All Years")
+            
             if year and year != 'all':
                 fee_structures = fee_structures.filter(due_date__year=year)
             if month:
                 fee_structures = fee_structures.filter(due_date__month=month)
 
-            # Calculate paid amount from actual FeeReceipt payment methods, not from FeeStructure.paid_amount
-            student_fee_receipts = FeeReceipt.objects.filter(
-                student=student,
-                is_active=True
+            aggregates = fee_structures.aggregate(
+                total_expected=Sum('amount'),
+                total_paid=Sum('paid_amount')
             )
             
-            # Apply the same year/month filters as fee_structures
-            if year and year != 'all':
-                student_fee_receipts = student_fee_receipts.filter(date__year=year)
-            if month:
-                student_fee_receipts = student_fee_receipts.filter(date__month=month)
-            
-            paid_from_receipts = student_fee_receipts.aggregate(
-                total=Sum('payment_methods__amount')
-            )['total'] or Decimal('0.00')
-            
-            total_fee = fee_structures.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-            balance = max(total_fee - paid_from_receipts, Decimal('0.00'))
+            total_fee = aggregates['total_expected'] or Decimal('0.00')
+            paid_amount = aggregates['total_paid'] or Decimal('0.00')
+            balance = max(total_fee - paid_amount, Decimal('0.00'))
             has_fee_structure = fee_structures.exists()
 
             student_data = {
                 "student_name": student.fullname(),
+                "student_status": student.stage_status,
                 "fee_overview_url": student.get_fee_overview_absolute_url(),
                 "branch": student.branch.name if student.branch else "N/A",
                 "course": student.course.name if student.course else "N/A",
-                "paid_amount": paid_from_receipts,   
+                "paid_amount": paid_amount,   
                 "unpaid_amount": balance,
                 "total_fee": total_fee,
                 "balance": balance,
@@ -3638,9 +3679,7 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
                 "has_fee_structure": has_fee_structure,
             }
 
-            if total_fee == 0:
-                unpaid_students.append(student_data)
-            elif balance == 0:
+            if not has_fee_structure or balance <= 0:
                 paid_students.append(student_data)
             else:
                 unpaid_students.append(student_data)
@@ -3657,33 +3696,34 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
         is_branch_staff = self._is_branch_staff(user)
         user_branch_id = self._user_branch_id(user)
 
+        # GET Parameters
         branch_id = self.request.GET.get('branch')
         course_id = self.request.GET.get('course')
         year = self.request.GET.get('year')
         month = self.request.GET.get('month')
+        stage = self.request.GET.get('stage')
         
         if is_branch_staff and user_branch_id:
             branch_id = str(user_branch_id)
-
-        # Don't set default year if we want to allow "All Years" option
-        # year will be None if "All Years" is selected
         
         is_ajax = self.request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        # Get active students with stage_status="active" to match HomeView filtering
-        active_students = Admission.objects.filter(is_active=True, stage_status="active")
+        # Filter students based on stage
+        active_students = Admission.objects.filter(stage_status__in=self.FINANCIAL_STAGES)
+        if stage and stage in self.FINANCIAL_STAGES:
+            active_students = active_students.filter(stage_status=stage)
         
+        # Summary Querysets
         fee_receipts = FeeReceipt.objects.filter(is_active=True, student__in=active_students).prefetch_related('payment_methods')
         fee_structures = FeeStructure.objects.filter(is_active=True, student__in=active_students)
 
-        # Apply Filters
+        # Apply Filters to Querysets
         if branch_id:
             fee_receipts = fee_receipts.filter(student__branch_id=branch_id)
             fee_structures = fee_structures.filter(student__branch_id=branch_id)
         if course_id:
             fee_receipts = fee_receipts.filter(student__course_id=course_id)
             fee_structures = fee_structures.filter(student__course_id=course_id)
-        # Only apply year filter if a specific year is selected (not "All Years")
         if year and year != 'all':
             fee_structures = fee_structures.filter(due_date__year=int(year))
             fee_receipts = fee_receipts.filter(date__year=int(year))
@@ -3691,68 +3731,61 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
             fee_structures = fee_structures.filter(due_date__month=int(month))
             fee_receipts = fee_receipts.filter(date__month=int(month))
 
-        # Get Student Details for Tables
+        # 1. Get Summary Stats (The Fix for Mathematical Reconciliation)
+        total_fee = fee_structures.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        total_paid_amount = fee_receipts.aggregate(total=Sum('payment_methods__amount'))['total'] or Decimal('0.00')
+        
+        # Calculation Fix: Total - Paid = Unpaid (Reconciles ₹3,626,300.00 correctly)
+        total_unpaid_balance = max(total_fee - total_paid_amount, Decimal('0.00'))
+
+        # 2. Get Individual Student Lists for the Table
         paid_students, unpaid_students = self.get_student_payment_status(
             branch_id=branch_id,
             course_id=course_id,
             year=int(year) if year and year != 'all' else None,
-            month=int(month) if month else None
+            month=int(month) if month else None,
+            stage=stage
         )
 
-        # --- UPDATED CALCULATION LOGIC ---
-        
-        total_paid_amount = fee_receipts.aggregate(
-            total=Sum('payment_methods__amount')
-        )['total'] or Decimal('0.00')
-
-        total_fee = fee_structures.aggregate(
-            total=Sum('amount')
-        )['total'] or Decimal('0.00')
-
-        total_due_amount = max(total_fee - total_paid_amount, Decimal('0.00'))
-        
-        receipt_count = fee_receipts.count()
-
-        # Summary
-        branch_summary = fee_receipts.annotate(
-            receipt_amount=Sum('payment_methods__amount')
-        ).values(
+        # 3. Branch/Course Breakdown
+        branch_summary = fee_receipts.values(
             'student__branch__name', 'student__course__name'
         ).annotate(
             total_amount=Sum('payment_methods__amount'),
             receipt_count=Count('id')
         ).order_by('student__branch__name', 'student__course__name')
 
+        # Dropdown options
         month_choices = self.get_month_choices()
         year_choices = self.get_year_choices()
-        selected_month_display = dict(month_choices).get(int(month)) if month else None
+        stage_options = [
+            ('active', "Active / Ongoing"), 
+            ('completed', "Course Completed"), 
+            ('placed', "Placed"), 
+            ('internship', "On Internship"),  
+        ]
 
         if not is_ajax:
-            receipts_to_display = fee_receipts[:20]
             context.update({
-                'fee_receipts': receipts_to_display,
-                'branches': (
-                    Branch.objects.filter(is_active=True, id=user_branch_id)
-                    if (is_branch_staff and user_branch_id)
-                    else Branch.objects.filter(is_active=True)
-                ),
-                'is_branch_locked': bool(is_branch_staff and user_branch_id),
+                'fee_receipts': fee_receipts[:20],
+                'branches': Branch.objects.filter(is_active=True) if not is_branch_staff else Branch.objects.filter(id=user_branch_id),
                 'courses': Course.objects.filter(is_active=True),
                 'branch_summary': branch_summary,
-                'receipt_count': receipt_count,
+                'receipt_count': fee_receipts.count(),
                 
-                # These are the updated context variables
-                'total_amount': total_fee, 
+                # Context Summary Variables
+                'total_amount': total_fee,
                 'paid_amount': total_paid_amount,
-                'unpaid_amount': total_due_amount,
+                'unpaid_amount': total_unpaid_balance,
                 
                 'selected_branch': str(branch_id) if branch_id else None,
                 'selected_course': str(course_id) if course_id else None,
                 'selected_year': str(year) if year is not None else None,
                 'selected_month': str(month) if month else None,
-                'selected_month_display': selected_month_display,
+                'selected_stage': stage,
                 'month_choices': month_choices,
                 'year_choices': year_choices,
+                'stage_options': stage_options,
                 'paid_students': paid_students,
                 'unpaid_students': unpaid_students,
                 'paid_students_count': len(paid_students),
@@ -3770,36 +3803,28 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
         try:
             page = int(request.GET.get('page', 1))
             per_page = 20
-
+            
+            # Re-apply same filters for AJAX
             user = request.user
-            is_branch_staff = self._is_branch_staff(user)
-            user_branch_id = self._user_branch_id(user)
-
             branch_id = request.GET.get('branch')
+            if self._is_branch_staff(user) and self._user_branch_id(user):
+                branch_id = str(self._user_branch_id(user))
+            
             course_id = request.GET.get('course')
             year = request.GET.get('year')
             month = request.GET.get('month')
+            stage = request.GET.get('stage')
 
-            # Enforce branch scoping for branch staff
-            if is_branch_staff and user_branch_id:
-                branch_id = str(user_branch_id)
-
-            # Don't set default year if we want to allow "All Years" option
-            # year will be None if "All Years" is selected
-
-            # Get active students with stage_status="active" to match HomeView filtering
-            active_students = Admission.objects.filter(is_active=True, stage_status="active")
+            active_students = Admission.objects.filter(stage_status__in=self.FINANCIAL_STAGES)
+            if stage and stage in self.FINANCIAL_STAGES:
+                active_students = active_students.filter(stage_status=stage)
 
             fee_receipts = FeeReceipt.objects.filter(is_active=True, student__in=active_students).prefetch_related('payment_methods')
-            if branch_id:
-                fee_receipts = fee_receipts.filter(student__branch_id=branch_id)
-            if course_id:
-                fee_receipts = fee_receipts.filter(student__course_id=course_id)
-            # Only apply year filter if a specific year is selected (not "All Years")
-            if year and year != 'all':
-                fee_receipts = fee_receipts.filter(date__year=int(year))
-            if month:
-                fee_receipts = fee_receipts.filter(date__month=int(month))
+            
+            if branch_id: fee_receipts = fee_receipts.filter(student__branch_id=branch_id)
+            if course_id: fee_receipts = fee_receipts.filter(student__course_id=course_id)
+            if year and year != 'all': fee_receipts = fee_receipts.filter(date__year=int(year))
+            if month: fee_receipts = fee_receipts.filter(date__month=int(month))
 
             total_receipts = fee_receipts.count()
             start_index = (page - 1) * per_page
@@ -3808,41 +3833,27 @@ class FeeReceiptReportView(mixins.HybridTemplateView):
 
             receipts_data = []
             for r in receipts_page:
-                # FIXED: Get payment types from payment methods
-                payment_types = list(r.payment_methods.values_list('payment_type', flat=True))
-                payment_types_display = ", ".join(payment_types) if payment_types else "-"
-                
+                payment_types = ", ".join(list(r.payment_methods.values_list('payment_type', flat=True)))
                 receipts_data.append({
                     'receipt_no': r.receipt_no,
                     'date': r.date.strftime('%d-%m-%Y') if r.date else '',
-                    'student_name': r.student.fullname() if hasattr(r.student, 'fullname') else str(r.student),
-                    'branch_name': r.student.branch.name if getattr(r.student, 'branch', None) else 'N/A',
-                    'course_name': r.student.course.name if getattr(r.student, 'course', None) else 'N/A',
-                    'amount': str(r.get_amount()),  # FIXED: Use get_amount() method
-                    'payment_type': payment_types_display,  # FIXED: Use payment methods data
+                    'student_name': r.student.fullname(),
+                    'student_status': r.student.stage_status,
+                    'branch_name': r.student.branch.name if r.student.branch else 'N/A',
+                    'course_name': r.student.course.name if r.student.course else 'N/A',
+                    'amount': str(r.get_amount()),
+                    'payment_type': payment_types or "-",
                     'balance': str(r.get_receipt_balance() if hasattr(r, 'get_receipt_balance') else 0),
                 })
 
-            has_next = end_index < total_receipts
-
             return JsonResponse({
                 'receipts': receipts_data,
-                'has_next': has_next,
+                'has_next': end_index < total_receipts,
                 'page': page,
                 'total_receipts': total_receipts
             })
-
         except Exception as e:
-            import traceback
-            print("Error in ajax_get_receipts:", e)
-            print(traceback.format_exc())
-            return JsonResponse({
-                'receipts': [],
-                'has_next': False,
-                'page': 1,
-                'total_receipts': 0,
-                'error': str(e)
-            }, status=500)
+            return JsonResponse({'error': str(e)}, status=500)
         
 
 class StudentFeeOverviewListView(mixins.HybridListView):

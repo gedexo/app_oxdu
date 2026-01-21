@@ -1,0 +1,96 @@
+{% extends 'accounting/accounting_base.html' %}
+{% load static i18n humanize %}
+
+{% block reports_menu %}
+<div class="container-fluid mt-3 mb-2">
+  {% comment %}
+    <div class="d-flex flex-wrap gap-3 justify-content-center reports-menu w-100">
+      {% if perms.transactions.view_balancesheet %}
+      <a href="{% url 'reports:balance_sheet' %}"
+        class="btn btn-lg btn-primary w-100 w-md-auto {% if request.resolver_match.url_name == 'balance_sheet' %}active border-primary text-white fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fe fe-bar-chart-2 me-1"></i> Balance Sheet
+      </a>
+      {% endif %}
+
+      {% if perms.transactions.view_pnlreport %}
+      <a href="{% url 'reports:pnl' %}"
+        class="btn btn-lg btn-success w-100 w-md-auto {% if request.resolver_match.url_name == 'pnl' %}active border-success text-white fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fe fe-trending-up me-1"></i> P&L
+      </a>
+      {% endif %}
+
+      {% if perms.products.view_product %}
+      <a href="{% url 'reports:stock_report' %}"
+        class="btn btn-lg btn-warning w-100 w-md-auto {% if request.resolver_match.url_name == 'stock_report' %}active border-warning text-dark fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fas fa-boxes me-1"></i> Stock
+      </a>
+      {% endif %}
+
+      {% if perms.transactions.view_transactionentry %}
+      <a href="{% url 'reports:ledger_report' %}"
+        class="btn btn-lg btn-info w-100 w-md-auto {% if request.resolver_match.url_name == 'ledger_report' %}active border-info text-white fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fas fa-book me-1"></i> Ledger
+      </a>
+      {% endif %}
+
+      {% if perms.transactions.view_cashflow %}
+      <a href="{% url 'reports:cash_flow_report' %}"
+        class="btn btn-lg btn-danger w-100 w-md-auto {% if request.resolver_match.url_name == 'cash_flow_report' %}active border-danger text-white fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fe fe-credit-card me-1"></i> Cash Flow
+      </a>
+      {% endif %}
+
+      {% if perms.transactions.view_balancesheet %}
+      <a href="{% url 'reports:trial_balance' %}"
+        class="btn btn-lg btn-secondary w-100 w-md-auto {% if request.resolver_match.url_name == 'trial_balance' %}active border-secondary text-white fw-bold{% endif %}"
+        style="max-width: 220px;">
+        <i class="fe fe-layers me-1"></i> Trial Balance
+      </a>
+      {% endif %}
+    </div>
+  {% endcomment %}
+
+</div>
+{% endblock %}
+
+{% block title %}{% block report_title %}Report{% endblock %} - OXDU ERP{% endblock %}
+
+{% block content %}
+<div class="main-content app-content">
+  <div class="container-fluid">
+    <!-- Report Header -->
+    <div class="row">
+      <div class="col-12">
+        <div class="page-header d-lg-flex d-block justify-content-between align-items-center mt-3 mb-4">
+          <div class="page-leftheader flex-grow-1">
+            <div class="page-title mb-2">
+              {% block report_icon %}<i class="fe fe-bar-chart-2 me-2 text-primary fs-4"></i>{% endblock %}
+              <span class="h3 mb-0">{% block report_title_text %}{{ report_title }}{% endblock %}</span>
+            </div>
+            <div class="page-subtitle">
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                {% block report_subtitle %}{% endblock %}
+              </div>
+            </div>
+          </div>
+          <div class="page-rightheader mt-3 mt-lg-0">
+            <div class="btn-list d-flex flex-wrap gap-2">
+              {% block report_actions %}{% endblock %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Report Header -->
+
+    {% block report_summary %}{% endblock %}
+
+    {% block report_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

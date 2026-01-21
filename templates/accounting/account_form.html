@@ -36,6 +36,20 @@
         <form method="post">
             {% csrf_token %}
 
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Please fix the following errors:</strong>
+                    {{ form.non_field_errors }}
+                    <ul>
+                        {% for field in form %}
+                            {% if field.errors %}
+                                <li>{{ field.label }}: {{ field.errors|striptags }}</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
             <!-- ACCOUNT INFO -->
             <div class="form-section">
                 <div class="form-section-title">Account Information</div>
@@ -125,6 +139,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 underField.disabled = false;
             });
     });
+
+    if (window.$) {
+        $('#id_under').select2({ placeholder: 'Select an under', width: '100%' });
+        $('#id_ledger_type').select2({ placeholder: 'Select a ledger type', width: '100%' });
+    }
 });
 </script>
 

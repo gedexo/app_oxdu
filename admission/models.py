@@ -392,7 +392,7 @@ class Admission(BaseModel):
                 fee_receipt = FeeReceipt.objects.create(
                     student=self,
                     receipt_no=f"ADM{self.pk:04d}",
-                    date=self.course_start_date or timezone.now().date(),
+                    date=self.admission_date or timezone.now().date(),
                     note="Admission Fee",
                     status='paid'
                 )

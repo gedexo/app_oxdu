@@ -8,7 +8,7 @@ from django.template.defaultfilters import truncatechars
 from admission .models import Admission
 from employees .models import Employee
 from core.choices import LEAVE_STATUS_CHOICES
-from .models import Activity, Batch, BranchActivity, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PDFBookResource, PdfBook, ComplaintRegistration, ChatSession, PublicMessage, Syllabus, SyllabusMaster, Update, PlacementRequest, RequestSubmission, Event
+from .models import Activity, Batch, BranchActivity, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PDFBookResource, PdfBook, ComplaintRegistration, ChatSession, PublicMessage, Syllabus, SyllabusMaster, Update, PlacementRequest, RequestSubmission, Event, State, Tax
 
 
 class BatchTable(BaseTable):
@@ -608,4 +608,19 @@ class EventTable(BaseTable):
     class Meta(BaseTable.Meta):
         model = Event
         fields = ("title", "event_type", "filter_type", )
+        attrs = {"class": "table table-striped table-bordered"}
+
+    
+class StateTable(BaseTable):
+    class Meta(BaseTable.Meta):
+        model = State
+        fields = ("name", "created", )
+        attrs = {"class": "table table-striped table-bordered"}
+
+
+class TaxTable(BaseTable):
+    created = None
+    class Meta(BaseTable.Meta):
+        model = Tax
+        fields = ("name", "code", "tax_type", "rate", )
         attrs = {"class": "table table-striped table-bordered"}

@@ -45,7 +45,7 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
-MODULES = ["employees", "admission", "core", "accounts", "accounting", "transactions", "masters", "branches"]
+MODULES = ["employees", "admission", "core", "accounts", "accounting", "transactions", "masters", "branches", "reports",]
 
 INSTALLED_APPS = INSTALLED_PLUGINS + DJANGO_APPS + MODULES
 

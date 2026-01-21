@@ -1,0 +1,217 @@
+<script>
+    // main.js - Main initialization and document ready functions (Updated)
+$(document).ready(function () {
+    // Initialize Select2 components first
+    if (typeof initializeSelect2Components === 'function') {
+        initializeSelect2Components();
+    }
+
+    // Initialize amount words manager
+    if (AmountWordsManager && typeof AmountWordsManager.initializeAmountWordListeners === 'function') {
+        AmountWordsManager.initializeAmountWordListeners();
+    }
+
+    // Initialize payment management
+    if (PaymentManager) {
+        if (typeof PaymentManager.initializeAutoPaymentCheckbox === 'function') {
+            PaymentManager.initializeAutoPaymentCheckbox();
+        }
+        if (typeof PaymentManager.setupAutoTrigger === 'function') {
+            PaymentManager.setupAutoTrigger();
+        }
+    }
+
+    // Initialize formsets
+    if (typeof initializePaymentFormset === 'function') {
+        initializePaymentFormset();
+    }
+    if (typeof initializeItemFormset === 'function') {
+        initializeItemFormset();
+    }
+    if (typeof initializeExistingRows === 'function') {
+        initializeExistingRows();
+    }
+
+    // Initialize event handlers
+    if (typeof initializeAllEventHandlers === 'function') {
+        initializeAllEventHandlers();
+    } else {
+        // Initialize individual handlers if available
+        if (typeof bindTaxPercentageEvents === 'function') {
+            bindTaxPercentageEvents();
+        }
+        if (typeof bindTaxableValueEvents === 'function') {
+            bindTaxableValueEvents();
+        }
+        if (typeof bindGlobalDiscountEvents === 'function') {
+            bindGlobalDiscountEvents();
+        }
+        if (typeof bindKeyboardNavigation === 'function') {
+            bindKeyboardNavigation();
+        }
+        if (typeof bindKeyboardShortcuts === 'function') {
+            bindKeyboardShortcuts();
+        }
+        if (typeof bindFormValidation === 'function') {
+            bindFormValidation();
+        }
+        if (typeof bindAutoRoundOffEvents === 'function') {
+            bindAutoRoundOffEvents();
+        }
+        if (typeof bindPriceCalculationEvents === 'function') {
+            bindPriceCalculationEvents();
+        }
+        if (typeof bindBranchChangeEvent === 'function') {
+            bindBranchChangeEvent();
+        }
+        if (typeof bindIsPartyChangeEvent === 'function') {
+            bindIsPartyChangeEvent();
+        }
+    }
+
+    // Initialize GST and party management first
+    if (typeof bindGstEvents === 'function') {
+        bindGstEvents();
+    }
+    if (typeof initializePartyEvents === 'function') {
+        initializePartyEvents();
+    }
+
+    // Initialize tax handling AFTER GST is set up
+    if (typeof initializeTaxHandling === 'function') {
+        initializeTaxHandling();
+    }
+
+    // Initialize item management
+    if (typeof initializeItemEvents === 'function') {
+        initializeItemEvents();
+    }
+
+    // Initialize auto mode functionality
+    if (typeof initializeAutoModeEvents === 'function') {
+        initializeAutoModeEvents();
+    }
+
+    // Initialize UI helpers
+    if (UiHelpers && typeof UiHelpers.initialize === 'function') {
+        UiHelpers.initialize();
+    }
+
+    // Toggle GST fields and calculate totals
+    if (typeof toggleGstFields === 'function') {
+        toggleGstFields();
+    }
+    if (typeof calculateAllTotals === 'function') {
+        calculateAllTotals();
+    }
+    
+    // Trigger branch change event if branch is already selected (for update forms)
+    setTimeout(function() {
+        const selectedBranch = $('#id_branch').val();
+        if (selectedBranch) {
+            $('#id_branch').trigger('change');
+        }
+    }, 100);
+    
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    if (typeof filterPaymentAccounts === 'function') {
+        filterPaymentAccounts(isGstEnabled);
+    }
+
+    // Bind to global discount events for amount words
+    $('#id_discount_percentage, #id_discount_amount, #id_round_off_amount').on('input change', function () {
+        setTimeout(() => {
+            if (AmountWordsManager && typeof AmountWordsManager.updateNetAmountWords === 'function') {
+                AmountWordsManager.updateNetAmountWords();
+            }
+        }, 200);
+    });
+
+    // Initialize round off input state based on auto round off setting
+    setTimeout(() => {
+        const isAutoRoundOff = $('#id_auto_round_off').is(":checked");
+        const $roundOffInput = $('#id_round_off_amount');
+        
+        if (isAutoRoundOff) {
+            $roundOffInput.prop('readonly', true).addClass('readonly');
+        } else {
+            $roundOffInput.prop('readonly', false).removeClass('readonly');
+        }
+        
+        // Initial calculation
+        if (typeof calculateAllTotals === 'function') {
+            calculateAllTotals();
+        }
+        if (AmountWordsManager && typeof AmountWordsManager.updateAllAmountWords === 'function') {
+            AmountWordsManager.updateAllAmountWords();
+        }
+    }, 500);
+
+    
+});
+
+// =============================================================================
+// PUBLIC API (for external access)
+// =============================================================================
+
+// Expose useful functions globally
+window.PaymentManager = PaymentManager;
+window.AmountWordsManager = AmountWordsManager;
+window.ItemManager = ItemManager;
+window.GstManager = GstManager;
+window.UiHelpers = UiHelpers;
+
+window.IncomeExpenseManager = {
+    PaymentManager: PaymentManager,
+    AmountWordsManager: AmountWordsManager,
+    ItemManager: ItemManager,
+    GstManager: GstManager,
+    UiHelpers: UiHelpers,
+    
+    // Core functions
+    calculateAllTotals: calculateAllTotals,
+    toggleGstFields: toggleGstFields,
+    
+    // Utility functions
+    autoFillPayment: function() {
+        if (PaymentManager && typeof PaymentManager.autoFillPayment === 'function') {
+            return PaymentManager.autoFillPayment();
+        }
+        return false;
+    },
+    
+    clearAllData: function() {
+        if (PaymentManager && typeof PaymentManager.clearAllPayments === 'function') {
+            PaymentManager.clearAllPayments();
+        }
+        if (ItemManager && typeof ItemManager.clearAllSelections === 'function') {
+            ItemManager.clearAllSelections();
+        }
+        if (PartyManager && typeof PartyManager.clearPartySelection === 'function') {
+            PartyManager.clearPartySelection();
+        }
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('All data cleared', 'info');
+        }
+    },
+    
+    getTransactionSummary: function() {
+        const summary = {
+            items: ItemManager ? ItemManager.getSelectedItemsSummary() : null,
+            payments: PaymentManager ? PaymentManager.getPaymentSummary() : null,
+            party: PartyManager ? PartyManager.getPartyOutstandingSummary() : null,
+            gst: GstManager ? {
+                enabled: GstManager.isGstEnabled(),
+                totalTax: GstManager.getTotalTaxAmount()
+            } : null,
+            amounts: {
+                netAmount: parseFloat($('#id_invoice_amount').val()) || 0,
+                receivedAmount: parseFloat($('#id_received_amount').val()) || 0,
+                balanceAmount: parseFloat($('#id_balance_amount').val()) || 0
+            }
+        };
+        
+        return summary;
+    }
+};
+</script>

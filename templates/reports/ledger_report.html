@@ -1,0 +1,500 @@
+{% extends 'reports/base_report.html' %}
+{% load static i18n crispy_forms_tags django_tables2 extras %}
+
+{% block report_title %}Ledger Report{% endblock %}
+{% block report_icon %}<i class="fas fa-book me-2 text-secondary fs-4"></i>{% endblock %}
+{% block report_title_text %}Ledger Report{% endblock %}
+{% block report_subtitle %}
+  {% if account %}
+    <span class="badge bg-primary-transparent text-primary">
+      <i class="fas fa-user me-1"></i>
+      {{ account.name }}
+    </span>
+    <span class="badge bg-info-transparent text-info">
+      <i class="fas fa-code me-1"></i>
+      Code: {{ account.code }}
+    </span>
+    <span class="badge bg-success-transparent text-success">
+      <i class="fas fa-layer-group me-1"></i>
+      Under: {{ account.under.name }}
+    </span>
+    {% if account.branch %}
+    <span class="badge bg-warning-transparent text-warning">
+      <i class="fas fa-building me-1"></i>
+      Branch: {{ account.branch.name }}
+    </span>
+    {% endif %}
+  {% else %}
+    <span class="badge bg-secondary-transparent text-secondary">
+      <i class="fas fa-info-circle me-1"></i>
+      Please select an account
+    </span>
+  {% endif %}
+{% endblock %}
+
+{% block report_content %}
+
+<div class="main-content app-content">
+
+  <div class="">
+
+    <div class="row mt-4">
+      {% include 'app/partials/messages.html' %}
+      <div class="col-md-12">
+        <div class="card custom-card">
+          
+          <div class="card-header d-flex justify-content-between">
+            <div class="card-title">
+              <h4>
+                <i class="fas fa-book me-2"></i>
+                {% if account %}
+                  {{ account.name }} - Ledger Report
+                  {% if account.alias_name %}
+                    <small class="text-muted">({{ account.alias_name }})</small>
+                  {% endif %}
+                {% else %}
+                  Ledger Report
+                {% endif %}
+              </h4>
+              {% if account %}
+              <div class="d-flex flex-wrap gap-3 mt-2">
+                {% if date_from and date_to %}
+                <small class="text-muted">
+                  <i class="fas fa-calendar-alt me-1"></i>
+                  {{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}
+                </small>
+                {% elif date_from %}
+                <small class="text-muted">
+                  <i class="fas fa-calendar-alt me-1"></i>
+                  From {{ date_from|date:"d M Y" }}
+                </small>
+                {% elif date_to %}
+                <small class="text-muted">
+                  <i class="fas fa-calendar-alt me-1"></i>
+                  Up to {{ date_to|date:"d M Y" }}
+                </small>
+                {% else %}
+                <small class="text-muted">
+                  <i class="fas fa-calendar-alt me-1"></i>
+                  All Transactions
+                </small>
+                {% endif %}
+                <small class="text-muted">
+                  <i class="fas fa-code me-1"></i>
+                  Account Code: {{ account.code }}
+                </small>
+                <small class="text-muted">
+                  <i class="fas fa-layer-group me-1"></i>
+                  Under: {{ account.under.name }}
+                </small>
+                {% if account.branch %}
+                <small class="text-muted">
+                  <i class="fas fa-building me-1"></i>
+                  Branch: {{ account.branch.name }}
+                </small>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+            {% if account %}
+            <div class="d-flex flex-wrap">
+              <div class="btn-group me-2 mb-2" role="group">
+                <button class="btn btn-outline-primary" onclick="window.print()">
+                  <i class="fas fa-print me-1"></i> Print
+                </button>
+                {% if table.paginated_rows %}
+                    <a href="{% export_url 'xlsx' %}" class="btn btn-outline-success">
+                        <i class="fas fa-file-excel me-1"></i> Export
+                    </a>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          
+          <div class="card-body ">
+            <!-- Updated Filter Form -->
+            <div class="row mb-3 p-3 bg-dark bg-opacity-10 rounded">
+              <div class="col-md-12">
+                <form method="GET" autocomplete="off" class="row g-3">
+                  
+                  <!-- 1. Branch Selector -->
+                  <div class="col-md-3">
+                      <div class="form-group">
+                          <label class="form-label fw-bold">Branch</label>
+                          <select name="branch" class="form-select" onchange="this.form.submit()">
+                              <option value="">All Branches</option>
+                              {% for b in branches %}
+                                  <option value="{{ b.id }}" {% if selected_branch_id == b.id %}selected{% endif %}>
+                                      {{ b.name }}
+                                  </option>
+                              {% endfor %}
+                          </select>
+                      </div>
+                  </div>
+
+                  <!-- 2. Account Selector -->
+                  <div class="col-md-3">
+                      <div class="form-group">
+                          <label class="form-label fw-bold">Account</label>
+                          <!-- We manually render the select to use the filtered 'all_accounts' context variable -->
+                          <select name="account" class="form-select select2">
+                              <option value="">---------</option>
+                              {% for acc in all_accounts %}
+                                  <option value="{{ acc.id }}" {% if selected_account_id == acc.id %}selected{% endif %}>
+                                      {{ acc.name }} 
+                                      {% if not selected_branch_id and acc.branch %}
+                                          ({{ acc.branch.name }})
+                                      {% endif %}
+                                  </option>
+                              {% endfor %}
+                          </select>
+                          <!-- Show errors if validation fails -->
+                          {% if filter_form.account.errors %}
+                              <div class="text-danger small mt-1">{{ filter_form.account.errors|join:", " }}</div>
+                          {% endif %}
+                      </div>
+                  </div>
+
+                  <!-- 3. Date From (Using Crispy to preserve Flatpickr) -->
+                  <div class="col-md-2">
+                      <div class="form-group">
+                          <!-- This renders the widget defined in your forms.py (Flatpickr) -->
+                          {{ filter_form.date_from|as_crispy_field }} 
+                      </div>
+                  </div>
+
+                  <!-- 4. Date To (Using Crispy to preserve Flatpickr) -->
+                  <div class="col-md-2">
+                      <div class="form-group">
+                          {{ filter_form.date_to|as_crispy_field }}
+                      </div>
+                  </div>
+
+                  <!-- Buttons -->
+                  <div class="col-md-2 d-flex align-items-center mt-4 pt-2">
+                      <button type="submit" class="btn btn-primary me-2">
+                          <i class="fas fa-filter me-1"></i> Filter
+                      </button>
+                      <a href="{% url 'reports:ledger_report' %}" class="btn btn-outline-secondary">
+                          <i class="fas fa-undo me-1"></i> Reset
+                      </a>
+                  </div>
+              </form>
+              </div>
+            </div>
+
+            {% if no_account_selected %}
+            <!-- No Account Selected Message -->
+            <div class="row">
+              <div class="col-md-12">
+                <div class="alert alert-info" role="alert">
+                  <i class="fas fa-info-circle me-2"></i>
+                  <strong>Please select an account</strong> from the dropdown above to view the ledger report.
+                </div>
+              </div>
+            </div>
+            {% elif account %}
+
+            <!-- Draft Transactions Warning -->
+            {% if draft_count > 0 %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+              <div class="d-flex align-items-start">
+                <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+                <div class="flex-grow-1">
+                  <h5 class="alert-heading mb-2">
+                    <i class="fas fa-file-alt me-2"></i>Draft Transactions Notice
+                  </h5>
+                  <p class="mb-2">
+                    There are <strong class="text-dark">{{ draft_count }}</strong> draft transaction(s) for this account that are <strong class="text-dark">not included</strong> in the balance calculation.
+                  </p>
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <strong>Draft Debit:</strong> 
+                      <span class="text-success fw-bold">₹{{ draft_total_debit|floatformat:2 }}</span>
+                    </div>
+                    <div class="col-md-6">
+                      <strong>Draft Credit:</strong> 
+                      <span class="text-danger fw-bold">₹{{ draft_total_credit|floatformat:2 }}</span>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-warning" type="button" data-bs-toggle="collapse" data-bs-target="#draftEntriesCollapse" aria-expanded="false">
+                    <i class="fas fa-eye me-1"></i> View Draft Transactions
+                  </button>
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <!-- Collapsible Draft Transactions Table -->
+            <div class="collapse mb-4" id="draftEntriesCollapse">
+              <div class="card border-warning">
+                <div class="card-header bg-warning bg-opacity-10">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Draft Transactions
+                  </h5>
+                </div>
+                <div class="card-body p-0">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                      <thead class="table-warning">
+                        <tr>
+                          <th>Date</th>
+                          <th>Voucher</th>
+                          <th>Type</th>
+                          <th>Description</th>
+                          <th class="text-end">Debit</th>
+                          <th class="text-end">Credit</th>
+                          <th class="text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for entry in draft_entries %}
+                        <tr class="align-middle">
+                          <td class="text-nowrap">
+                            <i class="fas fa-calendar-day me-1 text-muted"></i>
+                            {{ entry.transaction.date|date:"d M, Y" }}
+                          </td>
+                          <td>
+                            <span class="badge bg-secondary">{{ entry.transaction.voucher_number|default:"-" }}</span>
+                          </td>
+                          <td class="text-capitalize">
+                            {{ entry.transaction.get_transaction_type_display }}
+                          </td>
+                          <td>
+                            {{ entry.description|default:"-"|truncatewords:10 }}
+                          </td>
+                          <td class="text-end">
+                            {% if entry.debit_amount %}
+                              <span class="text-success fw-medium">₹{{ entry.debit_amount|floatformat:2 }}</span>
+                            {% else %}
+                              <span class="text-muted">-</span>
+                            {% endif %}
+                          </td>
+                          <td class="text-end">
+                            {% if entry.credit_amount %}
+                              <span class="text-danger fw-medium">₹{{ entry.credit_amount|floatformat:2 }}</span>
+                            {% else %}
+                              <span class="text-muted">-</span>
+                            {% endif %}
+                          </td>
+                          <td class="text-center">
+                            <a href="{{ entry.transaction.get_update_url }}" 
+                               class="btn btn-sm btn-primary" 
+                               title="Edit Transaction">
+                              <i class="fas fa-edit"></i> Edit
+                            </a>
+                          </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                          <td colspan="7" class="text-center text-muted py-3">
+                            No draft transactions found
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                      <tfoot class="table-warning">
+                        <tr class="fw-bold">
+                          <td colspan="4" class="text-end">Total:</td>
+                          <td class="text-end text-success">₹{{ draft_total_debit|floatformat:2 }}</td>
+                          <td class="text-end text-danger">₹{{ draft_total_credit|floatformat:2 }}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            
+            <!-- Account Summary Cards -->
+            <div class="row mb-4">
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">Account Information</h6>
+                    <div class="mb-2">
+                      <strong>Type:</strong> {{ account.get_ledger_type_display }}
+                    </div>
+                    <div class="mb-2">
+                      <strong>Status:</strong>
+                      {% if account.is_locked %}
+                        <span class="badge bg-danger">Locked</span>
+                      {% else %}
+                        <span class="badge bg-success">Active</span>
+                      {% endif %}
+                    </div>
+                    {% if account.credit_limit %}
+                    <div class="mb-2">
+                      <strong>Credit Limit:</strong> ₹{{ account.credit_limit|floatformat:2 }}
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">Opening Balance</h6>
+                    <h3 class="mb-0">
+                      {% if opening_balance >= 0 %}
+                        <span class="text-success">₹{{ opening_balance|floatformat:2 }} Dr</span>
+                      {% else %}
+                        <span class="text-danger">₹{{ opening_balance|abs_value|floatformat:2 }} Cr</span>
+                      {% endif %}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">Closing Balance</h6>
+                    <h3 class="mb-0">
+                      {% if closing_balance >= 0 %}
+                        <span class="text-success">₹{{ closing_balance|floatformat:2 }} Dr</span>
+                      {% else %}
+                        <span class="text-danger">₹{{ closing_balance|abs_value|floatformat:2 }} Cr</span>
+                      {% endif %}
+                    </h3>
+                    {% if show_all %}
+                    <small class="text-muted">
+                      System Balance: ₹{{ account.current_balance|floatformat:2 }} {{ account.balance_type }}
+                    </small>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">Period Activity</h6>
+                    <div class="mb-2">
+                      <strong>Total Debit:</strong>
+                      <span class="text-success">₹{{ total_debit|floatformat:2 }}</span>
+                    </div>
+                    <div class="mb-0">
+                      <strong>Total Credit:</strong>
+                      <span class="text-danger">₹{{ total_credit|floatformat:2 }}</span>
+                    </div>
+                    {% if draft_count > 0 %}
+                    <hr class="my-2">
+                    <div class="mb-0">
+                      <small class="text-warning">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        {{ draft_count }} draft transaction(s)
+                      </small>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ledger Table -->
+             {% if table.paginated_rows %}
+                <div class="table-responsive">
+                {% render_table table 'django_tables2/bootstrap.html' %}
+                <nav class="mt-4">
+                {% if table.page and table.paginator.num_pages > 1 %}
+                <ul class="pagination justify-content-end mb-0">
+                    {% if table.page.has_previous %}
+                    <li class="page-item">
+                    <a class="page-link"
+                        href="{% querystring table.prefixed_page_field=table.page.previous_page_number %}">Prev</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                    <a class="page-link" href="javascript:void(0);">Prev</a>
+                    </li>
+                    {% endif %}
+
+                    {% for p in table.page|table_page_range:table.paginator %}
+                    <li class="page-item {% if p == table.page.number %}active{% endif %}">
+                    {% if p == '...' %}
+                    <a class="page-link" href="javascript:void(0);">{{ p }}</a>
+                    {% else %}
+                    <a class="page-link" href="{% querystring table.prefixed_page_field=p %}">{{ p }}</a>
+                    {% endif %}
+                    </li>
+                    {% endfor %}
+
+                    {% if table.page.has_next %}
+                    <li class="page-item">
+                    <a class="page-link"
+                        href="{% querystring table.prefixed_page_field=table.page.next_page_number %}">Next</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                    <a class="page-link" href="javascript:void(0);">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+                </nav>
+                </div>
+            {% else %}
+                <h4 class="text-center ">Transaction List is empty</h4>
+            {% endif %}
+
+            <!-- Additional Account Info -->
+            {% if account.contacts.exists or account.addresses.exists %}
+            <div class="row mt-4">
+              {% if account.addresses.exists %}
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="card-title">Addresses</h5>
+                  </div>
+                  <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                      {% for address in account.addresses.all %}
+                      <li class="list-group-item">
+                        <strong>{{ address.get_address_type_display }}</strong><br>
+                        {{ address.address_line1 }}<br>
+                        {% if address.address_line2 %}{{ address.address_line2 }}<br>{% endif %}
+                        {{ address.city }}, {{ address.state }} - {{ address.pincode }}<br>
+                        {{ address.country }}
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+              
+              {% if account.contacts.exists %}
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="card-title">Contacts</h5>
+                  </div>
+                  <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                      {% for contact in account.contacts.all %}
+                      <li class="list-group-item">
+                        <strong>{{ contact.name }}</strong><br>
+                        <i class="fas fa-phone me-1"></i> {{ contact.phone }}<br>
+                        {% if contact.mobile %}<i class="fas fa-mobile-alt me-1"></i> {{ contact.mobile }}<br>{% endif %}
+                        {% if contact.email %}<i class="fas fa-envelope me-1"></i> {{ contact.email }}{% endif %}
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+            
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

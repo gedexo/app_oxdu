@@ -1,0 +1,373 @@
+{% extends 'reports/base_report.html' %}
+{% load static i18n extras humanize %}
+
+{% block report_title %}Cash Flow Statement{% endblock %}
+{% block report_icon %}<i class="fe fe-trending-up me-2 text-primary fs-4"></i>{% endblock %}
+{% block report_title_text %}Cash Flow Statement{% endblock %}
+
+{% block report_subtitle %}
+<div class="d-flex flex-wrap gap-2 mt-2">
+    <div class="report-meta-item">
+        <i class="fe fe-calendar me-1 text-muted"></i>
+        <span class="fw-semibold">{{ date_from|date:"d M Y" }}</span> 
+        <span class="text-muted mx-1">to</span> 
+        <span class="fw-semibold">{{ date_to|date:"d M Y" }}</span>
+    </div>
+    <div class="report-meta-item">
+        <i class="fe fe-map-pin me-1 text-muted"></i>
+        <span class="fw-semibold">{% if selected_branch %}{{ selected_branch.name }}{% else %}All Branches{% endif %}</span>
+    </div>
+    {% if net_cashflow >= 0 %}
+    <div class="report-meta-item bg-success-transparent text-success border-success-subtle">
+        <i class="fe fe-arrow-up-right me-1"></i> Net Inflow: ₹{{ net_cashflow|floatformat:2|intcomma }}
+    </div>
+    {% else %}
+    <div class="report-meta-item bg-danger-transparent text-danger border-danger-subtle">
+        <i class="fe fe-arrow-down-right me-1"></i> Net Outflow: ₹{{ net_cashflow_abs|floatformat:2|intcomma }}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block report_actions %}
+<div class="d-flex gap-2">
+    <div class="btn-group">
+        <button class="btn btn-white shadow-sm" onclick="window.print();">
+            <i class="fe fe-printer me-2"></i> Print
+        </button>
+        <a href="?{{ request.GET.urlencode }}&export=excel" class="btn btn-white shadow-sm">
+            <i class="fe fe-download me-2"></i> Excel
+        </a>
+    </div>
+    
+    <div class="dropdown">
+        <button class="btn btn-primary shadow-sm px-4" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fe fe-sliders me-2"></i> Filters
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-4 border-0 shadow-lg" style="min-width: 320px; border-radius: 12px;">
+            <form method="GET">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase text-muted">Branch Context</label>
+                    <select name="branch" class="form-select border-light-subtle shadow-none">
+                        <option value="">All Branches</option>
+                        {% for br in all_branches %}
+                            <option value="{{ br.id }}" {% if selected_branch.id == br.id %}selected{% endif %}>{{ br.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-uppercase text-muted">From</label>
+                        <input type="date" name="date_from" class="form-control" value="{{ date_from|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-uppercase text-muted">To</label>
+                        <input type="date" name="date_to" class="form-control" value="{{ date_to|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-4 py-2 fw-semibold">Update Statement</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block report_content %}
+<div class="main-content app-content">
+    
+    <!-- KPI Overview Section -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-white shadow-sm border-0 p-3 h-100">
+                <div class="small fw-bold text-uppercase mb-2">Opening Cash</div>
+                <div class="h5 fw-bold mb-0">₹{{ opening_cash|floatformat:0|intcomma }}</div>
+                <div class="kpi-icon bg-info-transparent text-info"><i class="fe fe-play"></i></div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-white shadow-sm border-0 p-3 h-100">
+                <div class="small fw-bold text-uppercase mb-2 text-truncate">Operating</div>
+                <div class="h5 fw-bold mb-0 {% if operating_cashflow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ₹{{ operating_cashflow|floatformat:0|intcomma }}
+                </div>
+                <div class="kpi-icon bg-success-transparent text-success"><i class="fe fe-activity"></i></div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-white shadow-sm border-0 p-3 h-100">
+                <div class="small fw-bold text-uppercase mb-2 text-truncate">Investing</div>
+                <div class="h5 fw-bold mb-0 {% if investing_cashflow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ₹{{ investing_cashflow|floatformat:0|intcomma }}
+                </div>
+                <div class="kpi-icon bg-warning-transparent text-warning"><i class="fe fe-trending-up"></i></div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-white shadow-sm border-0 p-3 h-100">
+                <div class="small fw-bold text-uppercase mb-2 text-truncate">Financing</div>
+                <div class="h5 fw-bold mb-0 {% if financing_cashflow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ₹{{ financing_cashflow|floatformat:0|intcomma }}
+                </div>
+                <div class="kpi-icon bg-purple-transparent text-purple"><i class="fe fe-credit-card"></i></div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-white shadow-sm border-0 p-3 h-100">
+                <div class="small fw-bold text-uppercase mb-2">Net Change</div>
+                <div class="h5 fw-bold mb-0 {% if net_cashflow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ₹{{ net_cashflow|floatformat:0|intcomma }}
+                </div>
+                <div class="kpi-icon {% if net_cashflow >= 0 %}bg-success-transparent text-success{% else %}bg-danger-transparent text-danger{% endif %}">
+                    <i class="fe fe-{% if net_cashflow >= 0 %}maximize{% else %}minimize{% endif %}"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-lg-4 col-sm-6">
+            <div class="kpi-card custom-card bg-primary shadow-sm border-0 p-3 h-100 text-white">
+                <div class="text-white small fw-bold text-uppercase mb-2">Closing Cash</div>
+                <div class="h5 fw-bold mb-0 text-white">₹{{ closing_cash|floatformat:0|intcomma }}</div>
+                <div class="kpi-icon bg-white-transparent text-white"><i class="fe fe-lock"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statement Table -->
+    <div class="card custom-card border-0 shadow-sm overflow-hidden mb-4">
+        <div class="card-header bg-white py-3">
+            <h6 class="card-title fw-bold mb-0">Cash Flow Breakdown</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="bg-light-subtle">
+                    <tr>
+                        <th class="ps-4 text-uppercase small fw-bold text-muted py-3">Transaction Description</th>
+                        <th class="text-end pe-4 text-uppercase small fw-bold text-muted py-3">Impact Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    <!-- Opening -->
+                    <tr class="section-title text-info border-info">
+                        <td colspan="2" class="ps-4 fw-bold">Opening Balance</td>
+                    </tr>
+                    <tr class="hover-row">
+                        <td class="ps-5 text-muted italic">Balance at the beginning of the period</td>
+                        <td class="text-end pe-4 fw-bold">₹{{ opening_cash|floatformat:2|intcomma }}</td>
+                    </tr>
+
+                    <!-- Operating -->
+                    <tr class="section-title text-success border-success">
+                        <td colspan="2" class="ps-4 fw-bold">Operating Activities</td>
+                    </tr>
+                    {% for activity in cashflow_data.operating_activities %}
+                    <tr class="hover-row">
+                        <td class="ps-5">
+                            <a href="{{ activity.url }}" class="text-dark fw-medium text-decoration-none" target="_blank">
+                                {{ activity.account_name }} <i class="fe fe-external-link ms-1 small text-muted opacity-50"></i>
+                            </a>
+                            <div class="text-muted x-small text-uppercase">{{ activity.group_name }}</div>
+                        </td>
+                        <td class="text-end pe-4 fw-semibold {% if activity.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ activity.amount|floatformat:2|intcomma }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center py-4 text-muted x-small italic">No operating activities found</td></tr>
+                    {% endfor %}
+                    <tr class="bg-light-subtle">
+                        <td class="ps-4 fw-bold py-3">Net Operating Cash Flow</td>
+                        <td class="text-end pe-4 fw-bold py-3 text-success">₹{{ operating_cashflow|floatformat:2|intcomma }}</td>
+                    </tr>
+
+                    <!-- Investing -->
+                    <tr class="section-title text-warning border-warning">
+                        <td colspan="2" class="ps-4 fw-bold">Investing Activities</td>
+                    </tr>
+                    {% for activity in cashflow_data.investing_activities %}
+                    <tr class="hover-row">
+                        <td class="ps-5">
+                            <span class="text-dark fw-medium">{{ activity.account_name }}</span>
+                            <div class="text-muted x-small text-uppercase">{{ activity.group_name }}</div>
+                        </td>
+                        <td class="text-end pe-4 fw-semibold {% if activity.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ activity.amount|floatformat:2|intcomma }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-light-subtle">
+                        <td class="ps-4 fw-bold py-3">Net Investing Cash Flow</td>
+                        <td class="text-end pe-4 fw-bold py-3 text-warning">₹{{ investing_cashflow|floatformat:2|intcomma }}</td>
+                    </tr>
+
+                    <!-- Financing -->
+                    <tr class="section-title text-purple border-purple">
+                        <td colspan="2" class="ps-4 fw-bold">Financing Activities</td>
+                    </tr>
+                    {% for activity in cashflow_data.financing_activities %}
+                    <tr class="hover-row">
+                        <td class="ps-5">
+                            <span class="text-dark fw-medium">{{ activity.account_name }}</span>
+                            <div class="text-muted x-small text-uppercase">{{ activity.group_name }}</div>
+                        </td>
+                        <td class="text-end pe-4 fw-semibold {% if activity.amount >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ activity.amount|floatformat:2|intcomma }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center py-4 text-muted x-small italic">No financing activities found</td></tr>
+                    {% endfor %}
+                    <tr class="bg-light-subtle">
+                        <td class="ps-4 fw-bold py-3 text-uppercase small">Net Financing Cash Flow</td>
+                        <td class="text-end pe-4 fw-bold py-3 text-purple">₹{{ financing_cashflow|floatformat:2|intcomma }}</td>
+                    </tr>
+
+                    <!-- Closing -->
+                    <tr class="bg-primary text-white border-0">
+                        <td class="ps-4 fw-bold py-4 h6 mb-0">Closing Cash & Bank Balance</td>
+                        <td class="text-end pe-4 fw-bold py-4 h6 mb-0">₹{{ closing_cash|floatformat:2|intcomma }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Ratio Analysis Widgets -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-7">
+            <div class="card custom-card border-0 shadow-sm p-4">
+                <h6 class="fw-bold mb-4">Cash Position Ratios</h6>
+                <div class="row g-4">
+                    <div class="col-sm-6">
+                        <div class="ratio-item">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Operating Efficiency</span>
+                                <span class="fw-bold">{{ operating_to_cash_ratio }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-primary" style="width: {{ operating_to_cash_ratio }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="ratio-item">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Cash Growth Rate</span>
+                                <span class="fw-bold">{{ cash_growth_rate }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-info" style="width: {{ cash_growth_rate }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="ratio-item">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Cash Efficiency</span>
+                                <span class="fw-bold">{{ cash_efficiency }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-warning" style="width: {{ cash_efficiency }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="ratio-item">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Position Index</span>
+                                <span class="fw-bold">{{ cash_position_index }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar {% if closing_cash >= opening_cash %}bg-success{% else %}bg-danger{% endif %}" 
+                                     style="width: {{ cash_position_index }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card custom-card border-0 shadow-sm bg-light-subtle p-4 h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                    <i class="fe fe-trending-up fs-1" style="font-size: 2rem !important;"></i>
+                </div>
+                <h6 class="fw-bold mb-3">Quick Summary</h6>
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar avatar-sm bg-white text-primary rounded-circle shadow-sm "><i class="fe fe-check"></i></div>
+                        <span class="small text-muted">Business is generating <strong>{{ operating_cashflow|floatformat:0|intcomma }}</strong> through operations.</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar avatar-sm bg-white text-info rounded-circle shadow-sm"><i class="fe fe-info"></i></div>
+                        <span class="small text-muted">Cash reserves have {% if net_cashflow > 0 %}grown{% else %}shrunk{% endif %} by <strong>{{ net_cashflow_abs|floatformat:0|intcomma }}</strong> this period.</span>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm mt-3 w-fit" onclick="showCashFlowInsights()">View Detailed Insights</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f8fafc; color: #1e293b; }
+    .x-small { font-size: 0.65rem; letter-spacing: 0.05rem; }
+    .w-fit { width: fit-content; }
+    .report-meta-item {
+        background: white; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem;
+        border: 1px solid #e2e8f0; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .kpi-card { border-radius: 12px; position: relative; overflow: hidden; transition: transform 0.2s ease; }
+    .kpi-card:hover { transform: translateY(-3px); }
+    .kpi-icon { position: absolute; bottom: -10px; right: -10px; font-size: 2.5rem; opacity: 0.2; padding: 1rem; border-radius: 50%; }
+    .section-title td {
+        background-color: transparent !important; border-left: 4px solid;
+        padding-top: 1.5rem !important; padding-bottom: 0.5rem !important;
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05rem;
+    }
+    .hover-row { transition: background 0.2s; }
+    .hover-row:hover { background-color: #f1f5f9; }
+    .table > :not(caption) > * > * { border-bottom-width: 0; }
+    .progress { background-color: #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .bg-purple-transparent { background-color: rgba(139, 92, 246, 0.1); }
+    .text-purple { color: #8b5cf6; }
+    .border-purple { border-color: #8b5cf6 !important; }
+
+    @media print {
+        .dropdown, .btn-group, .report-actions { display: none !important; }
+        .shadow-sm { box-shadow: none !important; border: 1px solid #eee !important; }
+    }
+</style>
+{% endblock %}
+
+{% block javascript %}
+<script>
+function showCashFlowInsights() {
+    const net = {{ net_cashflow|default:0 }};
+    const msg = net > 0 ? "Your cash health is improving." : "Your cash health is declining.";
+    
+    const modalHtml = `
+    <div class="modal fade" id="insightsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Financial Insights</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3">
+                        <i class="fe fe-trending-up fs-2 text-primary"></i>
+                        <div><div class="small text-muted">Status</div><div class="fw-bold">${msg}</div></div>
+                    </div>
+                    <p class="text-muted small">This statement tracks how cash moves in and out of your business, categorized by operations, investments, and financing.</p>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('insightsModal'));
+    modal.show();
+    document.getElementById('insightsModal').addEventListener('hidden.bs.modal', function(){ this.remove(); });
+}
+</script>
+{% endblock %}  

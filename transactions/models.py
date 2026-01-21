@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 
 from core.base import BaseModel
-import core.choices
+from core import choices
 
 class Transaction(BaseModel):
 
@@ -355,147 +355,79 @@ class TransactionEntry(BaseModel):
 
 
 class IncomeExpense(BaseModel):
-    INCOME_EXPENSE_CHOICES = [
-        ('income', 'Income'),
-        ('expense', 'Expense'),
-    ]
-    
-    # Link to the main transaction record
-    transaction = models.OneToOneField(
-        Transaction,
-        on_delete=models.CASCADE,
-        related_name='income_expense_detail'
-    )
-    
-    # Branch field (same as transaction's branch)
-    branch = models.ForeignKey(
-        'branches.Branch',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        help_text="Branch associated with this income/expense"
-    )
-    
-    # Type: Income or Expense
-    type = models.CharField(
-        max_length=10,
-        choices=INCOME_EXPENSE_CHOICES,
-        db_index=True
-    )
-    
-    # Cash/Bank account where money flows in/out (the cash account)
-    party = models.ForeignKey(
-        'accounting.Account',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='income_expenses',
-        help_text="Cash or bank account for the transaction"
-    )
-    
-    # Income/Expense category account (the income/expense account)
-    category = models.ForeignKey(
-        'accounting.Account',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='income_expense_category',
-        help_text="Income or expense category account"
-    )
-    
-    # Amount of the income/expense
-    amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        help_text="Amount of the income or expense"
-    )
-    
-    # Payment method
-    payment_method = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        choices=core.choices.PAYMENT_METHOD_CHOICES,
-        help_text="Method of payment received/spent"
-    )
-    
-    # Reference number
-    reference_number = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Reference number for the transaction"
-    )
-    
-    # Description
-    description = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Detailed description of the income or expense"
-    )
-    
-    # Date of the transaction
-    date = models.DateTimeField(
-        default=timezone.now,
-        db_index=True,
-        help_text="Date of the income or expense transaction"
-    )
-    
-    # Attachment
-    attachment = models.FileField(
-        upload_to="income_expense/",
-        null=True,
-        blank=True,
-        help_text="Supporting document for the transaction"
-    )
-    
-    # Status
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        verbose_name = "Income/Expense"
-        verbose_name_plural = "Income/Expenses"
-        ordering = ['-date']
-        indexes = [
-            models.Index(fields=['type', 'date']),
-            models.Index(fields=['party']),
-            models.Index(fields=['category']),
-            models.Index(fields=['branch']),
+    branch = models.ForeignKey("branches.Branch", on_delete=models.CASCADE, null=True, blank=True)
+    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, primary_key=True)
+    is_gst = models.BooleanField("Is Party",default=False)
+    category = models.ForeignKey('accounting.Account', on_delete=models.CASCADE, null=True, blank=True)
+    party = models.ForeignKey('accounting.Account', verbose_name="Party A/C", on_delete=models.CASCADE, null=True, blank=True, related_name="income_expenses")
+    discount_percentage = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MaxValueValidator(100), MinValueValidator(0)])
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    auto_round_off = models.BooleanField("Round Off", default=False, null=True, blank=True)
+    round_off_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    taxable_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    # Assuming choices.NATURE_OF_SUPPLY_CHOICES exists in your project
+    nature_of_supply = models.CharField(max_length=30, null=True,blank=True) 
+    state = models.ForeignKey('masters.State', on_delete=models.CASCADE, null=True, blank=True)
+    # GST Details
+    cgst_amount = models.DecimalField("CGST Amount", max_digits=15, decimal_places=2, null=True, blank=True, default=0)
+    sgst_amount = models.DecimalField("SGST Amount", max_digits=15, decimal_places=2, null=True, blank=True, default=0)
+    igst_amount = models.DecimalField("IGST Amount", max_digits=15, decimal_places=2, null=True, blank=True, default=0)
+    item_discount_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    sub_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_quantity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    class Meta(BaseModel.Meta):
+        permissions = [
+            # income
+            ("view_income", "Can view income"),
+            ("add_income", "Can add income"),
+            ("change_income", "Can update income"),
+            ("delete_income", "Can delete income"),
         ]
-    
+
     def __str__(self):
-        branch_name = self.branch.name if self.branch else "No Branch"
-        return f"{self.get_type_display()} - {self.amount} - {branch_name}"
-    
+        return self.transaction.voucher_number
 
-    
-    def clean(self):
-        super().clean()
-        # Validate that both party and category are set for proper accounting
-        if not self.party and not self.category:
-            raise ValidationError("Both cash account (party) and category account must be selected.")
-        elif not self.party:
-            raise ValidationError("Cash account (party) must be selected.")
-        elif not self.category:
-            raise ValidationError("Income/Expense category account must be selected.")
-    
-    def save(self, *args, **kwargs):
-        # Set the amount from the transaction if not provided
-        if self.amount == Decimal('0.00') and hasattr(self, 'transaction'):
-            self.amount = self.transaction.invoice_amount
-        # Synchronize branch with transaction's branch
-        if hasattr(self, 'transaction') and self.transaction:
-            self.branch = self.transaction.branch
-        super().save(*args, **kwargs)
-    
-    def get_absolute_url(self):
-        from django.urls import reverse
-        if self.type == 'income':
-            return reverse('transactions:income_detail', kwargs={'pk': self.pk})
+    def get_update_url(self, *args, **kwargs):
+        if self.transaction.transaction_type == 'income':
+            return reverse_lazy('transactions:income_update', kwargs={'pk': self.pk})
+        return reverse_lazy('transactions:expense_update', kwargs={'pk': self.pk})
+
+    def get_absolute_url(self, *args, **kwargs):
+        if self.transaction.transaction_type == 'income':
+            return reverse_lazy('transactions:income_detail', kwargs={'pk': self.pk})
+        return reverse_lazy('transactions:expense_detail', kwargs={'pk': self.pk})
+
+    def get_delete_url(self):
+        transaction = self.transaction
+        if transaction.transaction_type == 'income':
+            url = reverse_lazy("transactions:income_delete", kwargs={'pk': self.pk})
+        elif transaction.transaction_type == 'expense':
+            url = reverse_lazy("transactions:expense_delete", kwargs={'pk': self.pk})
         else:
-            return reverse('transactions:expense_detail', kwargs={'pk': self.pk})
+            url = None
+        return url
 
+    def get_items(self):
+        return IncomeExpenseItem.objects.filter(expense=self)
+
+
+class IncomeExpenseItem(BaseModel):
+    branch = models.ForeignKey("branches.Branch", on_delete=models.CASCADE, null=True, blank=True)
+    expense = models.ForeignKey(IncomeExpense, on_delete=models.CASCADE)
+    particular = models.CharField(max_length=128)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_percentage = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MaxValueValidator(100), MinValueValidator(0)])
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    taxable_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tax = models.ForeignKey('masters.Tax', on_delete=models.PROTECT, null=True, blank=True)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    line_total = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.expense} - {self.particular}"
 
 
 class ContraVoucher(BaseModel):

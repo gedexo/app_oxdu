@@ -55,6 +55,12 @@
     border-radius: 4px;
     font-size: 12px;
 }
+
+/* Status Badges */
+.badge-active { background-color: #198754; color: white; }
+.badge-completed { background-color: #0d6efd; color: white; }
+.badge-placed { background-color: #0dcaf0; color: black; }
+.badge-internship { background-color: #ffc107; color: black; }
 </style>
 {% endblock %}
 
@@ -134,6 +140,20 @@
                   {% endfor %}
                 </select>
               </div>
+              
+              <!-- Added Student Status Filter -->
+              <div class="col-md-2">
+                <label for="stage" class="form-label">Student Status</label>
+                <select name="stage" id="stage" class="form-select">
+                  <option value="">All Statuses</option>
+                  {% for stage_code, stage_label in stage_options %}
+                  <option value="{{ stage_code }}" {% if selected_stage == stage_code %}selected{% endif %}>
+                    {{ stage_label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
               <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary me-2">Filter</button>
                 <a href="{% url 'admission:fee_receipt_report' %}" class="btn btn-light">Clear</a>
@@ -250,13 +270,14 @@
                       <tr>
                         <th>#</th>
                         <th>Student Name</th>
+                        <th>Status</th> <!-- Added Status Column -->
                         <th>Branch</th>
                         <th>Course</th>
                         <th>Total Fee</th>
                         <th>Paid Amount</th>
                         <th>Balance</th>
                         <th>Installments</th>
-                        <th>Status</th>
+                        <th>Pay Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -265,6 +286,7 @@
                       <tr>
                         <td>{{ forloop.counter }}</td>
                         <td>{{ student.student_name }}</td>
+                        <td><span class="badge badge-{{ student.student_status }}">{{ student.student_status|title }}</span></td>
                         <td>{{ student.branch }}</td>
                         <td>{{ student.course }}</td>
                         <td>₹{{ student.total_fee }}</td>
@@ -280,7 +302,7 @@
                       </tr>
                       {% empty %}
                       <tr>
-                        <td colspan="10" class="text-center">No paid students found</td>
+                        <td colspan="11" class="text-center">No paid students found</td>
                       </tr>
                       {% endfor %}
                     </tbody>
@@ -296,13 +318,14 @@
                       <tr>
                         <th>#</th>
                         <th>Student Name</th>
+                        <th>Status</th> <!-- Added Status Column -->
                         <th>Branch</th>
                         <th>Course</th>
                         <th>Total Fee</th>
                         <th>Paid Amount</th>
                         <th>Balance</th>
                         <th>Installments</th>
-                        <th>Status</th>
+                        <th>Pay Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -311,6 +334,7 @@
                       <tr {% if not student.has_fee_structure %}class="table-warning" title="No Fee Structure Assigned"{% endif %}>
                         <td>{{ forloop.counter }}</td>
                         <td>{{ student.student_name }}</td>
+                        <td><span class="badge badge-{{ student.student_status }}">{{ student.student_status|title }}</span></td>
                         <td>{{ student.branch }}</td>
                         <td>{{ student.course }}</td>
                         <td>₹{{ student.total_fee }}</td>
@@ -332,7 +356,7 @@
                       </tr>
                       {% empty %}
                       <tr>
-                        <td colspan="10" class="text-center">No unpaid students found</td>
+                        <td colspan="11" class="text-center">No unpaid students found</td>
                       </tr>
                       {% endfor %}
                     </tbody>
@@ -401,6 +425,7 @@
                     <th>Receipt No</th>
                     <th>Date</th>
                     <th>Student</th>
+                    <th>Student Status</th> <!-- Added Status Column -->
                     <th>Branch</th>
                     <th>Course</th>
                     <th>Amount</th>
@@ -415,6 +440,7 @@
                     <td>{{ receipt.receipt_no }}</td>
                     <td>{{ receipt.date|date:"d-m-Y" }}</td>
                     <td>{{ receipt.student.fullname }}</td>
+                    <td><span class="badge badge-{{ receipt.student.stage_status }}">{{ receipt.student.stage_status|title }}</span></td>
                     <td>{{ receipt.student.branch.name }}</td>
                     <td>{{ receipt.student.course.name }}</td>
                     <td class="fw-bold text-success">₹{{ receipt.get_amount }}</td>
@@ -431,7 +457,7 @@
                   </tr>
                   {% empty %}
                   <tr>
-                    <td colspan="9" class="text-center">No receipts found</td>
+                    <td colspan="10" class="text-center">No receipts found</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -466,6 +492,17 @@ $(document).ready(function() {
     let isLoading = false;
     let hasMore = true;
 
+    // Helper to get badge class for JS status
+    function getStatusBadgeClass(status) {
+        switch(status) {
+            case 'active': return 'badge-active';
+            case 'completed': return 'badge-completed';
+            case 'placed': return 'badge-placed';
+            case 'internship': return 'badge-internship';
+            default: return 'bg-secondary';
+        }
+    }
+
     // Function to load more receipts
     function loadMoreReceipts() {
         if (isLoading || !hasMore) return;
@@ -476,11 +513,12 @@ $(document).ready(function() {
         $('#loadingSpinner').show();
         $('#loadMoreBtn').prop('disabled', true);
         
-        // Get current filter values (use hidden input if select is disabled)
+        // Get current filter values
         const branch = $('#branch').val() || $('input[name="branch"]').val() || '';
         const course = $('#course').val();
         const year = $('#year').val();
         const month = $('#month').val();
+        const stage = $('#stage').val();
         
         $.ajax({
             url: window.location.href,
@@ -490,7 +528,8 @@ $(document).ready(function() {
                 'branch': branch,
                 'course': course,
                 'year': year,
-                'month': month
+                'month': month,
+                'stage': stage
             },
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -500,12 +539,16 @@ $(document).ready(function() {
                     // Append new receipts to table
                     response.receipts.forEach(function(receipt, index) {
                         const rowNumber = (currentPage - 1) * 20 + index + 1;
+                        const statusClass = getStatusBadgeClass(receipt.student_status);
+                        const statusLabel = receipt.student_status ? receipt.student_status.charAt(0).toUpperCase() + receipt.student_status.slice(1) : 'N/A';
+
                         const newRow = `
                             <tr>
                                 <td>${rowNumber}</td>
                                 <td>${receipt.receipt_no}</td>
                                 <td>${receipt.date}</td>
                                 <td>${receipt.student_name}</td>
+                                <td><span class="badge ${statusClass}">${statusLabel}</span></td>
                                 <td>${receipt.branch_name}</td>
                                 <td>${receipt.course_name}</td>
                                 <td class="fw-bold text-success">₹${receipt.amount}</td>

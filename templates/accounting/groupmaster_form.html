@@ -1,69 +1,115 @@
 {% extends 'accounting/accounting_base.html' %}
 {% load static crispy_forms_tags %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title }}: OXDU ERP{% endblock %}
 
 {% block content %}
-<div class="app-content main-content">
+<div class="main-content app-content">
     <div class="container-fluid">
+        
         <div class="row mt-5">
-            <div class="col-lg-12">
+            <div class="col-12">
+                {% include 'app/partials/messages.html' %}
+            </div>
+            <div class="col-lg-12 col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-header border-bottom">
+                    <div class="card-header">
                         <h5 class="card-title mb-0">{{ title }}</h5>
                     </div>
-
+                    
                     <div class="card-body">
-                        <form method="post" id="group-master-form" autocomplete="off">
+                        <form method="post" autocomplete="off">
                             {% csrf_token %}
                             
-                            {% if form.non_field_errors %}
-                                <div class="alert alert-danger">
-                                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                            <!-- Main Group Form -->
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h6 class="card-title mb-0">Group Information</h6>
                                 </div>
-                            {% endif %}
-                            
-                            <!-- PRIMARY GROUP -->
-                            <div class="card shadow-none border mb-4">
-                                <div class="card-header bg-light"><h6 class="mb-0 text-primary">Primary Group Information</h6></div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-md-3">{{ form.branch|as_crispy_field }}</div>
-                                        <div class="col-md-3">{{ form.code|as_crispy_field }}</div>
-                                        <div class="col-md-6">{{ form.name|as_crispy_field }}</div>
-                                        <div class="col-md-6">{{ form.parent|as_crispy_field }}</div>
-                                        <div class="col-md-3">{{ form.nature_of_group|as_crispy_field }}</div>
-                                        <div class="col-md-3">{{ form.main_group|as_crispy_field }}</div>
-                                        <div class="col-md-12">{{ form.description|as_crispy_field }}</div>
+                                        <!-- ADDED: Branch is now here, visible but disabled -->
+                                        <div class="col-md-6">
+                                            {{ form.branch|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {{ form.code|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {{ form.name|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {{ form.nature_of_group|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {{ form.main_group|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {{ form.parent|as_crispy_field }}
+                                        </div>
+                                        <!-- ADDED: Is Active Checkbox -->
+                                        <div class="col-md-6">
+                                            {{ form.is_active|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-12">
+                                            {{ form.description|as_crispy_field }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- SUB GROUPS -->
-                            <div class="card shadow-none border mb-4">
+                            
+                            <!-- Subgroups Formset -->
+                            <div class="card mb-4">
                                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0 text-primary">Define Sub-Groups (Optional)</h6>
-                                    <button type="button" id="add-subgroup" class="btn btn-sm btn-primary">+ Add Sub-Group</button>
+                                    <h6 class="card-title mb-0">Sub-Groups</h6>
+                                    <button type="button" id="add-subgroup" class="btn btn-sm btn-primary">
+                                        <i class="fa fa-plus"></i> Add Sub-Group
+                                    </button>
                                 </div>
                                 <div class="card-body">
                                     {{ formset.management_form }}
-                                    <div id="subgroup-container">
+                                    
+                                    <div id="subgroup-forms">
                                         {% for subgroup_form in formset.forms %}
-                                        <div class="subgroup-row card mb-3 border shadow-none">
-                                            <div class="card-body p-3">
-                                                {% for hidden in subgroup_form.hidden_fields %}{{ hidden }}{% endfor %}
-                                                <div class="float-end">
-                                                    {% if subgroup_form.instance.pk %}
-                                                        <div class="form-check">{{ subgroup_form.DELETE }} <label class="text-danger small">Delete</label></div>
-                                                    {% else %}
-                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-new-row"><i class="fa fa-times"></i></button>
-                                                    {% endif %}
+                                        <!-- Hidden Fields (ID, etc) -->
+                                        {% for hidden in subgroup_form.hidden_fields %}
+                                            {{ hidden }}
+                                        {% endfor %}
+                                        
+                                        <div class="subgroup-form mb-3 p-3 border rounded position-relative">
+                                            <!-- Delete Button -->
+                                            {% if subgroup_form.instance.pk %}
+                                                <!-- Only show delete checkbox if it's an existing record -->
+                                                {% if subgroup_form.DELETE %}
+                                                <div class="position-absolute" style="top: 10px; right: 10px;">
+                                                    <span class="d-none">{{ subgroup_form.DELETE }}</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger delete-subgroup">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
                                                 </div>
-                                                <div class="row me-5">
-                                                    <div class="col-md-2">{{ subgroup_form.code|as_crispy_field }}</div>
-                                                    <div class="col-md-4">{{ subgroup_form.name|as_crispy_field }}</div>
-                                                    <div class="col-md-3">{{ subgroup_form.nature_of_group|as_crispy_field }}</div>
-                                                    <div class="col-md-3">{{ subgroup_form.main_group|as_crispy_field }}</div>
+                                                {% endif %}
+                                            {% else %}
+                                                <!-- For new rows, just remove DOM -->
+                                                <button type="button" class="btn btn-sm btn-outline-danger delete-subgroup position-absolute" style="top: 10px; right: 10px;">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    {{ subgroup_form.code|as_crispy_field }}
+                                                </div>
+                                                <div class="col-md-3">
+                                                    {{ subgroup_form.name|as_crispy_field }}
+                                                </div>
+                                                <div class="col-md-3">
+                                                    {{ subgroup_form.nature_of_group|as_crispy_field }}
+                                                </div>
+                                                <div class="col-md-3">
+                                                    {{ subgroup_form.main_group|as_crispy_field }}
+                                                </div>
+                                                <div class="col-md-12">
+                                                    {{ subgroup_form.description|as_crispy_field }}
                                                 </div>
                                             </div>
                                         </div>
@@ -71,10 +117,22 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="card-footer bg-light d-flex justify-content-between">
-                                <a href="{% url 'accounting:groupmaster_list' %}" class="btn btn-light border">Back</a>
-                                <button type="submit" class="btn btn-success px-5">Save Group Master</button>
+                            
+                            <!-- Submit Buttons -->
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'accounting:groupmaster_list' %}" class="btn btn-outline-secondary">
+                                    <i class="fa fa-times"></i> Cancel
+                                </a>
+                                <div>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fa fa-save"></i> Save Group
+                                    </button>
+                                    {% if object and can_delete %}
+                                    <a href="{{ object.get_delete_url }}" class="btn btn-danger">
+                                        <i class="fa fa-trash"></i> Delete
+                                    </a>
+                                    {% endif %}
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -83,72 +141,198 @@
         </div>
     </div>
 </div>
-
-<!-- INLINED EMPTY TEMPLATE (No separate file) -->
-<div id="empty-subgroup-template" style="display:none;">
-    <div class="subgroup-row card mb-3 border shadow-none bg-light">
-        <div class="card-body p-3">
-            {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
-            <div class="float-end">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-new-row"><i class="fa fa-times"></i></button>
-            </div>
-            <div class="row me-5">
-                <div class="col-md-2">{{ formset.empty_form.code|as_crispy_field }}</div>
-                <div class="col-md-4">{{ formset.empty_form.name|as_crispy_field }}</div>
-                <div class="col-md-3">{{ formset.empty_form.nature_of_group|as_crispy_field }}</div>
-                <div class="col-md-3">{{ formset.empty_form.main_group|as_crispy_field }}</div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
-
 {% block javascript %}
+{{ form.media }}
+{% include 'app/common/autocomplete.html' %}
+
 <script>
-$(function () {
-    // 1. AJAX: Update Code when Branch changes
-    $('#id_branch').on('change', function () {
-        const branchId = $(this).val();
+$(document).ready(function() {
+    
+    // =========================================================
+    // 1. AJAX: Handle Branch Changes (Updates Parent & Code)
+    // =========================================================
+    
+    // Helper function to update dependencies when branch changes
+    function updateBranchDependencies(branchId) {
+        const parentUrl = "{% url 'accounting:ajax_group_master_by_branch' %}";
+        const codeUrl = "{% url 'accounting:ajax_get_next_group_code' %}";
+        
+        const $parentField = $('#id_parent');
+        const $codeField = $('#id_code');
+
         if (branchId) {
+            // --- A. Fetch Parent Groups List ---
             $.ajax({
-                url: "{% url 'accounting:get_next_group_code_ajax' %}",
-                data: { 'branch_id': branchId },
-                success: function (data) {
-                    $('#id_code').val(data.code);
+                url: parentUrl,
+                data: { 'branch': branchId },
+                success: function(data) {
+                    // Clear and populate Parent Dropdown
+                    $parentField.html('<option value="">---------</option>');
+                    $.each(data, function(index, item) {
+                        $parentField.append(
+                            $('<option></option>').val(item.id).html(item.name)
+                        );
+                    });
+                    // Refresh Select2 if used
+                    $parentField.trigger('change'); 
+                },
+                error: function(xhr, errmsg, err) {
+                    console.error("Error fetching parents: " + errmsg);
                 }
             });
+
+            // --- B. Fetch Next Available Code (The Fix) ---
+            $.ajax({
+                url: codeUrl,
+                data: { 'branch': branchId },
+                success: function(data) {
+                    // Automatically set the new code (e.g., GRP0002)
+                    if(data.code) {
+                        $codeField.val(data.code);
+                    }
+                },
+                error: function(xhr, errmsg, err) {
+                    console.error("Error fetching code: " + errmsg);
+                }
+            });
+
+        } else {
+            // Reset fields if Branch is cleared
+            $parentField.html('<option value="">---------</option>');
+            $parentField.trigger('change');
+            $codeField.val(''); // Or reset to default 'GRP0001'
         }
+    }
+
+    // Event Listener: When Branch Dropdown changes
+    $('#id_branch').change(function() {
+        updateBranchDependencies($(this).val());
     });
 
-    // 2. Add Subgroup
-    $('#add-subgroup').on('click', function () {
-        const totalForms = $('#id_subgroups-TOTAL_FORMS');
-        const index = parseInt(totalForms.val());
-        let html = $('#empty-subgroup-template').html().replace(/__prefix__/g, index);
-        
-        $('#subgroup-container').append(html);
-        totalForms.val(index + 1);
+    // On Page Load: If Branch is already selected (e.g. from backend default), ensure Code is set
+    // Only do this if Code is empty to avoid overwriting existing codes in Edit View
+    const initialBranch = $('#id_branch').val();
+    const currentCode = $('#id_code').val();
+    
+    if (initialBranch && (!currentCode || currentCode === 'GRP0001')) {
+        // Optional: Uncomment the line below if you want to force update on load
+        // updateBranchDependencies(initialBranch);
+    }
 
-        // Auto-fill Nature/Main Group from primary group
-        const newRow = $('#subgroup-container').children().last();
-        newRow.find('select[name$="-nature_of_group"]').val($('#id_nature_of_group').val());
-        newRow.find('select[name$="-main_group"]').val($('#id_main_group').val());
-    });
 
-    // 3. Remove Row
-    $(document).on('click', '.remove-new-row', function () {
-        $(this).closest('.subgroup-row').remove();
-        const totalForms = $('#id_subgroups-TOTAL_FORMS');
-        totalForms.val(parseInt(totalForms.val()) - 1);
-        
-        // Re-index rows
-        $('#subgroup-container .subgroup-row').each(function(index) {
-            $(this).find(':input').each(function() {
-                if(this.name) this.name = this.name.replace(/subgroups-\d+-/, 'subgroups-' + index + '-');
-                if(this.id) this.id = this.id.replace(/subgroups-\d+-/, 'subgroups-' + index + '-');
+    // =========================================================
+    // 2. Formset Logic (Subgroups - Add/Delete Rows)
+    // =========================================================
+    const formsetPrefix = 'subgroups';
+    
+    // Helper to re-index form fields (0, 1, 2...)
+    function updateFormIndices() {
+        $('#subgroup-forms .subgroup-form').each(function(index) {
+            // Update inputs/selects/textareas
+            $(this).find('input, select, textarea').each(function() {
+                const name = $(this).attr('name');
+                const id = $(this).attr('id');
+                
+                if (name) {
+                    $(this).attr('name', name.replace(new RegExp(`${formsetPrefix}-\\d+-`), `${formsetPrefix}-${index}-`));
+                }
+                if (id) {
+                    $(this).attr('id', id.replace(new RegExp(`${formsetPrefix}-\\d+-`), `${formsetPrefix}-${index}-`));
+                }
+            });
+            // Update labels
+            $(this).find('label').each(function() {
+                const forAttr = $(this).attr('for');
+                if (forAttr) {
+                    $(this).attr('for', forAttr.replace(new RegExp(`${formsetPrefix}-\\d+-`), `${formsetPrefix}-${index}-`));
+                }
             });
         });
+        
+        // Update Management Form Total
+        const totalForms = $('#subgroup-forms .subgroup-form').length;
+        $('#id_' + formsetPrefix + '-TOTAL_FORMS').val(totalForms);
+    }
+    
+    // Button: Add New Subgroup
+    $('#add-subgroup').click(function() {
+        // Clone the first form (without data/events)
+        const emptyForm = $('#subgroup-forms .subgroup-form').first().clone(false);
+        
+        // Clear all input values
+        emptyForm.find('input, select, textarea').each(function() {
+            const fieldType = $(this).attr('type');
+            const name = $(this).attr('name');
+            
+            // Skip Django Management fields if any accidentally grabbed
+            if (fieldType !== 'hidden' || (name && name.endsWith('DELETE'))) {
+                if (fieldType === 'checkbox') {
+                    $(this).prop('checked', false);
+                } else {
+                    $(this).val('');
+                }
+            }
+            
+            // CRITICAL: Wipe the ID (primary key) to ensure it's treated as a new Insert
+            if (name && name.endsWith('-id')) {
+                $(this).val('');
+            }
+        });
+        
+        // Reset Visual Styles (remove "deleted" red background if copied from a deleted row)
+        emptyForm.removeClass('marked-for-deletion').css('display', 'block');
+        emptyForm.find('input[name$="-DELETE"]').prop('checked', false);
+        
+        // Append to container
+        emptyForm.appendTo('#subgroup-forms');
+        
+        // Re-calculate indices
+        updateFormIndices();
+    });
+    
+    // Button: Delete Subgroup (Delegated Event for dynamic rows)
+    $(document).on('click', '.delete-subgroup', function(e) {
+        e.preventDefault();
+        
+        const subgroupForm = $(this).closest('.subgroup-form');
+        const deleteCheckbox = subgroupForm.find('input[name$="-DELETE"]');
+        
+        if (deleteCheckbox.length) {
+            // Case A: Existing Database Record (Hide & Mark for deletion)
+            if (deleteCheckbox.is(':checked')) {
+                // Restore
+                deleteCheckbox.prop('checked', false);
+                subgroupForm.removeClass('marked-for-deletion');
+            } else {
+                // Delete
+                deleteCheckbox.prop('checked', true);
+                subgroupForm.addClass('marked-for-deletion');
+            }
+        } else {
+            // Case B: Dynamic Row (Remove from DOM immediately)
+            subgroupForm.remove();
+            updateFormIndices();
+        }
     });
 });
 </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.subgroup-form {
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+.subgroup-form:hover {
+    background-color: #e9ecef;
+}
+.subgroup-form.marked-for-deletion {
+    opacity: 0.5;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    text-decoration: line-through;
+}
+</style>
 {% endblock %}

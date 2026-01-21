@@ -23,6 +23,7 @@ module_urls = i18n_patterns(
     path("admission/", include("admission.urls", namespace="admission")),
     path("branches/", include("branches.urls", namespace="branches")),
     path("masters/", include("masters.urls", namespace="masters")),
+    path("reports/", include("reports.urls", namespace="reports")),
     prefix_default_language=False,
 )
 

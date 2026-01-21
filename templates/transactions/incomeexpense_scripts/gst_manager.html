@@ -1,0 +1,352 @@
+<script>
+    // gst-manager.js - GST and tax related functions
+function togglePaymentAmountFieldRequirement() {
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+
+    $('.payment-formset-row').each(function () {
+        const amountField = PaymentManager.findAmountField($(this));
+        const amountLabel = $(this).closest('td').find('label');
+
+        if (!isGstEnabled) {
+            // Make payment amount field required when GST is not checked
+            amountField.prop('required', true);
+            amountField.addClass('required-field');
+
+            // Add visual indicator (asterisk) to show it's required
+            if (!amountLabel.find('.asteriskField').length) {
+                amountLabel.append('<span class="asteriskField text-danger">*</span>');
+            }
+        } else {
+            // Remove requirement when GST is checked
+            amountField.prop('required', false);
+            amountField.removeClass('required-field');
+            amountLabel.find('.asteriskField').remove();
+        }
+    });
+}
+
+function filterPaymentAccounts(isGstEnabled) {
+    $('.payment-formset-row select[name$="-account"]').each(function() {
+        const $select = $(this);
+        
+        // Show/hide options based on GST status
+        $select.find('option').each(function() {
+            const $option = $(this);
+            const accountType = $option.data('type'); // 'cash' or 'bank'
+            
+            if (!isGstEnabled && accountType === 'bank') {
+                $option.hide().prop('disabled', true);
+            } else {
+                $option.show().prop('disabled', false);
+            }
+        });
+
+        // If current selection is invalid (bank when GST disabled), reset it
+        if (!isGstEnabled && $select.find('option:selected').data('type') === 'bank') {
+            $select.val('');
+        }
+        
+        // Trigger change to update Select2 if it exists
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.trigger('change');
+        }
+    });
+}
+
+// Toggle GST fields with force override and taxable input handling
+function toggleGstFields() {
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    const partyField = $('#id_party');
+    const partyLabel = $("label[for='id_party']");
+    const stateField = $('#id_state');
+    const stateLabel = $("label[for='id_state']");
+    const natureOfSupplyField = $('#id_nature_of_supply');
+    const natureOfSupplyLabel = $("label[for='id_nature_of_supply']");
+    
+    // Toggle all GST fields visibility
+    $('.gst-field').each(function() {
+        const $field = $(this);
+        $field.toggle(isGstEnabled);
+    });
+    
+    // Make taxable value inputs editable/readonly based on GST status
+    $('.taxable-value-input').each(function() {
+        if (isGstEnabled) {
+            $(this).prop('readonly', false)
+                   .css('background-color', '#ffffff')
+                   .css('cursor', 'text');
+        } else {
+            $(this).prop('readonly', true)
+                   .css('background-color', '#f8f9fa')
+                   .css('cursor', 'not-allowed');
+        }
+    });
+    
+    // Set column widths based on GST status
+    if (typeof setColumnWidths === 'function') {
+        setColumnWidths(isGstEnabled);
+    }
+    
+    // Toggle party field requirement
+    partyField.prop('required', isGstEnabled);
+    partyLabel.toggleClass('requiredField', isGstEnabled);
+    
+    if (isGstEnabled && !partyLabel.find('.asteriskField').length) {
+        partyLabel.append('<span class="asteriskField">*</span>');
+    } else if (!isGstEnabled) {
+        partyLabel.find('.asteriskField').remove();
+    }
+    
+    // Toggle state field requirement
+    stateField.prop('required', isGstEnabled);
+    stateLabel.toggleClass('requiredField', isGstEnabled);
+    
+    if (isGstEnabled && !stateLabel.find('.asteriskField').length) {
+        stateLabel.append('<span class="asteriskField">*</span>');
+    } else if (!isGstEnabled) {
+        stateLabel.find('.asteriskField').remove();
+    }
+    
+    // Toggle nature of supply field requirement
+    natureOfSupplyField.prop('required', isGstEnabled);
+    natureOfSupplyLabel.toggleClass('requiredField', isGstEnabled);
+    
+    if (isGstEnabled && !natureOfSupplyLabel.find('.asteriskField').length) {
+        natureOfSupplyLabel.append('<span class="asteriskField">*</span>');
+    } else if (!isGstEnabled) {
+        natureOfSupplyLabel.find('.asteriskField').remove();
+    }
+    
+    // Toggle payment amount field requirement
+    togglePaymentAmountFieldRequirement();
+    
+    // Reset all tax calculations when GST is toggled
+    $('.formset_row').each(function() {
+        const row = $(this);
+        row.data('userChangedTaxableAmount', false);
+        
+        if (!isGstEnabled) {
+            row.find('.tax-input').val('0');
+            row.find('.tax_amount-input').val('0');
+            row.find('.taxable-value-input').val('0.00');
+        }
+        
+        // Recalculate row amounts
+        if (typeof calculateRowAmounts === 'function') {
+            calculateRowAmounts(row);
+        }
+    });
+    
+    // Clear GST totals when disabled
+    if (!isGstEnabled) {
+        $('#id_tax_amount').val('0.00');
+        $('#id_cgst_amount').val('0.00');
+        $('#id_sgst_amount').val('0.00');
+        $('#id_igst_amount').val('0.00');
+    }
+}
+
+// Bind GST checkbox events
+function bindGstEvents() {
+    $('#id_is_gst').on("change", function () {
+        const isGstEnabled = $(this).is(":checked");
+        
+        // Filter payment accounts based on GST status
+        filterPaymentAccounts(isGstEnabled);
+        
+        // Toggle GST fields visibility and requirements
+        toggleGstFields();
+        
+        // Re-initialize tax rates for existing rows after GST toggle
+        setTimeout(() => {
+            if (typeof initializeTaxRatesForExistingRows === 'function') {
+                initializeTaxRatesForExistingRows();
+            }
+            
+            // Recalculate all totals after GST toggle
+            if (typeof calculateAllTotals === 'function') {
+                calculateAllTotals();
+            }
+        }, 200);
+        
+        // Show notification about GST status change
+        const message = isGstEnabled ? 'GST enabled - Tax calculations active' : 'GST disabled - Tax calculations cleared';
+        const type = isGstEnabled ? 'success' : 'info';
+        
+        if (typeof showToastNotification === 'function') {
+            showToastNotification(message, type);
+        }
+    });
+}
+
+// Get GST breakdown for a given amount and tax rate
+function calculateGstBreakdown(taxableAmount, taxRate, isInterState = false) {
+    const taxAmount = (taxableAmount * taxRate) / 100;
+    
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    
+    if (isInterState) {
+        // Inter-state: IGST = Total Tax
+        igst = taxAmount;
+    } else {
+        // Intra-state: CGST = SGST = Total Tax / 2
+        cgst = taxAmount / 2;
+        sgst = taxAmount / 2;
+    }
+    
+    return {
+        taxableAmount: taxableAmount,
+        taxRate: taxRate,
+        totalTax: taxAmount,
+        cgst: cgst,
+        sgst: sgst,
+        igst: igst,
+        totalAmount: taxableAmount + taxAmount,
+        isInterState: isInterState
+    };
+}
+
+// Validate GST number format (basic validation)
+function validateGstNumber(gstNumber) {
+    if (!gstNumber || gstNumber.length === 0) {
+        return { valid: false, message: 'GST number is required when GST is enabled' };
+    }
+    
+    // Basic GST format: 15 characters (2 state code + 10 PAN + 1 entity + 1 Z + 1 checksum)
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    
+    if (!gstRegex.test(gstNumber)) {
+        return { valid: false, message: 'Invalid GST number format' };
+    }
+    
+    return { valid: true, message: 'Valid GST number' };
+}
+
+// Check if transaction is inter-state based on party and company states
+function isInterStateTransaction(partyStateCode, companyStateCode) {
+    if (!partyStateCode || !companyStateCode) {
+        return false; // Default to intra-state if states not available
+    }
+    
+    return partyStateCode !== companyStateCode;
+}
+
+// Get GST rate suggestions based on item category
+function getGstRateSuggestions(itemCategory) {
+    const gstRates = {
+        'essential_items': [0, 5],
+        'food_grains': [0, 5],
+        'medicines': [5, 12],
+        'textiles': [5, 12, 18],
+        'electronics': [18, 28],
+        'automobiles': [18, 28],
+        'luxury_items': [28],
+        'services': [18],
+        'default': [0, 5, 12, 18, 28]
+    };
+    
+    return gstRates[itemCategory] || gstRates['default'];
+}
+
+// Format GST amounts for display
+function formatGstAmounts(gstBreakdown) {
+    return {
+        taxableAmount: `₹${gstBreakdown.taxableAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`,
+        cgst: `₹${gstBreakdown.cgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}`,
+        sgst: `₹${gstBreakdown.sgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}`,
+        igst: `₹${gstBreakdown.igst.toLocaleString('en-IN', {minimumFractionDigits: 2})}`,
+        totalTax: `₹${gstBreakdown.totalTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}`,
+        totalAmount: `₹${gstBreakdown.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`
+    };
+}
+
+// Update GST summary display
+function updateGstSummary() {
+    const isGstEnabled = $('#id_is_gst').is(':checked');
+    
+    if (!isGstEnabled) {
+        $('#gst-summary').addClass('d-none');
+        return;
+    }
+    
+    const taxableAmount = parseFloat($('#id_taxable_amount').val()) || 0;
+    const cgstAmount = parseFloat($('#id_cgst_amount').val()) || 0;
+    const sgstAmount = parseFloat($('#id_sgst_amount').val()) || 0;
+    const igstAmount = parseFloat($('#id_igst_amount').val()) || 0;
+    const totalTax = cgstAmount + sgstAmount + igstAmount;
+    
+    // Update GST summary display elements
+    $('#gst-taxable-amount').text(`₹${taxableAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
+    $('#gst-cgst-amount').text(`₹${cgstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
+    $('#gst-sgst-amount').text(`₹${sgstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
+    $('#gst-igst-amount').text(`₹${igstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
+    $('#gst-total-tax').text(`₹${totalTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
+    
+    // Show/hide CGST+SGST vs IGST sections
+    if (igstAmount > 0) {
+        $('.cgst-sgst-section').addClass('d-none');
+        $('.igst-section').removeClass('d-none');
+    } else {
+        $('.cgst-sgst-section').removeClass('d-none');
+        $('.igst-section').addClass('d-none');
+    }
+    
+    $('#gst-summary').removeClass('d-none');
+}
+
+// Initialize GST manager
+function initializeGstManager() {
+    // Bind GST checkbox events
+    bindGstEvents();
+    
+    // Set initial GST field visibility
+    toggleGstFields();
+    
+    // Update GST summary on load
+    updateGstSummary();
+    
+    // Show initialization message
+    if (typeof showToastNotification === 'function') {
+        const isGstEnabled = $('#id_is_gst').is(':checked');
+        const message = `GST Manager initialized - GST ${isGstEnabled ? 'enabled' : 'disabled'}`;
+        showToastNotification(message, 'info');
+    }
+}
+
+// Export functions for external use
+const GstManager = {
+    toggleGstFields: toggleGstFields,
+    togglePaymentAmountFieldRequirement: togglePaymentAmountFieldRequirement,
+    filterPaymentAccounts: filterPaymentAccounts,
+    calculateGstBreakdown: calculateGstBreakdown,
+    validateGstNumber: validateGstNumber,
+    isInterStateTransaction: isInterStateTransaction,
+    getGstRateSuggestions: getGstRateSuggestions,
+    formatGstAmounts: formatGstAmounts,
+    updateGstSummary: updateGstSummary,
+    initialize: initializeGstManager,
+    
+    // Utility methods
+    isGstEnabled: function() {
+        return $('#id_is_gst').is(':checked');
+    },
+    
+    getTotalTaxAmount: function() {
+        const cgst = parseFloat($('#id_cgst_amount').val()) || 0;
+        const sgst = parseFloat($('#id_sgst_amount').val()) || 0;
+        const igst = parseFloat($('#id_igst_amount').val()) || 0;
+        return cgst + sgst + igst;
+    },
+    
+    clearGstAmounts: function() {
+        $('#id_tax_amount').val('0.00');
+        $('#id_cgst_amount').val('0.00');
+        $('#id_sgst_amount').val('0.00');
+        $('#id_igst_amount').val('0.00');
+        $('#id_taxable_amount').val('0.00');
+        this.updateGstSummary();
+    }
+};
+</script>

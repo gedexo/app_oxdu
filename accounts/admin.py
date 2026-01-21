@@ -35,7 +35,7 @@ class MyUserAdmin(BaseUserAdmin, ImportExportActionModelAdmin):
     list_display = ["email", "usertype", "first_name", "is_active", "is_staff", "is_superuser"]
     list_display_links = ["email", "first_name"]
     readonly_fields = ["last_login", "date_joined", "pk"]
-    list_filter = ["is_active", "is_staff", "is_superuser", "date_joined", "last_login", "usertype"]
+    list_filter = ["is_active", "is_staff", "is_superuser", "date_joined", "last_login", "usertype", "usertype",]
 
     fieldsets = (
         ("Basic Info", {"fields": ("email", "password")}),

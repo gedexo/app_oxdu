@@ -1,0 +1,228 @@
+{% extends 'reports/base_report.html' %}
+{% load static i18n extras crispy_forms_tags %}
+
+{% block report_title %}P&L Statement{% endblock %}
+
+{% block report_content %}
+<!-- Professional Typography -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-700: #334155;
+        --slate-900: #0f172a;
+        --emerald-600: #059669;
+        --rose-600: #e11d48;
+        --primary-blue: #2563eb;
+    }
+
+    body { font-family: 'Inter', sans-serif; background-color: #fff; color: var(--slate-900); }
+    
+    .report-shell { border: 1px solid var(--slate-200); border-radius: 4px; overflow: hidden; background: #fff; }
+    
+    /* Command Center (Filters) */
+    .command-bar { background: var(--slate-50); padding: 1rem; border-bottom: 1px solid var(--slate-200); }
+    .command-bar .form-group { margin-bottom: 0 !important; }
+    .command-bar label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--slate-700); margin-bottom: 0.25rem; }
+
+    /* Summary Unit */
+    .summary-unit { display: flex; border-bottom: 1px solid var(--slate-200); background: #fff; }
+    .metric-box { flex: 1; padding: 1.25rem; border-right: 1px solid var(--slate-200); }
+    .metric-box:last-child { border-right: none; }
+    .metric-box .label { font-size: 0.65rem; font-weight: 700; color: var(--slate-700); text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric-box .val { font-size: 1.35rem; font-weight: 800; margin-top: 0.25rem; display: block; }
+
+    /* Statement Table */
+    .row-l1 { background: var(--slate-50); padding: 0.6rem 1.25rem; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate-700); border-bottom: 1px solid var(--slate-200); }
+    .row-l2 { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--slate-100); transition: background 0.1s; }
+    .row-l2:hover { background: var(--slate-50); }
+    
+    /* Clean Threaded Drilldown */
+    .drilldown-container { border-left: 2px solid var(--slate-200); margin-left: 2.25rem; background: #fafafa; }
+    .row-l3 { display: flex; justify-content: space-between; padding: 0.6rem 1.25rem; font-size: 0.85rem; color: var(--slate-700); border-bottom: 1px solid #f1f5f9; }
+    .row-l3:last-child { border-bottom: none; }
+
+    .toggle-trigger {
+        width: 18px; height: 18px; border: 1px solid var(--slate-200); border-radius: 3px;
+        background: #fff; display: flex; align-items: center; justify-content: center;
+        font-size: 10px; cursor: pointer; margin-right: 1rem; color: var(--slate-900);
+    }
+    .toggle-trigger.active { background: var(--slate-900); color: #fff; border-color: var(--slate-900); }
+
+    .btn-update { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; height: 38px; border-radius: 4px; }
+
+    /* Sidebar Ratios */
+    .analysis-rail { border-left: 1px solid var(--slate-200); padding: 1.25rem; background: #fff; height: 100%; }
+    .ratio-card { margin-bottom: 1.5rem; }
+    .ratio-card .head { font-size: 0.7rem; font-weight: 700; color: var(--slate-700); margin-bottom: 0.5rem; }
+
+    @media print {
+        .command-bar, .toggle-trigger, .btn-update { display: none !important; }
+        .report-shell { border: none; }
+        .drilldown-container { display: block !important; border-left: 1px solid #ddd; }
+    }
+</style>
+
+<div class="main-content app-content">
+    <div class="">
+        
+        <!-- Action Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="fw-800 mb-0">Statement of Profit & Loss</h4>
+                <div class="small text-muted">{{ date_from|date:"d M Y" }} &mdash; {{ date_to|date:"d M Y" }}</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-white border" onclick="window.print()"><i class="fe fe-printer me-1"></i> Print</button>
+                <a href="?{{ request.GET.urlencode }}&export=excel" class="btn btn-sm btn-dark"><i class="fe fe-download me-1"></i> Export</a>
+            </div>
+        </div>
+
+        <div class="report-shell shadow-sm">
+            <!-- Structured Filter Bar -->
+            <div class="command-bar">
+                <form method="GET" class="row g-3 align-items-end">
+                    <div class="col-md-3">{{ form.date_from|as_crispy_field }}</div>
+                    <div class="col-md-3">{{ form.date_to|as_crispy_field }}</div>
+                    <div class="col-md-4">{{ form.branch_filter|as_crispy_field }}</div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100 btn-update mb-3">Update Report</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Unified Summary Unit -->
+            <div class="summary-unit">
+                <div class="metric-box">
+                    <span class="label">Operating Revenue</span>
+                    <span class="val">₹{{ total_income|floatformat:2|intcomma }}</span>
+                </div>
+                <div class="metric-box">
+                    <span class="label text-danger">Total Expenses</span>
+                    <span class="val">₹{{ total_expense|floatformat:2|intcomma }}</span>
+                </div>
+                <div class="metric-box">
+                    <span class="label text-primary">Gross Profit</span>
+                    <span class="val text-primary">₹{{ gross_profit|floatformat:2|intcomma }}</span>
+                </div>
+                <div class="metric-box {% if net_profit >= 0 %}bg-success{% else %}bg-danger{% endif %} bg-opacity-10">
+                    <span class="label {% if net_profit >= 0 %}text-success{% else %}text-danger{% endif %}">Net {% if net_profit >= 0 %}Profit{% else %}Loss{% endif %}</span>
+                    <span class="val {% if net_profit >= 0 %}text-success{% else %}text-danger{% endif %}">₹{{ net_profit_abs|floatformat:2|intcomma }}</span>
+                </div>
+            </div>
+
+            <div class="row g-0">
+                <div class="col-lg-9">
+                    <div class="statement-body">
+                        {% for row in ordered_rows %}
+                            {% if row.type == 'header' %}
+                                <div class="row-l1 {% if row.nature == 'Income' %}text-success{% else %}text-danger{% endif %}">
+                                    {{ row.name }}
+                                </div>
+                            
+                            {% elif row.type == 'group' %}
+                                <div class="row-l2" data-group-id="{{ row.group_id }}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="toggle-trigger" data-group-id="{{ row.group_id }}" 
+                                             data-from="{{ date_from|date:'Y-m-d' }}" data-to="{{ date_to|date:'Y-m-d' }}">
+                                            <i class="fe fe-plus"></i>
+                                        </div>
+                                        <span class="fw-600 text-dark">{{ row.name }}</span>
+                                    </div>
+                                    <span class="fw-700 text-dark">₹{{ row.amount|floatformat:2|intcomma }}</span>
+                                </div>
+                                <!-- AJAX Content -->
+                                <div class="drilldown-container" id="details-{{ row.group_id }}" style="display: none;">
+                                    <div class="p-3 text-center"><div class="spinner-border spinner-border-sm text-muted opacity-25"></div></div>
+                                </div>
+
+                            {% elif row.type == 'gross_profit' %}
+                                <div class="row-l2 bg-light border-top border-bottom">
+                                    <span class="fw-800 text-primary">SUBTOTAL: GROSS PROFIT</span>
+                                    <span class="fw-800 text-primary">₹{{ row.amount|floatformat:2|intcomma }}</span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                        <div class="row-l2 py-4 bg-dark text-white border-0">
+                            <span class="h5 mb-0 fw-800 text-uppercase text-white">Total Net Result</span>
+                            <span class="h3 mb-0 fw-800 text-white">₹{{ net_profit_abs|floatformat:2|intcomma }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-3">
+                    <div class="analysis-rail">
+                        <div class="ratio-card">
+                            <div class="head">PROFITABILITY MARGINS</div>
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span class="text-muted">Gross Margin</span>
+                                <span class="fw-700">{{ gross_margin|floatformat:1 }}%</span>
+                            </div>
+                            <div class="progress rounded-0" style="height: 3px;"><div class="progress-bar bg-primary" style="width: {{ gross_margin }}%"></div></div>
+                            
+                            <div class="d-flex justify-content-between mt-3 mb-1 small">
+                                <span class="text-muted">Net Margin</span>
+                                <span class="fw-700">{{ net_margin|floatformat:1 }}%</span>
+                            </div>
+                            <div class="progress rounded-0" style="height: 3px;"><div class="progress-bar bg-success" style="width: {{ net_margin|floatformat:0 }}%"></div></div>
+                        </div>
+                        <div class="ratio-card">
+                            <div class="head">OPERATING RATIO</div>
+                            <div class="p-2 border rounded-1 bg-light d-flex justify-content-between">
+                                <span class="text-muted small">Efficiency</span>
+                                <span class="fw-700 text-danger">{% widthratio total_expense total_income 100 %}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('.toggle-trigger').click(function() {
+        const $this = $(this);
+        const gId = $this.data('group-id');
+        const $container = $(`#details-${gId}`);
+        
+        $this.toggleClass('active');
+        $this.find('i').toggleClass('fe-plus fe-minus');
+        $container.slideToggle(150);
+
+        if ($this.hasClass('active') && $container.find('.spinner-border').length > 0) {
+            fetchDrilldown(gId, $this.data('from'), $this.data('to'), $container);
+        }
+    });
+});
+
+function fetchDrilldown(gId, df, dt, $box) {
+    const br = $('#id_branch_filter').val();
+    $.ajax({
+        url: '{% url "reports:pnl_group_detail" %}',
+        data: { group_id: gId, date_from: df, date_to: dt, branch_filter: br },
+        success: function(res) {
+            if (res.success && res.accounts.length > 0) {
+                let html = '';
+                res.accounts.forEach(acc => {
+                    // Removed the hardcoded ₹ because res.formatted_amount already includes it
+                    html += `
+                        <div class="row-l3">
+                            <a href="${acc.url}" target="_blank" class="text-decoration-none text-muted">${acc.name}</a>
+                            <span class="fw-700 text-dark">${acc.formatted_amount}</span>
+                        </div>`;
+                });
+                $box.html(html);
+            } else {
+                $box.html('<div class="p-2 small text-muted text-center">No transactions available.</div>');
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

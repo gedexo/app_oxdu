@@ -1,0 +1,790 @@
+<script>
+    // event-handlers.js - Event binding and handling functions (Updated)
+
+// Function to filter accounts based on selected branch
+function filterAccountsByBranch(selectedBranchId, accountType, isParty = false) {
+    var apiUrl = '{% url "transactions:load_accounts_by_branch" %}';
+    $.ajax({
+        url: apiUrl,  // Django URL for the API endpoint
+        method: 'GET',
+        data: {
+            'branch_id': selectedBranchId,
+            'type': accountType,  // 'income', 'expense', or 'party'
+            'is_party': isParty  // Whether to show party accounts (Sundry Creditors/Debtors) or regular CUSTOMER/SUPPLIER
+        },
+        success: function(response) {
+            let selectElement;
+            if (accountType === 'income' || accountType === 'expense') {
+                selectElement = $('#id_category');
+            } else if (accountType === 'party') {
+                selectElement = $('#id_party');
+            }
+            
+            if (selectElement.length) {
+                // Store current selection
+                const currentSelection = selectElement.val();
+                
+                // Clear existing options except the first empty option
+                selectElement.empty();
+                selectElement.append('<option value="">---------</option>');
+                
+                // Add filtered options
+                response.accounts.forEach(function(account) {
+                    const option = $('<option></option>').attr('value', account.id).text(account.name);
+                    selectElement.append(option);
+                });
+                
+                // Restore previous selection if it still exists
+                if (response.accounts.some(acc => acc.id == currentSelection)) {
+                    selectElement.val(currentSelection);
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error fetching accounts:', error);
+        }
+    });
+}
+
+// Function to filter payment accounts (bank/cash) based on selected branch
+function filterPaymentAccountsByBranch(selectedBranchId) {
+    var apiUrl = '{% url "transactions:load_accounts_by_branch" %}';
+    $.ajax({
+        url: apiUrl,
+        method: 'GET',
+        data: {
+            'branch_id': selectedBranchId,
+            'type': 'payment'  // Custom type for payment accounts
+        },
+        success: function(response) {
+            // Update all payment formset account dropdowns
+            $('.payment-formset-row select[id^="id_payments-"][id$="-account"]').each(function() {
+                var currentSelection = $(this).val();
+                
+                // Clear existing options except the first empty option
+                $(this).empty();
+                $(this).append('<option value="">---------</option>');
+                
+                // Add filtered options
+                response.accounts.forEach(function(account) {
+                    var option = $('<option></option>').attr('value', account.id).text(account.name);
+                    $(this).append(option);
+                }.bind(this));
+                
+                // Restore previous selection if it still exists
+                if (response.accounts.some(acc => acc.id == currentSelection)) {
+                    $(this).val(currentSelection);
+                }
+            });
+            
+            // Also update the next empty row if it exists
+            var nextEmptyRow = $('.payment-formset-row:has(select:not(:disabled)):last');
+            if (nextEmptyRow.length > 0) {
+                var accountSelect = nextEmptyRow.find('select[id^="id_payments-"][id$="-account"]:not(:disabled)');
+                if (accountSelect.length > 0) {
+                    var currentSelection = accountSelect.val();
+                    
+                    // Clear existing options except the first empty option
+                    accountSelect.empty();
+                    accountSelect.append('<option value="">---------</option>');
+                    
+                    // Add filtered options
+                    response.accounts.forEach(function(account) {
+                        var option = $('<option></option>').attr('value', account.id).text(account.name);
+                        accountSelect.append(option);
+                    });
+                    
+                    // Restore previous selection if it still exists
+                    if (response.accounts.some(acc => acc.id == currentSelection)) {
+                        accountSelect.val(currentSelection);
+                    }
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error fetching payment accounts:', error);
+        }
+    });
+}
+
+// Event handler for branch selection change
+function bindBranchChangeEvent() {
+    $('#id_branch').on('change', function() {
+        const selectedBranchId = $(this).val();
+        
+        if (selectedBranchId) {
+            // Determine transaction type to filter appropriate accounts
+            const transactionType = $('input[name="transaction_type"]').val(); // Get from hidden input
+            
+            if (transactionType === 'income') {
+                filterAccountsByBranch(selectedBranchId, 'income');
+            } else if (transactionType === 'expense') {
+                filterAccountsByBranch(selectedBranchId, 'expense');
+            }
+            
+            // Also filter party accounts
+            const isParty = $('#id_is_gst').is(':checked');
+            filterAccountsByBranch(selectedBranchId, 'party', isParty);
+            
+            // Also filter payment accounts (bank/cash accounts)
+            filterPaymentAccountsByBranch(selectedBranchId);
+        }
+    });
+}
+
+// Event handler for 'Is Party' checkbox change
+function bindIsPartyChangeEvent() {
+    $('#id_is_gst').on('change', function() {
+        const selectedBranchId = $('#id_branch').val();
+        const isParty = $(this).is(':checked');
+        
+        if (selectedBranchId) {
+            filterAccountsByBranch(selectedBranchId, 'party', isParty);
+        }
+    });
+}
+
+function bindRowCalculationEvents(row) {
+    // Get all input fields by class
+    const quantityInput = row.find('.quantity-input');
+    const unitPriceInput = row.find('.unit-price-input');
+    const taxInput = row.find('.tax-input');
+    const discountPercentageInput = row.find('.discount_percentage-input');
+    const discountAmountInput = row.find('.discount_amount-input');
+
+    // Remove existing events to prevent duplicates
+    quantityInput.add(unitPriceInput).off('input.calc change.calc blur.calc keyup.calc');
+    discountPercentageInput.off('input.calc change.calc blur.calc keyup.calc');
+    discountAmountInput.off('input.calc change.calc blur.calc keyup.calc');
+
+    // Bind calculation events for basic fields
+    quantityInput.on('input.calc change.calc blur.calc keyup.calc', function () {
+        setTimeout(() => {
+            if (typeof calculateRowAmounts === 'function') {
+                calculateRowAmounts(row);
+            }
+            if ($('#id_is_gst').is(":checked") && typeof calculateTaxAmountFromInputs === 'function') {
+                calculateTaxAmountFromInputs(row);
+            }
+        }, 50);
+    });
+
+    unitPriceInput.on('input.calc change.calc blur.calc keyup.calc', function () {
+        setTimeout(() => {
+            if (typeof calculateRowAmounts === 'function') {
+                calculateRowAmounts(row);
+            }
+            if ($('#id_is_gst').is(":checked") && typeof calculateTaxAmountFromInputs === 'function') {
+                calculateTaxAmountFromInputs(row);
+            }
+        }, 50);
+    });
+
+    // Tax input now only triggers tax amount calculation
+    taxInput.off('input.calc change.calc blur.calc keyup.calc');
+    taxInput.on('input.tax change.tax blur.tax keyup.tax', function () {
+        if (typeof calculateTaxAmountFromInputs === 'function') {
+            calculateTaxAmountFromInputs(row);
+        }
+    });
+
+    // Discount event handlers with debouncing
+    const debouncedDiscountPercentage = debounce(function () {
+        if (typeof calculateRowDiscountFromPercentage === 'function') {
+            calculateRowDiscountFromPercentage(row);
+        }
+        if ($('#id_is_gst').is(":checked") && typeof calculateTaxAmountFromInputs === 'function') {
+            setTimeout(() => calculateTaxAmountFromInputs(row), 50);
+        }
+    }, 300);
+
+    const debouncedDiscountAmount = debounce(function () {
+        if (typeof calculateRowDiscountFromAmount === 'function') {
+            calculateRowDiscountFromAmount(row);
+        }
+        if ($('#id_is_gst').is(":checked") && typeof calculateTaxAmountFromInputs === 'function') {
+            setTimeout(() => calculateTaxAmountFromInputs(row), 50);
+        }
+    }, 300);
+
+    discountPercentageInput.on('input.calc keyup.calc', function () {
+        debouncedDiscountPercentage();
+    });
+
+    discountAmountInput.on('input.calc keyup.calc', function () {
+        debouncedDiscountAmount();
+    });
+}
+
+// Enhanced payment event binding
+function bindPaymentCalculationEvents(row) {
+    const $amountField = PaymentManager.findAmountField(row);
+
+    if ($amountField.length > 0) {
+        // Remove existing handlers to prevent duplicates
+        $amountField.off('input.payment change.payment blur.payment');
+
+        // Bind new handlers
+        $amountField.on('input.payment change.payment blur.payment', function () {
+            if (typeof calculatePaymentTotals === 'function') {
+                calculatePaymentTotals();
+            }
+
+            // Validate that the amount is not negative
+            const amount = parseFloat($(this).val()) || 0;
+            if (amount < 0) {
+                $(this).val('0.00');
+                if (PaymentManager && typeof PaymentManager.showNotification === 'function') {
+                    PaymentManager.showNotification('Payment amount cannot be negative', 'warning');
+                }
+            }
+        });
+    }
+}
+
+// Helper function to bind taxable value events
+function bindTaxableValueEvents() {
+    $(document).off('input.taxable change.taxable keyup.taxable', '.formset_row .taxable-value-input');
+    $(document).on('input.taxable change.taxable keyup.taxable', '.formset_row .taxable-value-input', function () {
+        const $input = $(this);
+        const row = $input.closest('.formset_row');
+
+        // Mark as user-edited immediately when they start typing
+        row.data('userChangedTaxableAmount', true);
+        row.data('lastTaxableEdit', Date.now());
+
+        // Call the debounced handler
+        if (typeof debouncedTaxableValueHandler === 'function') {
+            debouncedTaxableValueHandler($input);
+        }
+    });
+}
+
+// Enhanced debounced handler for taxable value input
+const debouncedTaxableValueHandler = debounce(function ($input) {
+    const isGstEnabled = $('#id_is_gst').is(":checked");
+    if (!isGstEnabled) return;
+
+    const row = $input.closest('.formset_row');
+    const newTaxableAmount = parseFloat($input.val()) || 0;
+
+    // Mark this row as having user-edited taxable amount
+    row.data('userChangedTaxableAmount', true);
+    row.data('userTaxableValue', newTaxableAmount);
+
+    // Get current values
+    const taxRate = row.data('taxRate') || 0;
+    const quantity = parseFloat(row.find('.quantity-input').val()) || 0;
+    const currentDiscountAmount = parseFloat(row.find('.discount_amount-input').val()) || 0;
+
+    // When user changes taxable amount, back-calculate unit price
+    if (quantity > 0) {
+        const impliedSubtotal = newTaxableAmount + currentDiscountAmount;
+        const newUnitPrice = impliedSubtotal / quantity;
+
+        // Update unit price WITHOUT triggering calculation events
+        const unitPriceField = row.find('.unit-price-input');
+        if (unitPriceField.length > 0) {
+            unitPriceField.off('input.calc change.calc blur.calc keyup.calc');
+            unitPriceField.val(newUnitPrice.toFixed(2));
+
+            // Re-enable events after a delay
+            setTimeout(() => {
+                unitPriceField.on('input.calc change.calc blur.calc keyup.calc', function () {
+                    const currentTime = Date.now();
+                    const lastTaxableEdit = row.data('lastTaxableEdit') || 0;
+
+                    // Only reset flag if this unit price change wasn't caused by taxable edit
+                    if (currentTime - lastTaxableEdit > 500) {
+                        row.data('userChangedTaxableAmount', false);
+                    }
+                    setTimeout(() => {
+                        if (typeof calculateRowAmounts === 'function') {
+                            calculateRowAmounts(row);
+                        }
+                    }, 50);
+                });
+            }, 200);
+        }
+    }
+
+    // Calculate tax amount from taxable value and tax percentage
+    if (typeof calculateTaxAmountFromInputs === 'function') {
+        calculateTaxAmountFromInputs(row);
+    }
+
+    // Store timestamp of this taxable edit
+    row.data('lastTaxableEdit', Date.now());
+
+    // Update all totals (but prevent recursive calculations)
+    setTimeout(() => {
+        if (!isCalculating && typeof calculateAllTotals === 'function') {
+            isCalculating = true;
+            calculateAllTotals();
+            isCalculating = false;
+        }
+    }, 100);
+}, 300);
+
+// NEW: Enhanced tax selection handler for data-options
+function bindTaxSelectionEvents() {
+    $(document).on('change', '.formset_row .tax-input', function () {
+        const $taxSelect = $(this);
+        const row = $taxSelect.closest('.formset_row');
+        const selectedValue = $taxSelect.val();
+
+        if (!selectedValue) {
+            // Clear tax rate if no tax type selected
+            row.data('taxRate', 0);
+            
+            // Update calculations
+            if (typeof calculateTaxAmountFromInputs === 'function') {
+                calculateTaxAmountFromInputs(row);
+            }
+            return;
+        }
+
+        // Get tax rate from data-options
+        const taxRate = getTaxRateFromDataOptions($taxSelect, selectedValue);
+        
+        if (taxRate !== null) {
+            // Store tax rate in row data
+            row.data('taxRate', taxRate);
+            
+            
+            
+            // Update tax calculations
+            if (typeof calculateTaxAmountFromInputs === 'function') {
+                calculateTaxAmountFromInputs(row);
+            }
+        } else {
+            console.warn('Tax rate not found for selected option:', selectedValue);
+        }
+
+        // Update totals
+        setTimeout(() => {
+            if (!isCalculating && typeof calculateAllTotals === 'function') {
+                calculateAllTotals();
+            }
+        }, 50);
+    });
+}
+
+// NEW: Function to extract tax rate from data-options attribute
+function getTaxRateFromDataOptions(taxSelect, selectedValue) {
+    try {
+        const dataOptions = taxSelect.data('options');
+        
+        if (typeof dataOptions === 'object' && dataOptions !== null) {
+            // Data options is already parsed as object
+            return parseFloat(dataOptions[selectedValue]) || 0;
+        } else if (typeof dataOptions === 'string') {
+            // Parse JSON string
+            const parsedOptions = JSON.parse(dataOptions);
+            return parseFloat(parsedOptions[selectedValue]) || 0;
+        } else {
+            // Try to get from HTML data attribute
+            const dataOptionsStr = taxSelect.attr('data-options');
+            if (dataOptionsStr) {
+                const parsedOptions = JSON.parse(dataOptionsStr);
+                return parseFloat(parsedOptions[selectedValue]) || 0;
+            }
+        }
+    } catch (error) {
+        console.error('Error parsing tax options:', error);
+    }
+    
+    return null;
+}
+
+// NEW: Helper function to find tax option by rate
+function findTaxOptionByRate(taxSelect, targetRate) {
+    try {
+        const dataOptions = taxSelect.data('options') || JSON.parse(taxSelect.attr('data-options') || '{}');
+        
+        // Find option with matching rate
+        for (const [optionValue, optionRate] of Object.entries(dataOptions)) {
+            if (Math.abs(parseFloat(optionRate) - targetRate) < 0.01) {
+                return optionValue;
+            }
+        }
+    } catch (error) {
+        console.error('Error finding tax option by rate:', error);
+    }
+    
+    return null;
+}
+
+// NEW: Function to get all available tax options from a select
+function getAvailableTaxOptions(taxSelect) {
+    const options = [];
+    
+    try {
+        const dataOptions = taxSelect.data('options') || JSON.parse(taxSelect.attr('data-options') || '{}');
+        
+        taxSelect.find('option').each(function() {
+            const $option = $(this);
+            const value = $option.val();
+            const text = $option.text();
+            
+            if (value && dataOptions[value] !== undefined) {
+                options.push({
+                    value: value,
+                    text: text,
+                    rate: parseFloat(dataOptions[value])
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error getting tax options:', error);
+    }
+    
+    return options;
+}
+
+// NEW: Function to update tax display in row
+function updateTaxDisplay(row) {
+    const $taxSelect = row.find('.tax-input');
+    const selectedValue = $taxSelect.val();
+    
+    if (selectedValue) {
+        const taxRate = getTaxRateFromDataOptions($taxSelect, selectedValue);
+        const selectedText = $taxSelect.find('option:selected').text();
+        
+        // Update any tax display elements
+        row.find('.tax-info').html(`
+            <small class="text-muted">
+                ${selectedText} (${taxRate}%)
+            </small>
+        `);
+    } else {
+        row.find('.tax-info').html('');
+    }
+}
+
+// Event binding for tax percentage input (UPDATED to work with select)
+function bindTaxPercentageEvents() {
+    // This function now handled by bindTaxSelectionEvents
+    // Keeping for backward compatibility
+    bindTaxSelectionEvents();
+}
+
+// Global discount event handlers
+function bindGlobalDiscountEvents() {
+    const debouncedGlobalDiscountPercentage = debounce(function() {
+        if (typeof calculateGlobalDiscountFromPercentage === 'function') {
+            calculateGlobalDiscountFromPercentage();
+        }
+    }, 300);
+    
+    const debouncedGlobalDiscountAmount = debounce(function() {
+        if (typeof calculateGlobalDiscountFromAmount === 'function') {
+            calculateGlobalDiscountFromAmount();
+        }
+    }, 300);
+
+    $('#id_discount_percentage').on('input keyup', function () {
+        if (isCalculating) return;
+        debouncedGlobalDiscountPercentage();
+    });
+
+    $('#id_discount_amount').on('input keyup', function () {
+        if (isCalculating) return;
+        debouncedGlobalDiscountAmount();
+    });
+
+    // Round off amount handler
+    $('#id_round_off_amount').on('input keyup', function () {
+        if (isCalculating) return;
+        
+        const $input = $(this);
+        const value = parseFloat($input.val()) || 0;
+        
+        // Validate round off amount range (-1 to +1 is reasonable for rounding)
+        if (value < -1 || value > 1) {
+            // Show warning but don't prevent input
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Round off amount should typically be between -1.00 and +1.00', 'warning');
+            }
+        }
+        
+        setTimeout(() => {
+            if (typeof calculateFinalTotals === 'function') {
+                calculateFinalTotals();
+            }
+        }, 100);
+    });
+}
+
+// Keyboard navigation for formset rows
+function bindKeyboardNavigation() {
+    $(document).on('keydown', '.formset_row input, .formset_row select', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+
+            const $input = $(this);
+            const $row = $input.closest('.formset_row');
+            const isGstEnabled = $('#id_is_gst').is(":checked");
+
+            // Find all relevant fields in this row
+            const quantityInput = $row.find('.quantity-input');
+            const unitPriceInput = $row.find('.unit-price-input');
+            const discountPercentageInput = $row.find('.discount_percentage-input');
+            const discountAmountInput = $row.find('.discount_amount-input');
+            const taxableValueInput = $row.find('.taxable-value-input');
+            const taxInput = $row.find('.tax-input');
+            const lineTotalInput = $row.find('.line_total-input');
+
+            // Determine which field is currently focused and where to go next
+            if ($input.is(quantityInput)) {
+                unitPriceInput.focus().select();
+            } else if ($input.is(unitPriceInput)) {
+                discountPercentageInput.focus().select();
+            } else if ($input.is(discountPercentageInput)) {
+                discountAmountInput.focus().select();
+            } else if ($input.is(discountAmountInput)) {
+                if (isGstEnabled && taxableValueInput.length && !taxableValueInput.prop('readonly')) {
+                    taxableValueInput.focus().select();
+                } else if (isGstEnabled && taxInput.length) {
+                    taxInput.focus();
+                } else if (lineTotalInput.length) {
+                    lineTotalInput.focus().select();
+                }
+            } else if ($input.is(taxableValueInput)) {
+                if (taxInput.length) {
+                    taxInput.focus();
+                } else if (lineTotalInput.length) {
+                    lineTotalInput.focus().select();
+                }
+            } else if ($input.is(taxInput)) {
+                if (lineTotalInput.length) {
+                    lineTotalInput.focus().select();
+                }
+            } else if ($input.is(lineTotalInput)) {
+                // Add new row and focus its item selection
+                $('.add-row').first().click();
+
+                // Wait for the new row to be added, then focus its item field
+                setTimeout(function () {
+                    const $newRow = $('.formset_row').last();
+                    const $itemInput = $newRow.find('.item-select');
+                    $itemInput.focus();
+                    if ($itemInput.hasClass('select2-hidden-accessible')) {
+                        $itemInput.select2('open');
+                    }
+                }, 50);
+            }
+        }
+    });
+}
+
+// Keyboard shortcuts
+function bindKeyboardShortcuts() {
+    $(document).on('keydown', function (e) {
+        // Ctrl+Shift+P to auto-fill payment
+        if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+            e.preventDefault();
+            $('.auto-payment-checkbox').first().prop('checked', true).trigger('change');
+            if (PaymentManager && typeof PaymentManager.showNotification === 'function') {
+                PaymentManager.showNotification('Auto-payment triggered via keyboard shortcut', 'info');
+            }
+        }
+
+        // Ctrl+Shift+C to clear all payments
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+            e.preventDefault();
+            if (PaymentManager && typeof PaymentManager.clearAllPayments === 'function') {
+                PaymentManager.clearAllPayments();
+            }
+        }
+
+        // Ctrl+Shift+R to add new row
+        if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+            e.preventDefault();
+            $('.add-row').first().click();
+        }
+
+        // Ctrl+Shift+G to toggle GST
+        if (e.ctrlKey && e.shiftKey && e.key === 'G') {
+            e.preventDefault();
+            const $gstCheckbox = $('#id_is_gst');
+            $gstCheckbox.prop('checked', !$gstCheckbox.is(':checked')).trigger('change');
+        }
+    });
+}
+
+// Form submission validation
+function bindFormValidation() {
+    $('form').on('submit', function (e) {
+        const isGstEnabled = $('#id_is_gst').is(":checked");
+        let hasErrors = false;
+        let errorMessages = [];
+        let totalPaymentRows = 0;
+
+        // Validate payment amounts when GST is NOT enabled (Direct Cash/Bank Entry)
+        if (!isGstEnabled) {
+            $('.payment-formset-row').each(function () {
+                const $row = $(this);
+                
+                // 1. Skip rows marked for deletion
+                if ($row.find('input[name$="-DELETE"]').is(':checked')) {
+                    return;
+                }
+
+                const $amountField = PaymentManager.findAmountField($row);
+                // Look for the account selection field (assuming it ends in '-account')
+                const $accountField = $row.find('select[name$="-account"]');
+                
+                const amount = parseFloat($amountField.val()) || 0;
+                const hasAccount = $accountField.val() && $accountField.val() !== "";
+
+                // 2. Only validate rows that have an account selected OR are not the empty extra row
+                if (hasAccount) {
+                    totalPaymentRows++;
+                    if (amount <= 0) {
+                        $amountField.addClass('is-invalid');
+                        hasErrors = true;
+                    } else {
+                        $amountField.removeClass('is-invalid');
+                    }
+                }
+            });
+
+            // 3. If GST is off, there MUST be at least one payment entry
+            if (totalPaymentRows === 0) {
+                hasErrors = true;
+                errorMessages.push('Please select a Cash or Bank account in the payment section.');
+            } else if (hasErrors) {
+                errorMessages.push('Please enter a valid amount for the selected payment account.');
+            }
+        }
+
+        // Validate that at least one item row exists (Particulars)
+        const activeItemRows = $('.formset_row').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').is(':checked');
+        }).length;
+
+        if (activeItemRows === 0) {
+            hasErrors = true;
+            errorMessages.push('Please add at least one item (particular) row.');
+        }
+
+        // Validate net amount is greater than 0
+        const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+        if (netAmount <= 0) {
+            hasErrors = true;
+            errorMessages.push('Total amount must be greater than zero.');
+        }
+
+        // Show errors if any
+        if (hasErrors) {
+            e.preventDefault();
+            // Using a unique list of messages
+            const uniqueErrors = [...new Set(errorMessages)];
+            const errorMessage = uniqueErrors.join('\n');
+            
+            if (window.PaymentManager && typeof window.PaymentManager.showNotification === 'function') {
+                window.PaymentManager.showNotification(errorMessage, 'error');
+            } else {
+                alert(errorMessage);
+            }
+            return false;
+        }
+    });
+}
+
+// Auto round off event handler
+function bindAutoRoundOffEvents() {
+    $('#id_auto_round_off').on("change", function () {
+        const isChecked = $(this).is(":checked");
+        const $roundOffInput = $('#id_round_off_amount');
+        
+        if (isChecked) {
+            // Enable auto calculation - make input readonly
+            $roundOffInput.prop('readonly', true).addClass('readonly');
+        } else {
+            // Disable auto calculation - make input editable
+            $roundOffInput.prop('readonly', false).removeClass('readonly');
+        }
+        
+        if (typeof calculateFinalTotals === 'function') {
+            calculateFinalTotals();
+        }
+    });
+
+    $('#id_round_off_amount').on("input", function () {
+        if (typeof calculateFinalTotals === 'function') {
+            calculateFinalTotals();
+        }
+    });
+}
+
+// Price calculation events for item modal
+function bindPriceCalculationEvents() {
+    $("#id_price, #id_tax").on("input", function() {
+        if (typeof calculatePriceWithoutTax === 'function') {
+            calculatePriceWithoutTax();
+        }
+    });
+    
+    $("#id_tax_included").on("change", function() {
+        if (typeof calculatePriceWithoutTax === 'function') {
+            calculatePriceWithoutTax();
+        }
+    });
+}
+
+// NEW: Initialize tax handling
+function initializeTaxHandling() {
+    // Bind tax selection events
+    bindTaxSelectionEvents();
+    
+    // Initialize existing tax displays
+    $('.formset_row').each(function() {
+        updateTaxDisplay($(this));
+    });
+    
+    // Initialize tax rates for existing rows with a small delay
+    setTimeout(function() {
+        initializeTaxRatesForExistingRows();
+    }, 100);
+}
+
+// NEW: Initialize tax rates for existing rows on page load
+function initializeTaxRatesForExistingRows() {
+    $('.formset_row').each(function() {
+        const row = $(this);
+        const $taxSelect = row.find('.tax-input');
+        const selectedValue = $taxSelect.val();
+        
+        if (selectedValue) {
+            // Get tax rate from data-options for the selected value
+            const taxRate = getTaxRateFromDataOptions($taxSelect, selectedValue);
+            if (taxRate !== null) {
+                // Store tax rate in row data
+                row.data('taxRate', taxRate);
+                
+                // Calculate tax amount immediately
+                if (typeof calculateTaxAmountFromInputs === 'function') {
+                    calculateTaxAmountFromInputs(row);
+                }
+            }
+        }
+    });
+}
+
+// Initialize all event handlers
+function initializeAllEventHandlers() {
+    bindTaxPercentageEvents();
+    bindTaxableValueEvents();
+    bindGlobalDiscountEvents();
+    bindKeyboardNavigation();
+    bindKeyboardShortcuts();
+    bindFormValidation();
+    bindAutoRoundOffEvents();
+    bindPriceCalculationEvents();
+    initializeTaxHandling(); // NEW
+    bindBranchChangeEvent(); // NEW: Add branch change event
+    bindIsPartyChangeEvent(); // NEW: Add 'Is Party' checkbox change event
+}
+</script>

@@ -1,0 +1,280 @@
+<script>
+    // payment-manager.js - Enhanced Payment Management System
+const PaymentManager = {
+    // Auto-fill payment with enhanced error handling and validation
+    autoFillPayment: function() {
+        // First calculate all totals to ensure net amount is up to date
+        if (typeof calculateFinalTotals === 'function') {
+            calculateFinalTotals();
+        }
+
+        // Get the current net amount
+        const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+
+        // Validation checks
+        if (netAmount <= 0) {
+            this.showNotification('Net amount must be greater than zero to auto-fill payment.', 'warning');
+            return false;
+        }
+
+        // Find the first payment row
+        const $firstPaymentRow = $('.payment-formset-row').first();
+        if ($firstPaymentRow.length === 0) {
+            this.showNotification('No payment row available. Please add a payment row first.', 'error');
+            return false;
+        }
+
+        // Find the amount field in the first row
+        let $amountField = this.findAmountField($firstPaymentRow);
+
+        if ($amountField.length === 0) {
+            this.showNotification('Unable to find payment amount field.', 'error');
+            return false;
+        }
+
+        // Set the net amount to the first payment row
+        $amountField.val(netAmount.toFixed(2));
+        $amountField.trigger('input').trigger('change');
+
+        // Clear all other payment rows
+        $('.payment-formset-row').not(':first').each(function () {
+            const $otherAmountField = PaymentManager.findAmountField($(this));
+            if ($otherAmountField.length > 0) {
+                $otherAmountField.val('0.00');
+                $otherAmountField.trigger('input').trigger('change');
+            }
+        });
+
+        // Recalculate payment totals
+        if (typeof calculatePaymentTotals === 'function') {
+            calculatePaymentTotals();
+        }
+
+        // Focus and select the amount field for user convenience
+        $amountField.focus().select();
+
+        // Show success notification
+        this.showNotification(`Payment auto-filled with ₹${netAmount.toFixed(2)}`, 'success');
+
+        return true;
+    },
+
+    // Enhanced method to find amount field
+    findAmountField: function($row) {
+        return $row.find('input[name*="amount"]').first();
+    },
+
+    // Enhanced checkbox initialization with better event binding
+    initializeAutoPaymentCheckbox: function() {
+        // Remove any existing event handlers to prevent duplicates
+        $(document).off('change.autopayment', '.auto-payment-checkbox');
+        $('.auto-payment-checkbox').off('change.autopayment');
+
+        // Bind using event delegation for dynamic content
+        $(document).on('change.autopayment', '.auto-payment-checkbox', function (e) {
+            if (this.checked) {
+                // Small delay to ensure any ongoing calculations are complete
+                setTimeout(() => {
+                    const success = PaymentManager.autoFillPayment();
+
+                    // If auto-fill failed, uncheck the checkbox
+                    if (!success) {
+                        $(this).prop('checked', false);
+                    }
+                }, 100);
+            } else {
+                // When unchecked, optionally clear the payment amounts
+                PaymentManager.clearAllPayments();
+            }
+        });
+    },
+
+    // Clear all payment amounts
+    clearAllPayments: function() {
+        $('.payment-formset-row').each(function () {
+            const $amountField = PaymentManager.findAmountField($(this));
+            if ($amountField.length > 0) {
+                $amountField.val('0.00');
+                $amountField.trigger('input').trigger('change');
+            }
+        });
+
+        if (typeof calculatePaymentTotals === 'function') {
+            calculatePaymentTotals();
+        }
+        this.showNotification('All payment amounts cleared', 'info');
+    },
+
+    // Enhanced notification system
+    showNotification: function(message, type = 'info') {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification(message, type);
+        } else {
+            // Fallback to console if toast function not available
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    },
+
+    // Validate and sync payment with net amount
+    validatePaymentSync: function() {
+        const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+        const receivedAmount = parseFloat($('#id_received_amount').val()) || 0;
+        const balanceAmount = parseFloat($('#id_balance_amount').val()) || 0;
+
+        // Check if payment is properly synced
+        const expectedBalance = netAmount - receivedAmount;
+        const isInSync = Math.abs(balanceAmount - expectedBalance) < 0.01; // Allow for rounding
+
+        return isInSync;
+    },
+
+    // Auto-trigger payment fill when net amount changes significantly
+    setupAutoTrigger: function() {
+        let lastNetAmount = 0;
+
+        // Monitor net amount changes
+        $('#id_invoice_amount').on('input change', function () {
+            const currentNetAmount = parseFloat($(this).val()) || 0;
+
+            if (Math.abs(currentNetAmount - lastNetAmount) > 0.01) {
+                lastNetAmount = currentNetAmount;
+
+                if ($('.auto-payment-checkbox:checked').length > 0) {
+                    setTimeout(() => {
+                        PaymentManager.autoFillPayment();
+                    }, 200);
+                }
+            }
+        });
+    },
+
+    // Get total payment amount across all payment rows
+    getTotalPaymentAmount: function() {
+        let totalPayment = 0;
+        $('.payment-formset-row').each(function () {
+            const $amountField = PaymentManager.findAmountField($(this));
+            if ($amountField.length > 0) {
+                const amount = parseFloat($amountField.val()) || 0;
+                totalPayment += amount;
+            }
+        });
+        return totalPayment;
+    },
+
+    // Set payment amount for a specific row
+    setPaymentAmount: function(rowIndex, amount) {
+        const $row = $('.payment-formset-row').eq(rowIndex);
+        if ($row.length > 0) {
+            const $amountField = this.findAmountField($row);
+            if ($amountField.length > 0) {
+                $amountField.val(parseFloat(amount).toFixed(2));
+                $amountField.trigger('input').trigger('change');
+                return true;
+            }
+        }
+        return false;
+    },
+
+    // Get payment amount for a specific row
+    getPaymentAmount: function(rowIndex) {
+        const $row = $('.payment-formset-row').eq(rowIndex);
+        if ($row.length > 0) {
+            const $amountField = this.findAmountField($row);
+            if ($amountField.length > 0) {
+                return parseFloat($amountField.val()) || 0;
+            }
+        }
+        return 0;
+    },
+
+    // Distribute payment amount across multiple rows equally
+    distributePaymentEqually: function(totalAmount) {
+        const $rows = $('.payment-formset-row');
+        const rowCount = $rows.length;
+        
+        if (rowCount === 0) {
+            this.showNotification('No payment rows available for distribution.', 'warning');
+            return false;
+        }
+
+        const amountPerRow = totalAmount / rowCount;
+
+        $rows.each(function(index) {
+            const $amountField = PaymentManager.findAmountField($(this));
+            if ($amountField.length > 0) {
+                $amountField.val(amountPerRow.toFixed(2));
+                $amountField.trigger('input').trigger('change');
+            }
+        });
+
+        this.showNotification(`Payment of ₹${totalAmount.toFixed(2)} distributed equally across ${rowCount} rows`, 'success');
+        return true;
+    },
+
+    // Auto-fill with custom amount
+    autoFillWithAmount: function(customAmount) {
+        const amount = parseFloat(customAmount) || 0;
+        
+        if (amount <= 0) {
+            this.showNotification('Amount must be greater than zero.', 'warning');
+            return false;
+        }
+
+        // Find the first payment row
+        const $firstPaymentRow = $('.payment-formset-row').first();
+        if ($firstPaymentRow.length === 0) {
+            this.showNotification('No payment row available.', 'error');
+            return false;
+        }
+
+        // Set the custom amount to the first row
+        const $amountField = this.findAmountField($firstPaymentRow);
+        if ($amountField.length > 0) {
+            $amountField.val(amount.toFixed(2));
+            $amountField.trigger('input').trigger('change');
+            
+            this.showNotification(`Payment filled with custom amount ₹${amount.toFixed(2)}`, 'success');
+            return true;
+        }
+
+        this.showNotification('Unable to find payment amount field.', 'error');
+        return false;
+    },
+
+    // Check if auto payment is enabled
+    isAutoPaymentEnabled: function() {
+        return $('.auto-payment-checkbox:checked').length > 0;
+    },
+
+    // Enable/disable auto payment programmatically
+    setAutoPayment: function(enabled) {
+        $('.auto-payment-checkbox').prop('checked', enabled).trigger('change');
+    },
+
+    // Get payment summary
+    getPaymentSummary: function() {
+        const netAmount = parseFloat($('#id_invoice_amount').val()) || 0;
+        const receivedAmount = parseFloat($('#id_received_amount').val()) || 0;
+        const balanceAmount = parseFloat($('#id_balance_amount').val()) || 0;
+        const totalPayments = this.getTotalPaymentAmount();
+
+        return {
+            netAmount: netAmount,
+            receivedAmount: receivedAmount,
+            balanceAmount: balanceAmount,
+            totalPayments: totalPayments,
+            isFullyPaid: Math.abs(balanceAmount) < 0.01,
+            isOverPaid: balanceAmount < -0.01,
+            isUnderPaid: balanceAmount > 0.01,
+            paymentRows: $('.payment-formset-row').length
+        };
+    },
+
+    // Initialize all payment manager functionality
+    initialize: function() {
+        this.initializeAutoPaymentCheckbox();
+        this.setupAutoTrigger();
+        this.showNotification('Payment Manager initialized', 'info');
+    }
+};
+</script>

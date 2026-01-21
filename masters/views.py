@@ -2,6 +2,7 @@ import sys
 import json
 import logging
 from itertools import groupby
+from django.contrib.auth.models import Permission
 from django.db.models import Max
 from firebase_admin import messaging
 from django.utils import timezone
@@ -44,7 +45,7 @@ from branches.models import Branch
 from . import forms
 from . import tables
 from .forms import FeedbackAnswerFormSet, FeedbackForm, PdfBookFormSet, SyllabusForm, ChatMessageForm, SyllabusMasterForm, SyllabusFormSet
-from .models import Activity, Batch, BranchActivity, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PDFBookResource, PdfBook, PlacementHistory, PublicMessage, Syllabus, ChatSession, SyllabusMaster, Update, PlacementRequest, RequestSubmission, RequestSubmissionStatusHistory, BatchSyllabusStatus, Event
+from .models import Activity, Batch, BranchActivity, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, HeroBanner, Holiday, LeaveRequest, PDFBookResource, PdfBook, PlacementHistory, PublicMessage, Syllabus, ChatSession, SyllabusMaster, Tax, Update, PlacementRequest, RequestSubmission, RequestSubmissionStatusHistory, BatchSyllabusStatus, Event, State
 from admission.utils import send_sms
 User = get_user_model()
 
@@ -5518,7 +5519,6 @@ class EventCreateView(mixins.HybridCreateView):
         print(form.errors)
         return super().form_invalid(form)
 
-
     
 class EventUpdateView(mixins.HybridUpdateView):
     model = Event
@@ -5530,3 +5530,87 @@ class EventUpdateView(mixins.HybridUpdateView):
 class EventDeleteView(mixins.HybridDeleteView):
     model = Event
     permissions = ("is_superuser","admin_staff", "teacher", "branch_staff", "ceo","cfo","coo","hr","cmo", "mentor")
+
+
+class StateListView(mixins.HybridListView):
+    model = State 
+    table_class = tables.StateTable
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+    template_name = "app/common/accounting_object_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_state_list'] = True
+        return context
+
+    
+class StateDetailView(mixins.HybridDetailView):
+    model = State
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+
+
+class StateCreateView(mixins.HybridCreateView):
+    model = State
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+    form_class = forms.StateForm
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "New State"
+        return context
+
+
+class StateUpdateView(mixins.HybridUpdateView):
+    model = State
+    form_class = forms.StateForm
+    permissions = ("is_superuser","admin_staff", "teacher", "branch_staff", "ceo","cfo","coo","hr","cmo", "mentor")
+
+
+class StateDeleteView(mixins.HybridDeleteView):
+    model = State
+    permissions = ("is_superuser","admin_staff", "teacher", "branch_staff", "ceo","cfo","coo","hr","cmo", "mentor")
+
+
+class TaxListView(mixins.HybridListView):
+    model = Tax
+    table_class = tables.TaxTable
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+    template_name = "app/common/accounting_object_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_tax_list"] = True
+        return context
+
+
+class TaxDetailView(mixins.HybridDetailView):
+    model = Tax
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+
+
+class TaxCreateView(mixins.HybridCreateView):
+    model = Tax
+    form_class = forms.TaxForm
+    permissions = ("branch_staff", "teacher", "student", "admin_staff", "is_superuser", "ceo","cfo","coo","hr","cmo", "tele_caller", "sales_head", "mentor")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "New Tax"
+        return context
+
+
+class TaxUpdateView(mixins.HybridUpdateView):
+    model = Tax
+    form_class = forms.TaxForm
+    permissions = ("is_superuser","admin_staff", "teacher", "branch_staff", "ceo","cfo","coo","hr","cmo", "mentor")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "Update Tax"
+        return context
+
+    
+class TaxDeleteView(mixins.HybridDeleteView):
+    model = Tax
+    permissions = ("is_superuser","admin_staff", "teacher", "branch_staff", "ceo","cfo","coo","hr","cmo", "mentor")
+    

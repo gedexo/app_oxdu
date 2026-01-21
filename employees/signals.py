@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from .models import Employee
 from accounting.models import Account, GroupMaster
-from accounting.constants import ACCOUNT_CODE_MAPPING, ACCOUNT_BALANCE_TYPES
+from accounting.constants import ACCOUNT_CODE_MAPPING
 from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment
 
 

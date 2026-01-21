@@ -10,7 +10,7 @@ from admission.models import FeeReceipt, PaymentMethod, FeeStructure, Admission
 from accounting.models import Account, GroupMaster
 from transactions.models import Transaction, TransactionEntry
 from admission.models import FeeReceipt
-from accounting.utils import get_system_account
+# from accounting.utils import get_system_account
 
 
 def get_or_create_current_assets(branch):

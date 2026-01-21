@@ -11,7 +11,7 @@ from masters.models import RequestSubmission
 
 User = get_user_model()
 
-from .models import Activity, BranchActivity, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, Holiday, LeaveRequest, PDFBookResource, PdfBook, ChatSession, PlacementHistory, PublicMessage, Update, PlacementRequest, Batch, SyllabusMaster, Syllabus, Event
+from .models import Activity, BranchActivity, ComplaintRegistration, Course, Feedback, FeedbackAnswer, FeedbackQuestion, Holiday, LeaveRequest, PDFBookResource, PdfBook, ChatSession, PlacementHistory, PublicMessage, Update, PlacementRequest, Batch, SyllabusMaster, Syllabus, Event, State, Tax
 
 
 class PdfBookForm(forms.ModelForm):
@@ -549,3 +549,15 @@ class EventForm(forms.ModelForm):
             'course': forms.SelectMultiple(),
             'image': forms.FileInput(attrs={'accept': 'image/*'}),
         }
+
+    
+class StateForm(forms.ModelForm):
+    class Meta:
+        model = State
+        fields = "__all__"
+
+    
+class TaxForm(forms.ModelForm):
+    class Meta:
+        model = Tax
+        fields = "__all__"

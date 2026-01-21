@@ -193,4 +193,18 @@ urlpatterns = [
     path("event/<str:pk>/update/", views.EventUpdateView.as_view(), name="event_update"),
     path("event/<str:pk>/delete/", views.EventDeleteView.as_view(), name="event_delete"),
 
+    #states
+    path("states/", views.StateListView.as_view(), name="state_list"),
+    path("state/<str:pk>/", views.StateDetailView.as_view(), name="state_detail"),
+    path("new/state/", views.StateCreateView.as_view(), name="state_create"),
+    path("state/<str:pk>/update/", views.StateUpdateView.as_view(), name="state_update"),
+    path("state/<str:pk>/delete/", views.StateDeleteView.as_view(), name="state_delete"),
+
+    #tax
+    path("tax/", views.TaxListView.as_view(), name="tax_list"),
+    path("tax/<str:pk>/", views.TaxDetailView.as_view(), name="tax_detail"),
+    path("new/tax/", views.TaxCreateView.as_view(), name="tax_create"),
+    path("tax/<str:pk>/update/", views.TaxUpdateView.as_view(), name="tax_update"),
+    path("tax/<str:pk>/delete/", views.TaxDeleteView.as_view(), name="tax_delete"),
+
 ]

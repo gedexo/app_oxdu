@@ -1,0 +1,99 @@
+<script>
+    function initializePaymentFormset() {
+    $(SELECTORS.PAYMENT_FORMSET_ROW).formset({
+        addText: 'Add Payment',
+        deleteText: '<i class="fa-solid fa-xmark"></i>',
+        prefix: '{{ payment_formset.prefix }}',
+        formCssClass: 'payment-formset-row',
+        added: function (row) {
+            $(row).find('.auto-payment-checkbox').closest('.form-check').remove();
+            $(row).find('input').not('[type="hidden"]').val('');
+            $(row).find('select').val('');
+            bindPaymentCalculationEvents($(row));
+            calculateAllTotals();
+            togglePaymentAmountFieldRequirement();
+        },
+        removed: function () {
+            calculateAllTotals();
+            togglePaymentAmountFieldRequirement();
+        }
+    });
+}
+
+function initializeItemFormset() {
+    $(SELECTORS.FORMSET_ROW).formset({
+        addText: '<span>Add Row</span>',
+        deleteText: '<i class="fa-solid fa-xmark"></i>',
+        prefix: '{{ formset.prefix }}',
+        formCssClass: 'formset_row',
+        added: function (row) {
+            row.data('userChangedTaxableAmount', false);
+            
+            $(row).find('input').not('[type="hidden"]').val('');
+            $(row).find('select').val('');
+            $(row).find('textarea').val('');
+            
+            row.find('.quantity-input').val('1');
+            row.find('.unit-price-input').val('0');
+            row.find('.discount_percentage-input').val('0');
+            row.find('.discount_amount-input').val('0');
+            row.find('.line_total-input').val('0');
+            
+            initializeSelect2ForFormRow(row, '.item-select', "#itemModal", "Select Item");
+            
+            const cells = row.find('td');
+            if (cells.length >= 9) {
+                const taxableValueCell = cells.eq(5);
+                taxableValueCell.addClass('gst-field');
+                if (!taxableValueCell.find('.taxable-value-input').length) {
+                    taxableValueCell.html('<input type="text" class="form-control taxable-value-input" style="background-color: #f8f9fa; border: 1px solid #dee2e6;" value="0.00">');
+                }
+                const taxPercentCell = cells.eq(6);
+                taxPercentCell.addClass('gst-field');
+                const taxAmountCell = cells.eq(7);
+                taxAmountCell.addClass('gst-field');
+            }
+            
+            const isGstEnabled = $(SELECTORS.GST_CHECKBOX).is(":checked");
+            row.find('.gst-field').each(function () {
+                const $field = $(this);
+                if (isGstEnabled) {
+                    $field.show();
+                } else {
+                    $field.hide();
+                }
+            });
+            
+            if (!isGstEnabled) {
+                row.find('.tax-input').val('0');
+                row.find('.tax_amount-input').val('0');
+                row.find('.taxable-value-input').val('0.00');
+            }
+            
+            bindRowCalculationEvents(row);
+            calculateRowAmounts(row);
+            toggleGstFields();
+            calculateAllTotals();
+            
+            const $itemInput = row.find('.item-select');
+            $itemInput.focus();
+            if ($itemInput.hasClass('select2-hidden-accessible')) {
+                $itemInput.select2('open');
+            }
+        },
+        removed: function () {
+            calculateAllTotals();
+        }
+    });
+}
+
+function initializeExistingRows() {
+    $(SELECTORS.FORMSET_ROW).each(function () {
+        initializeSelect2ForFormRow($(this), '.item-select', "#itemModal", "Search Item");
+        bindRowCalculationEvents($(this));
+    });
+    $(SELECTORS.PAYMENT_FORMSET_ROW).each(function () {
+        bindPaymentCalculationEvents($(this));
+    });
+}
+</script>
