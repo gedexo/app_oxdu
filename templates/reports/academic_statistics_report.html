@@ -4,35 +4,48 @@
 {% block title %}Academic Intelligence | Live Dashboard{% endblock %}
 
 {% block body %}
-<!-- Premium Fonts -->
+
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
 
+{% include "reports/partials/admission_popup.html" %}
+
 <div class="dashboard-viewport">
-    <div class="container-fluid px-5 py-4 mt-4">
+    <!-- Changed px-5 to px-3 px-md-5 for better mobile breathing room -->
+    <div class="container-fluid px-3 px-md-5 py-4">
         
-        <!-- HEADER: Title & Live Clock -->
-        <div class="d-flex justify-content-between align-items-center mb-5">
+        <!-- HEADER: Title & Live Clock - FIXED RESPONSIVENESS -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 mb-md-5">
             <div class="brand-section">
-                <div class="d-flex align-items-center gap-3 mb-2">
+                <div class="d-flex align-items-center gap-2 gap-md-3 mb-2">
                     <div class="live-indicator">
                         <span class="dot"></span>
                         <span class="text">SYSTEM LIVE</span>
                     </div>
-                    <div class="divider-v"></div>
-                    <h6 class="text-uppercase tracking-widest text-muted fw-bold mb-0">Operational Overview</h6>
+                    <div class="divider-v d-none d-sm-block"></div>
+                    <h6 class="text-uppercase tracking-widest text-muted fw-bold mb-0 small-text-mobile">Operational Overview</h6>
                 </div>
-                <h1 class="display-4 fw-900 text-dark-blue tracking-tighter m-0">{{ report_title }}</h1>
+
+                <button type="button" 
+                        onclick="triggerTestCelebration()" 
+                        class="btn btn-sm px-3 rounded-pill border-0 fw-bold" 
+                        style="background: rgba(238, 76, 36, 0.1); color: var(--primary); font-size: 0.7rem; letter-spacing: 1px;">
+                    <i class="bi bi-play-circle-fill me-1"></i> TEST ANIMATION
+                </button>
+                
+                <!-- Added responsive-title class -->
+                <h1 class="display-4 fw-900 text-dark-blue tracking-tighter m-0 responsive-title">{{ report_title }}</h1>
             </div>
             
-            <div class="clock-section text-end">
-                <div id="digital-clock" class="clock-num">00:00:00</div>
-                <div class="date-text">{% now "l, F jS" %}</div>
+            <!-- Hidden on mobile, visible from md and up -->
+            <div class="clock-section text-start text-md-end d-none d-md-block">
+                <div id="digital-clock" class="clock-num">--:--:--</div>
+                <div id="live-date" class="date-text">Loading date...</div>
             </div>
         </div>
 
-        <!-- ROW 1: HERO STATS (Total vs Courses) -->
+        <!-- ROW 1: HERO STATS (Total vs Telecallers) -->
         <div class="row g-4 mb-5">
-            <!-- Active Enrollment Card (Left - 25% width) -->
+            <!-- Active Enrollment Card -->
             <div class="col-xl-3 col-lg-4">
                 <div class="card-hero-total">
                     <div class="card-content">
@@ -48,37 +61,53 @@
                 </div>
             </div>
 
-            <!-- Course-wise Grid (Right - 75% width) -->
+            <!-- Telecaller Performance Grid -->
             <div class="col-xl-9 col-lg-8">
-                <div class="row g-3 h-100">
-                    {% for stat in course_stats|slice:":6" %}
-                    <div class="col-md-4">
-                        <div class="course-mini-card">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="course-info">
-                                    <span class="course-label">COURSE</span>
-                                    <h5 class="course-name fw-bold">{{ stat.name }}</h5>
-                                </div>
-                                <div class="course-count">{{ stat.student_count }}</div>
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <h4 class="fw-800 text-dark mb-0" style="letter-spacing: -0.5px;">TOP 6 TELECALLERS</h4>
+                    <div style="height: 2px; flex-grow: 1; background: linear-gradient(to right, var(--primary), transparent); opacity: 0.2;"></div>
+                </div>
+
+                <div class="row g-3">
+                    {% for stat in telecaller_stats|slice:":6" %}
+                    <div class="col-md-4 col-sm-6">
+                        <div class="course-mini-card {% if forloop.first %}best-performer-card{% endif %}">
+                            {% if forloop.first %}
+                            <div class="performer-badge">
+                                <i class="bi bi-trophy-fill"></i> #1 Best Performer
                             </div>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between align-items-start position-relative">
+                                <div class="course-info">
+                                    <span class="course-label">
+                                        {% if forloop.first %}TOP TELECALLER{% else %}TELECALLER{% endif %}
+                                    </span>
+                                    <h5 class="course-name fw-bold text-truncate" style="max-width: 250px;">
+                                        {% if stat.user.get_full_name %}{{ stat.user.get_full_name }}{% else %}{{ stat.user.username }}{% endif %}
+                                    </h5>
+                                </div>
+                                <div class="course-count">{{ stat.active_count }}</div>
+                            </div>
+
                             <div class="course-progress mt-3">
                                 {% if total_students > 0 %}
-                                    {% widthratio stat.student_count total_students 100 as percent %}
+                                    {% widthratio stat.active_count total_students 100 as percent %}
                                 {% else %}
                                     {% widthratio 0 1 100 as percent %}
                                 {% endif %}
                                 <div class="progress-bg">
-                                    <div class="progress-fill" style="width: {{ percent }}%"></div>
+                                    <div class="progress-fill {% if forloop.first %}fill-gold{% endif %}" style="width: {{ percent }}%"></div>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <span class="percent-label">{{ percent }}% Share</span>
+                                    <span class="percent-label">{{ percent }}% contribution</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     {% empty %}
                     <div class="col-12 text-center py-5">
-                        <h4 class="text-muted">No course statistics available</h4>
+                        <h4 class="text-muted">No telecaller data available</h4>
                     </div>
                     {% endfor %}
                 </div>
@@ -104,9 +133,8 @@
                     <div class="branch-body">
                         <div class="course-stack">
                             {% for course in item.courses %}
-                            <!-- Logic: Mute courses with 0 students, Highlight those with > 0 -->
                             <div class="stack-item {% if course.branch_course_count == 0 %}muted-item{% endif %}">
-                                <span class="course-mini-name">{{ course.name }}</span>
+                                <span class="course-mini-name fw-bolder">{{ course.name }}</span>
                                 <span class="fw-900 {% if course.branch_course_count > 0 %}text-primary-brand{% endif %}">
                                     {{ course.branch_course_count }}
                                 </span>
@@ -134,6 +162,8 @@
         --text-main: #1e293b;
         --text-dim: #64748b;
         --border-color: rgba(0, 0, 0, 0.08);
+        --gold: #FFD700;
+        --gold-dark: #d4b100;
     }
 
     body {
@@ -142,6 +172,7 @@
         font-family: 'Plus Jakarta Sans', sans-serif;
         overflow-x: hidden;
     }
+    body.no-scroll { overflow: hidden; }
 
     .dashboard-viewport {
         min-height: 100vh;
@@ -176,6 +207,9 @@
         animation: pulse 2s infinite;
     }
     .live-indicator .text { font-size: 0.7rem; font-weight: 800; color: var(--primary); }
+    
+    .divider-v { width: 1px; height: 20px; background: var(--border-color); }
+    
     .clock-num { font-family: 'Outfit', sans-serif; font-size: 3.5rem; font-weight: 800; color: #0f172a; line-height: 1; }
     .date-text { color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
 
@@ -194,71 +228,69 @@
     .massive-number { font-family: 'Outfit', sans-serif; font-size: 6rem; font-weight: 900; line-height: 1; margin: 10px 0; }
     .card-hero-total .label { font-weight: 800; letter-spacing: 1.5px; font-size: 0.85rem; color: rgba(255,255,255,0.8); }
 
-    /* COURSE MINI CARDS */
+    /* CARD STYLES */
     .course-mini-card {
         background: white;
         border: 1px solid var(--border-color);
         border-radius: 24px;
         padding: 24px;
         height: 100%;
+        position: relative;
         box-shadow: 0 8px 20px rgba(0,0,0,0.03);
-        transition: transform 0.3s ease, border-color 0.3s ease;
+        transition: transform 0.3s ease;
     }
-    .course-mini-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+    .course-mini-card:hover{
+        transform: translateY(-5px);
+        border-color: var(--primary);
+    }
+    .best-performer-card {
+        border: 2px solid var(--primary);
+        background: linear-gradient(to bottom right,rgb(255, 232, 226), #fff);
+    }
+    .performer-badge {
+        position: absolute; top: -12px; right: 20px;
+        background: var(--primary); color: #ffffff;
+        font-weight: 800; font-size: 0.7rem; padding: 6px 12px;
+        border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        text-transform: uppercase; z-index: 10;
+        display: flex; align-items: center; gap: 5px;
+    }
+
     .course-label { font-size: 0.65rem; font-weight: 800; color: var(--primary); letter-spacing: 1px; }
     .course-name { color: #0f172a; font-size: 1.1rem; margin: 0; }
     .course-count { font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; color: #0f172a; }
-    
     .progress-bg { height: 8px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
-    .progress-fill { height: 100%; background: var(--primary); border-radius: 10px; }
+    .progress-fill { height: 100%; background: var(--primary); }
+    .progress-fill.fill-gold { background: var(--primary); }
     .percent-label { font-size: 0.75rem; color: var(--text-dim); font-weight: 700; }
 
     /* BRANCH CARDS */
-    .branch-card {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 24px;
-        padding: 24px;
-        height: 100%;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.02);
-    }
+    .branch-card { background: white; border: 1px solid var(--border-color); border-radius: 24px; padding: 24px; height: 100%; }
     .branch-header { display: flex; justify-content: space-between; align-items: center; }
-    .branch-meta h4 { font-size: 1.25rem; color: #0f172a; margin: 0; }
-    .branch-meta p { font-size: 0.85rem; color: var(--text-dim); }
-    .branch-total {
-        background: #0f172a;
-        color: white;
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 14px;
-        font-weight: 900;
-        font-size: 1.2rem;
-    }
-
-    /* COURSE STACK IN BRANCH CARDS */
+    .branch-total { background: #0f172a; color: white; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 900; }
     .course-stack { display: flex; flex-direction: column; gap: 8px; }
-    .stack-item {
-        background: rgba(0, 0, 0, 0.02);
-        padding: 10px 15px;
-        border-radius: 12px;
-        border: 1px solid #9c9c9c63 !important;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.85rem;
-    }
-    .course-mini-name { font-weight: 600; color: var(--text-main); }
+    .stack-item { background: rgba(0, 0, 0, 0.02); padding: 10px 15px; border-radius: 12px; border: 1px solid #9c9c9c63 !important; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
     .muted-item { opacity: 0.6; background: transparent; border: 1px dashed var(--border-color); }
-
     .section-divider { display: flex; align-items: center; gap: 20px; }
     .section-divider .line { height: 1px; flex-grow: 1; background: var(--border-color); }
+    .visual-element { position: absolute; right: -20px; bottom: -20px; font-size: 10rem; opacity: 0.1; color: white; transform: rotate(-15deg); pointer-events: none; }
 
-    .visual-element {
-        position: absolute; right: -20px; bottom: -20px; font-size: 12rem;
-        opacity: 0.1; color: white; transform: rotate(-15deg); pointer-events: none;
+    /* --- RESPONSIVE FIXES --- */
+    @media (max-width: 767px) {
+        .responsive-title { font-size: 2.2rem !important; }
+        .clock-num { font-size: 2.2rem !important; margin-top: 5px; }
+        .massive-number { font-size: 4rem !important; }
+        .card-hero-total { padding: 30px 20px; }
+        .small-text-mobile { font-size: 0.6rem !important; letter-spacing: 1px !important; }
+        .brand-section { width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .clock-section { width: 100%; }
+    }
+
+    @media(max-width:991px){
+        .dashboard-viewport .container-fluid{
+            padding-right: 1rem !important;
+            padding-left: 1rem !important;
+        }
     }
 
     @keyframes pulse {
@@ -267,27 +299,109 @@
         100% { transform: scale(1); opacity: 1; }
     }
 
-    /* Large Screen / TV Tweaks */
     @media (min-width: 1800px) {
         .massive-number { font-size: 8rem; }
         .course-count { font-size: 3.5rem; }
     }
 </style>
-
 <script>
+    // --- 1. LOCAL CLOCK LOGIC ---
+    function getOrdinalSuffix(day) {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+            case 1:  return "st";
+            case 2:  return "nd";
+            case 3:  return "rd";
+            default: return "th";
+        }
+    }
+
     function updateClock() {
         const now = new Date();
-        document.getElementById('digital-clock').textContent = now.toLocaleTimeString('en-US', { 
-            hour12: true, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        });
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+        const timeEl = document.getElementById('digital-clock');
+        const dateEl = document.getElementById('live-date');
 
-    // Refresh every 5 minutes to keep the dashboard updated
-    setTimeout(() => location.reload(), 300000);
+        if(timeEl) {
+            timeEl.textContent = now.toLocaleTimeString('en-US', { 
+                hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+        }
+
+        if(dateEl) {
+            const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+            const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+            const dayNumber = now.getDate();
+            dateEl.textContent = `${dayName}, ${monthName} ${dayNumber}${getOrdinalSuffix(dayNumber)}`;
+        }
+    }
+
+    // --- 2. ADMISSION POLLING LOGIC ---
+    let admissionInterval;
+    let lastProcessedId = localStorage.getItem('last_admission_id') || null;
+
+    function fetchLatestAdmission() {
+        // Stop if the user isn't even looking at this tab
+        if (document.hidden) return;
+
+        fetch('/admission/ajax/latest-admission/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.found) {
+                    // Only trigger if this is a brand new admission ID
+                    if (lastProcessedId !== data.update_key) {
+                        lastProcessedId = data.update_key;
+                        localStorage.setItem('last_admission_id', data.update_key);
+                        
+                        if (typeof startCelebration === "function") {
+                            startCelebration(data);
+                        }
+                    }
+                }
+            })
+            .catch(err => console.warn("Network sync delayed..."));
+    }
+
+    // --- 3. LIFECYCLE MANAGEMENT ---
+    function startTimers() {
+        // Clock: Every 1 second (Local only, zero server load)
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Admissions: Every 20 seconds (Balanced for multiple devices)
+        fetchLatestAdmission(); // Run once immediately
+        admissionInterval = setInterval(fetchLatestAdmission, 20000);
+
+        // Full Page Reload: Every 10 minutes 
+        // (Updates the Telecaller/Branch stats which are not AJAX)
+        setTimeout(() => location.reload(), 600000); 
+    }
+
+    // Handle Tab Visibility (Stop requests when tab is hidden)
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            clearInterval(admissionInterval);
+        } else {
+            fetchLatestAdmission();
+            admissionInterval = setInterval(fetchLatestAdmission, 20000);
+        }
+    });
+
+    // Start everything on load
+    document.addEventListener('DOMContentLoaded', startTimers);
+
+    // --- 4. MANUAL TESTER ---
+    function triggerTestCelebration() {
+        const dummyData = {
+            id: Math.floor(Math.random() * 10000),
+            telecaller: "Demo User",
+            student_name: "Test Student",
+            branch: "Test Branch"
+        };
+        if (typeof startCelebration === "function") {
+            startCelebration(dummyData);
+        }
+    }
 </script>
+
 {% endblock body %}
+

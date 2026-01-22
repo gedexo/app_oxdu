@@ -5,17 +5,17 @@ from datetime import date, datetime, timedelta
 from django.urls import reverse_lazy
 from django.utils.http import quote
 from django.utils import timezone
-from django.db.models import Count, Q
 from typing import Dict, Tuple, List
 from django.shortcuts import render
 from django.contrib import messages
-from django.db.models import Q, Sum, Value, DecimalField
+from django.db.models import Q, Sum, Value, DecimalField, Count
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.views import View
 from django.db.models.functions import TruncMonth
 from branches.models import Branch 
 import json
+from django.contrib.auth import get_user_model
 
 from core import mixins
 from transactions.models import TransactionEntry, Transaction
@@ -24,6 +24,9 @@ from reports import tables, filters, forms
 
 from admission.models import Admission
 from masters.models import Course
+from employees.models import Employee
+User = get_user_model()
+
 
 class BalanceSheetReportView(mixins.HybridTemplateView):
     template_name = 'reports/balance_sheet_report.html'
@@ -1449,51 +1452,75 @@ class AcademicStatisticsReportView(mixins.OpenView):
         context = super().get_context_data(**kwargs)
         context["report_title"] = "Academic Overview"
 
-        # Base active students
-        students = Admission.objects.filter(is_active=True, stage_status="active")
+        # 1. BASE ACTIVE STUDENTS
+        students = Admission.objects.filter(
+            is_active=True,
+            stage_status="active"
+        )
         context["total_students"] = students.count()
 
-        # 1. Get all active courses globally
-        active_courses = Course.objects.filter(is_active=True).order_by('name')
-        
-        # Global stats (Total students per course)
-        context["course_stats"] = active_courses.annotate(
-            student_count=Count(
-                'admission',
-                filter=models.Q(
-                    admission__is_active=True,
-                    admission__stage_status='active'
-                )
+        # --------------------------------------------------
+        # 2. TELECALLER STATS (TOP 6 ACTIVE TELECALLERS)
+        # --------------------------------------------------
+        telecaller_stats = Employee.objects.filter(
+            user__is_active=True,
+            status="Appointed"
+        ).filter(
+            Q(user__usertype="tele_caller") |
+            Q(is_also_tele_caller="Yes")
+        ).annotate(
+            active_count=Count(
+                'user__admission',
+                filter=Q(
+                    user__admission__is_active=True,
+                    user__admission__stage_status='active'
+                ),
+                distinct=True
             )
-        ).order_by('-student_count')
+        ).filter(
+            active_count__gt=0
+        ).select_related(
+            'user', 'branch'
+        ).order_by('-active_count')[:6]
 
-        # 2. Branch-wise stats (Showing ALL active courses per branch)
+        context["telecaller_stats"] = telecaller_stats
+
+        # --------------------------------------------------
+        # 3. BRANCH-WISE STATS
+        # --------------------------------------------------
+        active_courses = Course.objects.filter(
+            is_active=True
+        ).order_by('name')
+
         branch_stats_data = []
         all_branches = Branch.objects.filter(is_active=True)
 
         for branch in all_branches:
             branch_students = students.filter(branch=branch)
-            
-            # For this branch, get all courses and count students specifically in this branch
+
             branch_courses = active_courses.annotate(
                 branch_course_count=Count(
                     'admission',
-                    filter=models.Q(
+                    filter=Q(
                         admission__branch=branch,
                         admission__is_active=True,
                         admission__stage_status='active'
-                    )
+                    ),
+                    distinct=True
                 )
-            ).order_by('name') # Consistent ordering for all cards
+            ).order_by('name')
 
             branch_stats_data.append({
                 "branch_obj": branch,
                 "total": branch_students.count(),
-                "courses": branch_courses  # This now contains ALL active courses
+                "courses": branch_courses,
             })
 
-        # Sort branches by total enrollment
-        branch_stats_data.sort(key=lambda x: x["total"], reverse=True)
+        branch_stats_data.sort(
+            key=lambda x: x["total"],
+            reverse=True
+        )
+
         context["branch_stats"] = branch_stats_data
 
         return context

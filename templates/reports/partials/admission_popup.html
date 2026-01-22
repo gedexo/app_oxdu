@@ -1,0 +1,225 @@
+<!-- 1. PREMIUM ASSETS -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<!-- 2. MODERN AUDIO EFFECTS -->
+<!-- Standard Match Beep (for 5, 4, 3, 2) -->
+<audio id="snd-beep-short" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"></audio>
+<!-- Final Match Beep (for the Go moment) -->
+<audio id="snd-beep-final" src="https://assets.mixkit.co/active_storage/sfx/958/958-preview.mp3"></audio>
+<!-- Success Fanfare -->
+<audio id="snd-fanfare" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
+
+<!-- 3. OVERLAY HTML -->
+<div id="celebration-overlay" class="celeb-overlay">
+    <div id="countdown-wrapper" class="countdown-container">
+        <h1 id="countdown-num">5</h1>
+    </div>
+    
+    <div id="celebration-card" class="clean-modern-card">
+        <div class="card-glass-bg"></div>
+        <div class="card-body">
+            <div class="success-icon-wrap">
+                <div class="icon-rotating-ring"></div>
+                <div class="check-bg"></div>
+                <i class="bi bi-check-lg icon-checkmark"></i>
+            </div>
+
+            <span class="status-badge">REGISTRATION SUCCESSFUL</span>
+            <h1 id="pop-student" class="student-name-display">---</h1>
+            
+            <div class="info-grid">
+                <div class="info-box">
+                    <label>TELECALLER</label>
+                    <h3 id="pop-telecaller">---</h3>
+                </div>
+                <div class="info-box">
+                    <label>BRANCH</label>
+                    <h3 id="pop-branch">---</h3>
+                </div>
+            </div>
+
+            <div class="celebration-footer">
+                <div class="course-pill">
+                    <i class="bi bi-mortarboard-fill"></i>
+                    <span id="pop-course">Professional Course</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary-orange: #ee4c24;
+        --deep-slate: #0f172a;
+    }
+
+    .celeb-overlay {
+        position: fixed; inset: 0; z-index: 1000000;
+        display: none; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, 0.1); 
+        backdrop-filter: saturate(180%) blur(5px);
+    }
+
+    .dashboard-viewport { transition: filter 0.5s ease; }
+    .blur-active { filter: blur(25px) brightness(0.9); pointer-events: none; }
+
+    .countdown-container h1 {
+        font-family: 'Outfit', sans-serif; font-size: 20rem; font-weight: 900;
+        color: var(--primary-orange); 
+        filter: drop-shadow(0 0 30px rgba(238, 76, 36, 0.3));
+        margin: 0; animation: pulse-zoom 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-zoom {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 0; }
+    }
+
+    .clean-modern-card {
+        display: none; position: relative; width: 90%; max-width: 520px;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 45px; padding: 45px;
+        box-shadow: 0 40px 100px rgba(15, 23, 42, 0.12);
+        text-align: center;
+    }
+
+    .success-icon-wrap {
+        width: 90px; height: 90px; background: var(--primary-orange);
+        border-radius: 50%; margin: 0 auto 30px; display: flex;
+        align-items: center; justify-content: center; color: white;
+        font-size: 3rem; position: relative;
+    }
+
+    .icon-checkmark { position: relative; z-index: 3; transform: scale(0); }
+    .animate-bounce-in .icon-checkmark {
+        animation: check-pop 0.6s 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    .icon-rotating-ring {
+        position: absolute; inset: -8px; border: 3px solid transparent;
+        border-top-color: var(--primary-orange); border-right-color: var(--primary-orange);
+        border-radius: 50%; animation: rotate-ring 3s linear infinite; opacity: 0.6;
+    }
+
+    .check-bg {
+        position: absolute; inset: 0; background: var(--primary-orange);
+        border-radius: 50%; z-index: 1; animation: ping-ripple 2s infinite;
+    }
+
+    @keyframes check-pop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes rotate-ring { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes ping-ripple { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+
+    .status-badge { font-size: 0.75rem; font-weight: 800; color: #94a3b8; letter-spacing: 4px; display: block; margin-bottom: 12px; }
+    .student-name-display { font-family: 'Outfit', sans-serif; font-size: 3.4rem; font-weight: 800; color: var(--deep-slate); margin-bottom: 35px; letter-spacing: -1.5px; }
+
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: rgba(15, 23, 42, 0.03); border-radius: 28px; padding: 22px; margin-bottom: 30px; border: 1px solid rgba(0,0,0,0.03); }
+    .info-box label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; display: block; margin-bottom: 6px; }
+    .info-box h3 { font-size: 1.15rem; font-weight: 700; color: var(--deep-slate); margin: 0; }
+
+    .course-pill { display: inline-flex; align-items: center; gap: 10px; background: white; padding: 12px 28px; border-radius: 100px; font-weight: 700; color: var(--primary-orange); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+
+    .animate-bounce-in { animation: bounce-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    @keyframes bounce-in { 0% { transform: scale(0.7) translateY(100px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+</style>
+
+<script>
+    let lastUpdateKey = null;
+
+    function startCelebration(data) {
+        if (data.update_key === lastUpdateKey) return;
+        lastUpdateKey = data.update_key;
+
+        const viewport = document.querySelector('.dashboard-viewport');
+        const overlay = document.getElementById('celebration-overlay');
+        const countdownNum = document.getElementById('countdown-num');
+        const countdownWrapper = document.getElementById('countdown-wrapper');
+        const card = document.getElementById('celebration-card');
+
+        document.getElementById('pop-telecaller').innerText = data.telecaller;
+        document.getElementById('pop-student').innerText = data.student_name;
+        document.getElementById('pop-branch').innerText = data.branch;
+        document.getElementById('pop-course').innerText = data.course || "Professional Course";
+
+        overlay.style.display = 'flex';
+        viewport.classList.add('blur-active');
+        card.style.display = 'none';
+        card.classList.remove('animate-bounce-in');
+        countdownWrapper.style.display = 'block';
+
+        let count = 5;
+        countdownNum.innerText = count;
+        
+        // Initial beep for number 5
+        playSound('snd-beep-short');
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownNum.innerText = count;
+                // Play short beep for 4, 3, 2
+                if(count > 1) {
+                    playSound('snd-beep-short');
+                } else {
+                    // Play final higher beep for 1
+                    playSound('snd-beep-final');
+                }
+            } else {
+                clearInterval(timer);
+                revealModernCard();
+            }
+        }, 1000);
+    }
+
+    function revealModernCard() {
+        document.getElementById('countdown-wrapper').style.display = 'none';
+        const card = document.getElementById('celebration-card');
+        card.style.display = 'block';
+        card.classList.add('animate-bounce-in');
+        
+        // Play success fanfare
+        playSound('snd-fanfare');
+        triggerModernPoppers();
+
+        setTimeout(() => {
+            document.querySelector('.dashboard-viewport').classList.remove('blur-active');
+            document.getElementById('celebration-overlay').style.display = 'none';
+        }, 10000);
+    }
+
+    function triggerModernPoppers() {
+        const count = 200;
+        const defaults = { origin: { y: 0.7 }, zIndex: 2000000 };
+        function fire(particleRatio, opts) {
+            confetti({
+                ...defaults, ...opts,
+                particleCount: Math.floor(count * particleRatio),
+                colors: ['#ee4c24', '#22c55e', '#3b82f6', '#FFD700']
+            });
+        }
+        fire(0.25, { spread: 26, startVelocity: 55 });
+        fire(0.2, { spread: 60 });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45 });
+    }
+
+    function playSound(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.currentTime = 0;
+            el.play().catch(e => console.warn("Autoplay blocked"));
+        }
+    }
+
+    function checkUpdates() {
+        fetch('/admission/ajax/latest-admission/')
+            .then(res => res.json())
+            .then(data => { if (data && data.found) startCelebration(data); });
+    }
+    setInterval(checkUpdates, 15000);
+</script>

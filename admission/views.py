@@ -1365,6 +1365,32 @@ def bulk_refresh_fee_structure(request):
         "message": f"{count} students fee structure refreshed"
     })
 
+
+def get_latest_admission_api(request):
+    # Reduced threshold to 1 minute to keep it "Live"
+    time_threshold = timezone.now() - timedelta(minutes=1)
+    latest = Admission.objects.filter(
+        updated__gte=time_threshold,
+        care_of__isnull=False 
+    ).select_related('care_of', 'branch', 'course').order_by('-updated').first()
+
+    if latest:
+        tele_name = latest.care_of.get_full_name() or latest.care_of.username
+        return JsonResponse({
+            "found": True,
+            "id": latest.id,
+            "update_key": f"{latest.id}", 
+            "student_name": latest.fullname(),
+            "telecaller": tele_name,
+            "branch": latest.branch.name,
+            "course": latest.course.name if latest.course else "General Program",
+            # --- NEW TIME SYNC FIELDS ---
+            "timestamp": int(latest.updated.timestamp()), 
+            "server_now": int(timezone.now().timestamp())
+        })
+    return JsonResponse({"found": False})
+    
+
 class AllAdmissionListView(mixins.HybridListView):
     model = Admission
     table_class = tables.AdmissionTable
