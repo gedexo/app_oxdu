@@ -236,10 +236,15 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", )
 HR_EMAIL = config("HR_EMAIL", default=DEFAULT_FROM_EMAIL)   
 
 #Razorpay
-#Razorpay
 RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID", default="")
 RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET", default="")
 RAZORPAY_WEBHOOK_SECRET = config("RAZORPAY_WEBHOOK_SECRET", default="")
 
 if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
     print("⚠️ WARNING: Razorpay credentials not found in environment variables!")
+
+#Pusher
+PUSHER_APP_ID = config("PUSHER_APP_ID", default="")
+PUSHER_KEY = config("PUSHER_KEY", default="")
+PUSHER_SECRET = config("PUSHER_SECRET", default="")
+PUSHER_CLUSTER = config("PUSHER_CLUSTER", default="")

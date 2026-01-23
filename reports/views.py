@@ -1,4 +1,5 @@
 from collections import defaultdict
+from django.conf import settings
 from decimal import Decimal
 from django.db import models
 from datetime import date, datetime, timedelta
@@ -1458,6 +1459,7 @@ class AcademicStatisticsReportView(mixins.OpenView):
             stage_status="active"
         )
         context["total_students"] = students.count()
+        context["pusher_key"] = settings.PUSHER_KEY
 
         # --------------------------------------------------
         # 2. TELECALLER STATS (TOP 6 ACTIVE TELECALLERS)
@@ -1524,3 +1526,11 @@ class AcademicStatisticsReportView(mixins.OpenView):
         context["branch_stats"] = branch_stats_data
 
         return context
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, "reports/partials/dashboard_stats_content.html", context)
+        
+        return render(request, self.template_name, context)

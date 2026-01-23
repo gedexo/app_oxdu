@@ -9,7 +9,7 @@ from django.db import transaction as db_transaction
 from core.base import BaseModel
 from core.choices import BLOOD_CHOICES, RELIGION_CHOICES
 from core.choices import EMPLOYEE_STATUS_CHOICES
-from core.choices import EMPLOYMENT_TYPE_CHOICES
+from core.choices import EMPLOYMENT_TYPE_CHOICES, LEAVE_STATUS_CHOICES
 from core.choices import GENDER_CHOICES
 from core.choices import MARITAL_CHOICES
 from core.choices import RESIDENCE_CHOICES
@@ -762,3 +762,60 @@ class Partner(BaseModel):
             "employees:partner_delete",
             kwargs={"pk": self.pk}
         )
+
+    
+class EmployeeLeaveRequest(BaseModel):
+    employee = models.ForeignKey(
+        "employees.Employee", 
+        on_delete=models.CASCADE, 
+        related_name="leave_requests"
+    )
+    subject = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField()
+    attachment = models.FileField(upload_to="employee_leave_attachments/", blank=True, null=True)
+    
+    status = models.CharField(
+        max_length=30,
+        choices=LEAVE_STATUS_CHOICES, 
+        default="pending"
+    )
+    
+    approved_by = models.ForeignKey(
+        "employees.Employee", 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="approved_employee_leaves",
+        verbose_name="Approved By"
+    )
+    approved_date = models.DateTimeField(null=True, blank=True)
+    remarks = models.TextField(blank=True, null=True, help_text="Approval or Rejection remarks")
+
+    class Meta:
+        ordering = ['-created']
+        verbose_name = 'Employee Leave Request'
+        verbose_name_plural = 'Employee Leave Requests'
+
+    def __str__(self):
+        return f"{self.employee} - {self.leave_type} ({self.start_date})"
+
+    @property
+    def total_days(self):
+        if self.start_date and self.end_date:
+            return (self.end_date - self.start_date).days + 1
+        return 0
+
+    @staticmethod
+    def get_list_url():
+        return reverse_lazy("masters:employee_leave_request_list")
+    
+    def get_absolute_url(self):
+        return reverse_lazy("masters:employee_leave_request_detail", kwargs={"pk": self.pk})
+    
+    def get_update_url(self):
+        return reverse_lazy("masters:employee_leave_request_update", kwargs={"pk": self.pk})
+    
+    def get_delete_url(self):
+        return reverse_lazy("masters:employee_leave_request_delete", kwargs={"pk": self.pk})

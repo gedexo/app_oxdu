@@ -76,4 +76,11 @@ urlpatterns = [
     path("partners/<str:pk>/", views.PartnerDetailView.as_view(), name="partner_detail"),
     path("partners/<str:pk>/edit/", views.PartnerUpdateView.as_view(), name="partner_update"),
     path("partners/<str:pk>/delete/", views.PartnerDeleteView.as_view(), name="partner_delete"),
+
+    #employee leave request
+    path("employee-leave-request/", views.EmployeeLeaveRequestListView.as_view(), name="employee_leave_request_list"),
+    path("employee-leave-request/<str:pk>/", views.EmployeeLeaveRequestDetailView.as_view(), name="employee_leave_request_detail"),
+    path("employee-leave-request/create/", views.EmployeeLeaveRequestCreateView.as_view(), name="employee_leave_request_create"),
+    path("employee-leave-request/<str:pk>/update/", views.EmployeeLeaveRequestUpdateView.as_view(), name="employee_leave_request_update"),
+    path("employee-leave-request/<str:pk>/delete/", views.EmployeeLeaveRequestDeleteView.as_view(), name="employee_leave_request_delete"),
 ]

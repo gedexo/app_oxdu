@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils.timezone import now
 from django.shortcuts import render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 from core import mixins
@@ -32,7 +32,7 @@ from core import choices
 from .functions import generate_employee_id
 from .models import Department, Partner
 from .models import Designation
-from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment
+from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
 from branches.models import Branch
 
 
@@ -1548,3 +1548,60 @@ class PartnerUpdateView(mixins.HybridUpdateView):
 class PartnerDeleteView(mixins.HybridDeleteView):
     model = Partner
     permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo",)
+
+
+class EmployeeLeaveRequestListView(mixins.HybridListView):
+    model = EmployeeLeaveRequest
+    table_class = tables.EmployeeLeaveRequestTable
+    filterset_fields = {
+        "employee__branch": ["exact"],
+        "employee": ["exact"],
+        "status": ["exact"],
+    }
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_employee_leave_request"] = True
+        context["can_add"] = True
+        context["new_link"] = reverse_lazy("employees:employee_leave_request_create")
+        return context
+    
+
+class EmployeeLeaveRequestDetailView(mixins.HybridDetailView):
+    model = EmployeeLeaveRequest
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_employee_leave_request"] = True
+        return context
+
+    
+class EmployeeLeaveRequestCreateView(mixins.HybridCreateView):
+    model = EmployeeLeaveRequest
+    form_class = forms.EmployeeLeaveRequestForm
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_employee_leave_request"] = True
+        context["is_create"] = True
+        return context
+
+    
+class EmployeeLeaveRequestUpdateView(mixins.HybridUpdateView):
+    model = EmployeeLeaveRequest
+    form_class = forms.EmployeeLeaveRequestForm
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_employee_leave_request"] = True
+        context["is_update"] = True
+        return context
+    
+
+class EmployeeLeaveRequestDeleteView(mixins.HybridDeleteView):
+    model = EmployeeLeaveRequest
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)

@@ -5,9 +5,10 @@ from django.db.models import Sum
 
 from .models import Department, Partner
 from .models import Designation
-from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment
+from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
 from masters.models import Course
 from django import forms
+
 
 
 class DepartmentForm(BaseForm):
@@ -291,3 +292,9 @@ class PartnerForm(BaseForm):
             raise forms.ValidationError("Passwords do not match.")
 
         return cleaned_data
+    
+
+class EmployeeLeaveRequestForm(BaseForm):
+    class Meta:
+        model = EmployeeLeaveRequest
+        fields = "__all__"

@@ -25,12 +25,12 @@
                     <h6 class="text-uppercase tracking-widest text-muted fw-bold mb-0 small-text-mobile">Operational Overview</h6>
                 </div>
 
-                <button type="button" 
+                {% comment %} <button type="button" 
                         onclick="triggerTestCelebration()" 
                         class="btn btn-sm px-3 rounded-pill border-0 fw-bold" 
                         style="background: rgba(238, 76, 36, 0.1); color: var(--primary); font-size: 0.7rem; letter-spacing: 1px;">
                     <i class="bi bi-play-circle-fill me-1"></i> TEST ANIMATION
-                </button>
+                </button> {% endcomment %}
                 
                 <!-- Added responsive-title class -->
                 <h1 class="display-4 fw-900 text-dark-blue tracking-tighter m-0 responsive-title">{{ report_title }}</h1>
@@ -43,112 +43,8 @@
             </div>
         </div>
 
-        <!-- ROW 1: HERO STATS (Total vs Telecallers) -->
-        <div class="row g-4 mb-5">
-            <!-- Active Enrollment Card -->
-            <div class="col-xl-3 col-lg-4">
-                <div class="card-hero-total">
-                    <div class="card-content">
-                        <span class="label">ACTIVE ENROLLMENT</span>
-                        <h2 class="massive-number text-white">{{ total_students }}</h2>
-                        <div class="growth-tag text-white-50">
-                            <i class="bi bi-person-check"></i> Total Registered Pool
-                        </div>
-                    </div>
-                    <div class="visual-element">
-                        <i class="bi bi-people"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Telecaller Performance Grid -->
-            <div class="col-xl-9 col-lg-8">
-                <div class="d-flex align-items-center gap-3 mb-4">
-                    <h4 class="fw-800 text-dark mb-0" style="letter-spacing: -0.5px;">TOP 6 TELECALLERS</h4>
-                    <div style="height: 2px; flex-grow: 1; background: linear-gradient(to right, var(--primary), transparent); opacity: 0.2;"></div>
-                </div>
-
-                <div class="row g-3">
-                    {% for stat in telecaller_stats|slice:":6" %}
-                    <div class="col-md-4 col-sm-6">
-                        <div class="course-mini-card {% if forloop.first %}best-performer-card{% endif %}">
-                            {% if forloop.first %}
-                            <div class="performer-badge">
-                                <i class="bi bi-trophy-fill"></i> #1 Best Performer
-                            </div>
-                            {% endif %}
-
-                            <div class="d-flex justify-content-between align-items-start position-relative">
-                                <div class="course-info">
-                                    <span class="course-label">
-                                        {% if forloop.first %}TOP TELECALLER{% else %}TELECALLER{% endif %}
-                                    </span>
-                                    <h5 class="course-name fw-bold text-truncate" style="max-width: 250px;">
-                                        {% if stat.user.get_full_name %}{{ stat.user.get_full_name }}{% else %}{{ stat.user.username }}{% endif %}
-                                    </h5>
-                                </div>
-                                <div class="course-count">{{ stat.active_count }}</div>
-                            </div>
-
-                            <div class="course-progress mt-3">
-                                {% if total_students > 0 %}
-                                    {% widthratio stat.active_count total_students 100 as percent %}
-                                {% else %}
-                                    {% widthratio 0 1 100 as percent %}
-                                {% endif %}
-                                <div class="progress-bg">
-                                    <div class="progress-fill {% if forloop.first %}fill-gold{% endif %}" style="width: {{ percent }}%"></div>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <span class="percent-label">{{ percent }}% contribution</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="col-12 text-center py-5">
-                        <h4 class="text-muted">No telecaller data available</h4>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <!-- ROW 2: BRANCH PERFORMANCE -->
-        <div class="section-divider mb-4">
-            <h3 class="fw-800 text-dark">Branch Analysis</h3>
-            <div class="line"></div>
-        </div>
-
-        <div class="row g-4">
-            {% for item in branch_stats %}
-            <div class="col-xl-3 col-lg-4 col-md-6">
-                <div class="branch-card">
-                    <div class="branch-header mb-3">
-                        <div class="branch-meta">
-                            <h4 class="fw-bold"><i class="bi bi-geo-alt"></i> {{ item.branch_obj.name }}</h4>
-                        </div>
-                        <div class="branch-total">{{ item.total }}</div>
-                    </div>
-                    <div class="branch-body">
-                        <div class="course-stack">
-                            {% for course in item.courses %}
-                            <div class="stack-item {% if course.branch_course_count == 0 %}muted-item{% endif %}">
-                                <span class="course-mini-name fw-bolder">{{ course.name }}</span>
-                                <span class="fw-900 {% if course.branch_course_count > 0 %}text-primary-brand{% endif %}">
-                                    {{ course.branch_course_count }}
-                                </span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-12 text-center py-5">
-                <h3 class="text-muted">No active branch data found</h3>
-            </div>
-            {% endfor %}
+        <div id="live-stats-container">
+            {% include "reports/partials/dashboard_stats_content.html" %}
         </div>
     </div>
 </div>
@@ -335,68 +231,29 @@
         }
     }
 
-    // --- 2. ADMISSION POLLING LOGIC ---
-    let admissionInterval;
-    let lastProcessedId = localStorage.getItem('last_admission_id') || null;
-
-    function fetchLatestAdmission() {
-        // Stop if the user isn't even looking at this tab
-        if (document.hidden) return;
-
-        fetch('/admission/ajax/latest-admission/')
-            .then(response => response.json())
-            .then(data => {
-                if (data.found) {
-                    // Only trigger if this is a brand new admission ID
-                    if (lastProcessedId !== data.update_key) {
-                        lastProcessedId = data.update_key;
-                        localStorage.setItem('last_admission_id', data.update_key);
-                        
-                        if (typeof startCelebration === "function") {
-                            startCelebration(data);
-                        }
-                    }
-                }
-            })
-            .catch(err => console.warn("Network sync delayed..."));
-    }
-
-    // --- 3. LIFECYCLE MANAGEMENT ---
-    function startTimers() {
-        // Clock: Every 1 second (Local only, zero server load)
+    // --- 2. STARTUP ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Start Clock
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Admissions: Every 20 seconds (Balanced for multiple devices)
-        fetchLatestAdmission(); // Run once immediately
-        admissionInterval = setInterval(fetchLatestAdmission, 20000);
-
-        // Full Page Reload: Every 10 minutes 
-        // (Updates the Telecaller/Branch stats which are not AJAX)
-        setTimeout(() => location.reload(), 600000); 
-    }
-
-    // Handle Tab Visibility (Stop requests when tab is hidden)
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-            clearInterval(admissionInterval);
-        } else {
-            fetchLatestAdmission();
-            admissionInterval = setInterval(fetchLatestAdmission, 20000);
-        }
+        // Optional: Full page refresh every 20 minutes just to be safe
+        // (The popup script handles the live updates now)
+        setTimeout(() => location.reload(), 1200000);
     });
 
-    // Start everything on load
-    document.addEventListener('DOMContentLoaded', startTimers);
-
-    // --- 4. MANUAL TESTER ---
+    // --- 3. MANUAL TESTER ---
     function triggerTestCelebration() {
+        // Create a random ID so the duplicate checker lets it pass
+        const randomId = Math.floor(Math.random() * 100000);
         const dummyData = {
-            id: Math.floor(Math.random() * 10000),
+            update_key: "TEST-" + randomId, 
             telecaller: "Demo User",
             student_name: "Test Student",
-            branch: "Test Branch"
+            branch: "Test Branch",
+            course: "Demo Course"
         };
+        // Call the function from the popup script
         if (typeof startCelebration === "function") {
             startCelebration(dummyData);
         }

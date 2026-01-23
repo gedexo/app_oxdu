@@ -29,7 +29,6 @@ urlpatterns = [
     path('ajax/calculate-fee-structure/', views.calculate_fee_structure_preview, name='calculate_fee_structure_preview'),
     path("student/<int:pk>/refresh-fee/", views.refresh_student_fee_structure, name="refresh_student_fee"),
     path("admission/refresh-fee/bulk/", views.bulk_refresh_fee_structure,name="bulk_refresh_fee" ),
-    path("ajax/latest-admission/", views.get_latest_admission_api, name="get_latest_admission"),
 
     # admission
     path("all-admissions/", views.AllAdmissionListView.as_view(), name="all_admission_list"),

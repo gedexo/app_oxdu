@@ -1,0 +1,110 @@
+{% load static i18n %}
+
+<!-- ROW 1: HERO STATS (Total vs Telecallers) -->
+<div class="row g-4 mb-5">
+    <!-- Active Enrollment Card -->
+    <div class="col-xl-3 col-lg-4">
+        <div class="card-hero-total">
+            <div class="card-content">
+                <span class="label">ACTIVE ENROLLMENT</span>
+                <!-- Added ID for specific targeting if needed, but we replace the whole block -->
+                <h2 class="massive-number text-white">{{ total_students }}</h2>
+                <div class="growth-tag text-white-50">
+                    <i class="bi bi-person-check"></i> Total Registered Pool
+                </div>
+            </div>
+            <div class="visual-element">
+                <i class="bi bi-people"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telecaller Performance Grid -->
+    <div class="col-xl-9 col-lg-8">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <h4 class="fw-800 text-dark mb-0" style="letter-spacing: -0.5px;">TOP 6 TELECALLERS</h4>
+            <div style="height: 2px; flex-grow: 1; background: linear-gradient(to right, var(--primary), transparent); opacity: 0.2;"></div>
+        </div>
+
+        <div class="row g-3">
+            {% for stat in telecaller_stats|slice:":6" %}
+            <div class="col-md-4 col-sm-6">
+                <div class="course-mini-card {% if forloop.first %}best-performer-card{% endif %}">
+                    {% if forloop.first %}
+                    <div class="performer-badge">
+                        <i class="bi bi-trophy-fill"></i> #1 Best Performer
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-start position-relative">
+                        <div class="course-info">
+                            <span class="course-label">
+                                {% if forloop.first %}TOP TELECALLER{% else %}TELECALLER{% endif %}
+                            </span>
+                            <h5 class="course-name fw-bold text-truncate" style="max-width: 250px;">
+                                {% if stat.user.get_full_name %}{{ stat.user.get_full_name }}{% else %}{{ stat.user.username }}{% endif %}
+                            </h5>
+                        </div>
+                        <div class="course-count">{{ stat.active_count }}</div>
+                    </div>
+
+                    <div class="course-progress mt-3">
+                        {% if total_students > 0 %}
+                            {% widthratio stat.active_count total_students 100 as percent %}
+                        {% else %}
+                            {% widthratio 0 1 100 as percent %}
+                        {% endif %}
+                        <div class="progress-bg">
+                            <div class="progress-fill {% if forloop.first %}fill-gold{% endif %}" style="width: {{ percent }}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="percent-label">{{ percent }}% contribution</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <h4 class="text-muted">No telecaller data available</h4>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ROW 2: BRANCH PERFORMANCE -->
+<div class="section-divider mb-4">
+    <h3 class="fw-800 text-dark">Branch Analysis</h3>
+    <div class="line"></div>
+</div>
+
+<div class="row g-4">
+    {% for item in branch_stats %}
+    <div class="col-xl-3 col-lg-4 col-md-6">
+        <div class="branch-card">
+            <div class="branch-header mb-3">
+                <div class="branch-meta">
+                    <h4 class="fw-bold"><i class="bi bi-geo-alt"></i> {{ item.branch_obj.name }}</h4>
+                </div>
+                <div class="branch-total">{{ item.total }}</div>
+            </div>
+            <div class="branch-body">
+                <div class="course-stack">
+                    {% for course in item.courses %}
+                    <div class="stack-item {% if course.branch_course_count == 0 %}muted-item{% endif %}">
+                        <span class="course-mini-name fw-bolder">{{ course.name }}</span>
+                        <span class="fw-900 {% if course.branch_course_count > 0 %}text-primary-brand{% endif %}">
+                            {{ course.branch_course_count }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <h3 class="text-muted">No active branch data found</h3>
+    </div>
+    {% endfor %}
+</div>

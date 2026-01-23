@@ -1,5 +1,6 @@
 import calendar
 import csv
+import pusher
 import hashlib
 import hmac
 import json
@@ -91,6 +92,13 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+pusher_client = pusher.Pusher(
+    app_id=settings.PUSHER_APP_ID,
+    key=settings.PUSHER_KEY,
+    secret=settings.PUSHER_SECRET,
+    cluster=settings.PUSHER_CLUSTER,
+    ssl=True
+)
 
 @login_required
 def create_razorpay_order(request):
@@ -1366,30 +1374,30 @@ def bulk_refresh_fee_structure(request):
     })
 
 
-def get_latest_admission_api(request):
-    # Reduced threshold to 1 minute to keep it "Live"
-    time_threshold = timezone.now() - timedelta(minutes=1)
-    latest = Admission.objects.filter(
-        updated__gte=time_threshold,
-        care_of__isnull=False 
-    ).select_related('care_of', 'branch', 'course').order_by('-updated').first()
+def trigger_admission_celebration(admission_instance):
+    try:
+        tele_name = "---"
+        if admission_instance.care_of:
+            tele_name = admission_instance.care_of.get_full_name() or admission_instance.care_of.username
 
-    if latest:
-        tele_name = latest.care_of.get_full_name() or latest.care_of.username
-        return JsonResponse({
-            "found": True,
-            "id": latest.id,
-            "update_key": f"{latest.id}", 
-            "student_name": latest.fullname(),
+        course_name = "Professional Course"
+        if admission_instance.course:
+            course_name = admission_instance.course.name
+
+        data = {
+            "update_key": str(admission_instance.id),
+            "student_name": admission_instance.fullname(),
             "telecaller": tele_name,
-            "branch": latest.branch.name,
-            "course": latest.course.name if latest.course else "General Program",
-            # --- NEW TIME SYNC FIELDS ---
-            "timestamp": int(latest.updated.timestamp()), 
-            "server_now": int(timezone.now().timestamp())
-        })
-    return JsonResponse({"found": False})
-    
+            "branch": admission_instance.branch.name if admission_instance.branch else "Main Branch",
+            "course": course_name
+        }
+
+        pusher_client.trigger('admission-channel', 'new-admission-event', data)
+        print(f"Pusher Event Sent: Care Of updated for {admission_instance.fullname()}")
+        
+    except Exception as e:
+        print(f"Pusher Error: {e}")
+
 
 class AllAdmissionListView(mixins.HybridListView):
     model = Admission
@@ -1703,13 +1711,28 @@ class AdmissionUpdateView(mixins.HybridUpdateView):
     template_name = "admission/admission_form.html"
 
     def form_valid(self, form):
-        # Save the admission first
+        # 1. CHECK FOR CHANGES BEFORE SAVING
+        # Get the current tab type (personal, official, etc.)
+        info_type = self.request.GET.get("type", "personal")
+        
+        # Check if 'care_of' is in the list of fields that changed
+        care_of_has_changed = 'care_of' in form.changed_data
+
+        # 2. SAVE THE ADMISSION
         response = super().form_valid(form)
         
-        # Sync admission branch to user branch if user exists
+        # 3. EXISTING LOGIC: Sync admission branch to user branch
         if self.object.user and self.object.branch:
             self.object.user.branch = self.object.branch
             self.object.user.save(update_fields=['branch'])
+        
+        # 4. PUSHER TRIGGER LOGIC
+        # Condition: 
+        # a) We are on the 'official' tab
+        # b) The 'care_of' field was actually modified
+        # c) The 'care_of' field is not empty (we have assigned someone)
+        if info_type == "official" and care_of_has_changed and self.object.care_of:
+            trigger_admission_celebration(self.object)
         
         return response
 

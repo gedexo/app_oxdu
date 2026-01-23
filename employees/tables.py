@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from core.base import BaseTable
 from .models import Department
 from .models import Designation
-from .models import Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment
+from .models import Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
 
 
 class EmployeeTable(BaseTable):
@@ -155,3 +155,13 @@ class PartnerTable(BaseTable):
             '<span class="text-success fw-bold">{}</span>',
             f"₹{record.share_amount:,.0f}"
         )
+
+    
+class EmployeeLeaveRequestTable(BaseTable):
+    employee = tables.Column(linkify=True)
+    created = None
+
+    class Meta:
+        model = EmployeeLeaveRequest
+        fields = ("employee", "start_date", "end_date", "status", "reason")
+        attrs = {"class": "table key-buttons table-bordered border-bottom table-hover"}
