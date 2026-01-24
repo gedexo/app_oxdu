@@ -1,4 +1,5 @@
 import datetime
+from datetime import date
 from django.utils import timezone
 import calendar
 import os
@@ -209,6 +210,85 @@ class Employee(BaseModel):
     def is_hod_staff(self):
         return Department.objects.filter(department_lead=self).exists()
 
+    @property
+    def leave_requests_count(self):
+        return self.leave_requests.filter(is_active=True).count()
+
+
+    @property
+    def approved_count(self):
+        return self.leave_requests.filter(status="approved", is_active=True).count()
+
+
+    @property
+    def pending_count(self):
+        return self.leave_requests.filter(status="pending", is_active=True).count()
+
+
+    @property
+    def rejected_count(self):
+        return self.leave_requests.filter(status="rejected", is_active=True).count()
+
+
+    @property
+    def active_leave_count(self):
+        """
+        Leaves currently running (today between start & end and approved)
+        """
+        today = timezone.now().date()
+        return self.leave_requests.filter(
+            is_active=True,
+            status="approved",
+            start_date__lte=today,
+            end_date__gte=today,
+        ).count()
+
+    @property
+    def leave_balance_obj(self):
+        """Retrieves balance and handles month-to-month logic."""
+        # This triggers the accrual and ensures balance exists
+        balance, created = EmployeeLeaveBalance.objects.get_or_create(employee=self)
+        balance.accrue_monthly()
+        return balance
+
+    @property
+    def total_balance_leaves(self):
+        return self.leave_balance_obj.paid_leave_balance
+
+    @property
+    def total_balance_wfh(self):
+        return self.leave_balance_obj.wfh_balance
+
+    # FIX: Add these two properties that the template is looking for
+    @property
+    def actual_paid_carry_forward(self):
+        """Returns the actual unused days from last month."""
+        return self.leave_balance_obj.paid_carry_forward
+
+    @property
+    def actual_wfh_carry_forward(self):
+        """Returns the actual unused days from last month."""
+        return self.leave_balance_obj.wfh_carry_forward
+
+    # Percentage properties for the Progress Bars
+    @property
+    def paid_cf_percent(self):
+        """Percentage of Carry Forward saved vs the Max allowed CF."""
+        obj = self.leave_balance_obj
+        max_possible_cf = obj.MAX_PAID_LIMIT - obj.MONTHLY_PAID # e.g. 5.0
+        if max_possible_cf > 0:
+            return min((self.actual_paid_carry_forward / max_possible_cf) * 100, 100)
+        return 0
+
+    @property
+    def wfh_cf_percent(self):
+        """Percentage of WFH Carry Forward saved vs the Max allowed CF."""
+        obj = self.leave_balance_obj
+        max_possible_cf = obj.MAX_WFH_LIMIT - obj.MONTHLY_WFH # e.g. 2.0
+        if max_possible_cf > 0:
+            return min((self.actual_wfh_carry_forward / max_possible_cf) * 100, 100)
+        return 0
+
     def save(self, *args, **kwargs):
         """Custom save to deactivate user if status != 'Appointed'"""
         # Rename photo file uniquely if new record with image
@@ -246,15 +326,36 @@ class Payroll(BaseModel):
         on_delete=models.CASCADE,
         limit_choices_to={"is_active": True}
     )
+    
+    # Salary Components
     basic_salary = models.DecimalField(max_digits=10, decimal_places=2)
     allowances = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     allowances_description = models.TextField(blank=True, null=True)
-    absences = models.DecimalField(max_digits=30, decimal_places=1, default=0.0)
+    
+    # Leave and Absence Logic
+    total_leaves = models.DecimalField(
+        max_digits=5, decimal_places=1, default=0.0, 
+        help_text="Total approved leaves taken this month"
+    )
+    paid_leaves = models.DecimalField(
+        max_digits=5, decimal_places=1, default=1.0, 
+        help_text="Number of leaves allowed as paid (Default is 1)"
+    )
+    absences = models.DecimalField(
+        max_digits=30, decimal_places=1, default=0.0,
+        verbose_name="Unpaid Absences",
+        help_text="Total days to deduct from salary (Total Leaves - Paid Leaves)"
+    )
+    
+    # Other adjustments
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     deductions_description = models.TextField(blank=True, null=True)
     overtime = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
+    # Totals
     gross_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     net_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
     status = models.CharField(max_length=180, choices=PAYROLL_STATUS, default="Pending")
 
     transaction = models.OneToOneField(
@@ -264,73 +365,73 @@ class Payroll(BaseModel):
         related_name='payroll_record'
     )
 
+    def clean(self):
+        """Ensure net salary doesn't go below zero before saving."""
+        if self.net_salary < 0:
+            self.net_salary = 0
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
 
-        # -------------------------
-        # Salary Calculation
-        # -------------------------
-        working_days = 30
+        # 1. Salary Calculation Logic
+        # We treat 'absences' as the count of days that are UNPAID.
+        working_days = Decimal("30.0")
         per_day_salary = self.basic_salary / working_days
 
-        if self.employee.employment_type == "PROBATION":
-            unpaid_absence_days = self.absences
-        else:
-            unpaid_absence_days = max(0, self.absences - 1)
+        # Absence Amount calculation
+        # If HR manually edited 'absences' in the form, that value is used here.
+        absence_amount = Decimal(self.absences) * per_day_salary
 
-        absence_amount = unpaid_absence_days * per_day_salary
-
+        # Gross = Basic + Allowances + Overtime
         self.gross_salary = self.basic_salary + self.allowances + self.overtime
+        
+        # Net = Gross - Deductions - Absence Amount
         self.net_salary = self.gross_salary - self.deductions - absence_amount
+        
+        # Ensure net salary is not negative
+        if self.net_salary < 0:
+            self.net_salary = 0
 
         super().save(*args, **kwargs)
 
-        # -------------------------
-        # CREATE ACCOUNTING ENTRY
-        # -------------------------
-        # Create transaction immediately on payroll creation
+        # 2. CREATE ACCOUNTING ENTRY
         if is_new and not self.transaction:
             self.create_accounting_entry()
 
     def create_accounting_entry(self):
         """
-        Logic: 
-        Debit: Salary Expense Account (Teaching/Non-Teaching)
+        Debit: Salary Expense Account
         Credit: Employee Ledger Account (Liability)
         """
         from transactions.models import Transaction, TransactionEntry
         from accounting.models import Account
-        from accounting.constants import ACCOUNT_CODE_MAPPING
 
         with db_transaction.atomic():
-            # 1. Determine Expense Account based on Employee designation/type
-            # You might want to map this more dynamically
-            expense_code = '50001' if self.employee.designation and "Teacher" in self.employee.designation.name else '50002'
+            # Determine Expense Account based on designation
+            is_teacher = self.employee.designation and "Teacher" in self.employee.designation.name
+            expense_code = '50001' if is_teacher else '50002'
+            
             try:
                 expense_account = Account.objects.get(code=expense_code, branch=self.employee.branch)
             except Account.DoesNotExist:
-                # Fallback to a general staff expense if specific not found
                 expense_account = Account.objects.filter(under__code='STAFF_EXPENSES', branch=self.employee.branch).first()
 
             if not self.employee.account:
-                raise ValidationError(f"Employee {self.employee.fullname()} has no linked accounting ledger.")
+                # We log this or skip, but it's better to ensure employee has an account
+                return 
 
-            # 2. Create Transaction Header
-            if not self.transaction:
-                self.transaction = Transaction.objects.create(
-                    branch=self.employee.branch,
-                    transaction_type='payroll',
-                    status='posted',
-                    date=timezone.now(),
-                    voucher_number=f"PAYROLL/{self.payroll_year}/{self.payroll_month}/{self.employee.pk}",
-                    narration=f"Salary provision for {self.payroll_month}/{self.payroll_year} - {self.employee.fullname()}",
-                    invoice_amount=self.net_salary,
-                    total_amount=self.net_salary,
-                    balance_amount=self.net_salary
-                )
-            
-            # 3. Create Entries (Double Entry)
-            self.transaction.entries.all().delete() # Refresh entries
+            # Create Transaction Header
+            self.transaction = Transaction.objects.create(
+                branch=self.employee.branch,
+                transaction_type='payroll',
+                status='posted',
+                date=timezone.now(),
+                voucher_number=f"PAY/VOUCH/{self.payroll_year}/{self.payroll_month}/{self.employee.pk}",
+                narration=f"Monthly salary for {self.get_payroll_month_display()} {self.payroll_year} - {self.employee.fullname()}",
+                invoice_amount=self.net_salary,
+                total_amount=self.net_salary,
+                balance_amount=self.net_salary
+            )
             
             # Debit Salary Expense
             TransactionEntry.objects.create(
@@ -338,10 +439,10 @@ class Payroll(BaseModel):
                 account=expense_account,
                 debit_amount=self.net_salary,
                 credit_amount=0,
-                description="Salary Expense"
+                description=f"Salary Expense - {self.employee.fullname()}"
             )
             
-            # Credit Employee Ledger (Liability created)
+            # Credit Employee Ledger (Liability)
             TransactionEntry.objects.create(
                 transaction=self.transaction,
                 account=self.employee.account,
@@ -350,23 +451,23 @@ class Payroll(BaseModel):
                 description="Salary Payable"
             )
             
-            self.save(update_fields=['transaction'])
+            # Save the transaction link back to payroll
+            Payroll.objects.filter(pk=self.pk).update(transaction=self.transaction)
 
     @property
     def total_paid(self):
+        # Implementation depends on your PayrollPayment model
+        from employees.models import PayrollPayment 
         return PayrollPayment.objects.filter(payroll=self, is_active=True).aggregate(
             total=models.Sum("amount_paid")
-        )["total"] or 0
+        )["total"] or Decimal("0.00")
 
     @property
     def remaining_salary(self):
-        advance_total = AdvancePayrollPayment.objects.filter(
-            payroll=self, is_active=True
-        ).aggregate(total=models.Sum("amount_paid"))["total"] or 0
-        return max(self.net_salary - self.total_paid - advance_total, 0)
+        return max(self.net_salary - self.total_paid, Decimal("0.00"))
 
     class Meta:
-        ordering = ("-payroll_month",)
+        ordering = ("-payroll_year", "-payroll_month")
         verbose_name = "Payroll"
         verbose_name_plural = "Payrolls"
         constraints = [
@@ -377,11 +478,7 @@ class Payroll(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.employee} - {self.payroll_year} - {self.get_payroll_month_display()}"
-
-    @property
-    def display_title(self):
-        return f"{DateFormat(self.date).format('Y F')} - ({self.employee.first_name})"
+        return f"{self.employee.fullname()} - {self.payroll_year}/{self.get_payroll_month_display()}"
 
     def get_absolute_url(self):
         return reverse_lazy("employees:payroll_detail", kwargs={"pk": self.pk})
@@ -646,7 +743,6 @@ class Partner(BaseModel):
     email = models.EmailField(max_length=128)
     address = models.TextField(blank=True, null=True)
 
-    # ✅ Decimal shares (allows 1.25, 0.5, etc.)
     shares_owned = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -765,11 +861,48 @@ class Partner(BaseModel):
 
     
 class EmployeeLeaveRequest(BaseModel):
+    LEAVE_TYPE_CHOICES = (
+        ('sick', 'Sick Leave'),
+        ('casual', 'Casual Leave'),
+        ('emergency', 'Emergency Leave'),
+        ('wfh', 'Work From Home'), 
+    )
+
+    DAY_TYPE_CHOICES = (
+        ('full_day', 'Full Day'),
+        ('half_day', 'Half Day'),
+    )
+
+    SESSION_CHOICES = (
+        ('first_half', 'First Half (Morning)'),
+        ('second_half', 'Second Half (Afternoon)'),
+    )
+
+    LEAVE_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+
     employee = models.ForeignKey(
         "employees.Employee", 
         on_delete=models.CASCADE, 
         related_name="leave_requests"
     )
+    leave_type = models.CharField(max_length=50, choices=LEAVE_TYPE_CHOICES, default='casual')
+    
+    leave_day_type = models.CharField(
+        max_length=20, 
+        choices=DAY_TYPE_CHOICES, 
+        default='full_day'
+    )
+    half_day_session = models.CharField(
+        max_length=20, 
+        choices=SESSION_CHOICES, 
+        blank=True, 
+        null=True
+    )
+    
     subject = models.CharField(max_length=200)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -803,19 +936,83 @@ class EmployeeLeaveRequest(BaseModel):
 
     @property
     def total_days(self):
-        if self.start_date and self.end_date:
-            return (self.end_date - self.start_date).days + 1
-        return 0
+        if self.leave_day_type == 'half_day':
+            return 0.5
+        return (self.end_date - self.start_date).days + 1
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old_status = EmployeeLeaveRequest.objects.get(pk=self.pk).status
+            # Logic: If status is changed TO approved, deduct balance
+            if old_status != 'approved' and self.status == 'approved':
+                self.process_balance_deduction()
+        super().save(*args, **kwargs)
+
+    def process_balance_deduction(self):
+        with transaction.atomic():
+            # Trigger accrual check before deduction
+            balance = self.employee.leave_balance_obj
+            if self.leave_type == 'wfh':
+                balance.wfh_balance = max(balance.wfh_balance - self.total_days, 0)
+            else:
+                balance.paid_leave_balance = max(balance.paid_leave_balance - self.total_days, 0)
+            balance.save()
 
     @staticmethod
     def get_list_url():
-        return reverse_lazy("masters:employee_leave_request_list")
+        return reverse_lazy("employees:employee_leave_request_list")
     
     def get_absolute_url(self):
-        return reverse_lazy("masters:employee_leave_request_detail", kwargs={"pk": self.pk})
+        return reverse_lazy("employees:employee_leave_request_detail", kwargs={"pk": self.pk})
     
     def get_update_url(self):
-        return reverse_lazy("masters:employee_leave_request_update", kwargs={"pk": self.pk})
+        return reverse_lazy("employees:employee_leave_request_update", kwargs={"pk": self.pk})
     
     def get_delete_url(self):
-        return reverse_lazy("masters:employee_leave_request_delete", kwargs={"pk": self.pk})
+        return reverse_lazy("employees:employee_leave_request_delete", kwargs={"pk": self.pk})
+
+    
+class EmployeeLeaveBalance(BaseModel):
+    employee = models.OneToOneField(
+        "employees.Employee",
+        on_delete=models.CASCADE,
+        related_name="leave_balance"
+    )
+
+    # Current Live Balance
+    paid_leave_balance = models.FloatField(default=0.0)
+    wfh_balance = models.FloatField(default=0.0)
+
+    # Snapshot of what was brought over at the start of the month
+    paid_carry_forward = models.FloatField(default=0.0)
+    wfh_carry_forward = models.FloatField(default=0.0)
+
+    last_accrual_month = models.DateField(auto_now_add=True)
+
+    MAX_PAID_LIMIT = 6.0
+    MAX_WFH_LIMIT = 3.0
+    MONTHLY_PAID = 1.0
+    MONTHLY_WFH = 1.0
+
+    def accrue_monthly(self):
+        today = date.today()
+        
+        # Check if we transitioned to a new month
+        if (today.year, today.month) > (self.last_accrual_month.year, self.last_accrual_month.month):
+            
+            # 1. Capture what is left RIGHT NOW as Carry Forward
+            self.paid_carry_forward = self.paid_leave_balance
+            self.wfh_carry_forward = self.wfh_balance
+
+            # 2. Add the new month's credit (e.g. +1.0)
+            self.paid_leave_balance = min(
+                self.paid_leave_balance + self.MONTHLY_PAID,
+                self.MAX_PAID_LIMIT
+            )
+            self.wfh_balance = min(
+                self.wfh_balance + self.MONTHLY_WFH,
+                self.MAX_WFH_LIMIT
+            )
+
+            self.last_accrual_month = today
+            self.save()

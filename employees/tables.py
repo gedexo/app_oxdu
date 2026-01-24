@@ -1,8 +1,10 @@
 from django_tables2 import columns
 import django_tables2 as tables
 from django.utils.html import format_html
+from django.urls import reverse_lazy
 
 from core.base import BaseTable
+from core.choices import LEAVE_STATUS_CHOICES
 from .models import Department
 from .models import Designation
 from .models import Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
@@ -157,11 +159,161 @@ class PartnerTable(BaseTable):
         )
 
     
-class EmployeeLeaveRequestTable(BaseTable):
-    employee = tables.Column(linkify=True)
-    created = None
+class EmployeeLeaveRequestTable(tables.Table):
+    action = columns.TemplateColumn(
+        """
+        <div class="d-flex text-start">
+            {% if record.status == "pending" %}
+                {% if request.user.is_superuser or request.user.is_staff or request.user.groups.all.0.name == "hr" %}
+                    <a href="javascript:void(0);" class="action-btns1 approve-btn me-1" data-id="{{ record.pk }}" data-action="approved" title="Approve">
+                        <i class="fe fe-check text-success"></i>
+                    </a>
+
+                    <a href="javascript:void(0);" class="action-btns1 reject-btn me-1" data-id="{{ record.pk }}" data-action="rejected" title="Reject">
+                        <i class="fe fe-x text-danger"></i>
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            <a href="{{ record.get_absolute_url }}" class="action-btns1 me-1" title="View">
+                <i class="fe fe-eye text-primary"></i>
+            </a>
+
+            {% if request.user.is_superuser or request.user.is_staff %}
+                <a href="{{ record.get_delete_url }}" class="action-btns1" data-bs-toggle="tooltip" title="Delete">
+                    <i class="fe fe-trash-2 text-danger"></i>
+                </a>
+            {% endif %}
+        </div>
+        """,
+        orderable=False,
+    )
+
+    total_days = tables.Column(verbose_name="Days", orderable=False)
 
     class Meta:
         model = EmployeeLeaveRequest
-        fields = ("employee", "start_date", "end_date", "status", "reason")
-        attrs = {"class": "table key-buttons table-bordered border-bottom table-hover"}
+        fields = (
+            "employee",
+            "leave_type",
+            "start_date",
+            "end_date",
+            "total_days",   
+            "reason",
+            "status",
+            "created",
+        )
+        attrs = {"class": "table table-striped table-bordered border-bottom table-hover"}
+
+        row_attrs = {
+            "class": lambda record: (
+                "table-success" if record.status == "approved" else
+                "table-danger" if record.status == "rejected" else
+                "table-warning" if record.status == "pending" else
+                ""
+            )
+        }
+
+    def render_total_days(self, value, record):
+        days = record.total_days
+
+        if days <= 2:
+            color = "#198754"   # green
+        elif days <= 5:
+            color = "#ffc107"   # yellow
+        else:
+            color = "#dc3545"   # red
+
+        label = "day" if days == 1 else "days"
+
+        return format_html(
+            '<strong style="color:{};">{} {}</strong>',
+            color,
+            days,
+            label
+        )
+
+    def render_status(self, value, record=None):
+        key = (value or "").strip().lower()
+
+        status_map = {
+            "approved": {
+                "css": "badge badge-success text-bg-success",
+                "style": "background:#198754;color:#fff",
+            },
+            "rejected": {
+                "css": "badge badge-danger text-bg-danger",
+                "style": "background:#dc3545;color:#fff",
+            },
+            "pending": {
+                "css": "badge badge-warning text-bg-warning",
+                "style": "background:#ffc107;color:#fff",
+            },
+            "cancelled": {
+                "css": "badge badge-secondary text-bg-secondary",
+                "style": "background:#6c757d;color:#fff",
+            },
+        }
+
+        config = status_map.get(key, {
+            "css": "badge badge-info text-bg-info",
+            "style": "background:#17a2b8;color:#fff",
+        })
+
+        # Get label from choices if available
+        label = dict(LEAVE_STATUS_CHOICES).get(value, value or "")
+
+        return format_html(
+            '<span class="{}" style="padding:0.275rem 0.65rem;{}">{}</span>',
+            config["css"],
+            config["style"],
+            label,
+        )
+
+    
+class EmployeeLeaveReportTable(BaseTable):
+    fullname = tables.Column(
+        accessor='fullname', 
+        verbose_name="Name", 
+        order_by=("first_name", "last_name")
+    )
+    
+    total_balance_leaves = tables.Column(
+        verbose_name="Balance Paid Leave", 
+        accessor="total_balance_leaves"
+    )
+    
+    total_balance_wfh = tables.Column(
+        verbose_name="Balance WFH", 
+        accessor="total_balance_wfh"
+    )
+
+    action = tables.TemplateColumn(
+        template_code='''
+            <div class="text-center">
+                <a href="{% url 'employees:employee_leave_report_detail' record.pk %}" 
+                   class="btn btn-sm" 
+                   style="background-color: #eef2ff; color: #ee4c24; border: none; font-weight: 500; padding: 0.4rem 0.8rem; border-radius: 8px; transition: all 0.3s ease;">
+                    <i class="fas fa-external-link-alt me-1" style="font-size: 0.8rem;"></i> 
+                    Details
+                </a>
+            </div>
+        ''',
+        verbose_name="Action",
+        orderable=False,
+        exclude_from_export=True
+    )
+
+    created = None
+
+    class Meta:
+        model = Employee
+        fields = (
+            "fullname",
+            "department",
+            "designation",
+            "total_balance_leaves",
+            "total_balance_wfh",
+            "action",
+        )
+        attrs = {"class": "table table-bordered border-bottom table-hover"}

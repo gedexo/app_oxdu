@@ -12,7 +12,9 @@ urlpatterns = [
     #ajax 
     path("get-salary/<int:pk>/", views.get_employee_salary, name="get_employee_salary"),
     path('ajax/get-employee-payrolls/', views.ajax_get_employee_payrolls, name='ajax_get_employee_payrolls'),
-    
+    path('ajax/payroll-data/', views.get_employee_payroll_data, name='ajax_get_employee_payroll_data'),
+    path('leave-request/<int:pk>/update-status/', views.update_leave_status, name='update_leave_status'),
+
     #Appointment
     path("employee/appointment/<str:pk>/", views.employee_appointment, name="employee_appointment"),
     path("share/appointment/<str:pk>/", views.share_employee_appointment, name="share_employee_appointment"),
@@ -79,8 +81,12 @@ urlpatterns = [
 
     #employee leave request
     path("employee-leave-request/", views.EmployeeLeaveRequestListView.as_view(), name="employee_leave_request_list"),
-    path("employee-leave-request/<str:pk>/", views.EmployeeLeaveRequestDetailView.as_view(), name="employee_leave_request_detail"),
     path("employee-leave-request/create/", views.EmployeeLeaveRequestCreateView.as_view(), name="employee_leave_request_create"),
+    path("employee-leave-request/<int:pk>/", views.EmployeeLeaveRequestDetailView.as_view(), name="employee_leave_request_detail"),
     path("employee-leave-request/<str:pk>/update/", views.EmployeeLeaveRequestUpdateView.as_view(), name="employee_leave_request_update"),
     path("employee-leave-request/<str:pk>/delete/", views.EmployeeLeaveRequestDeleteView.as_view(), name="employee_leave_request_delete"),
+
+    #employee leave request report
+    path("employee-leave-report/", views.EmployeeLeaveReport.as_view(), name="employee_leave_report"),
+    path("employee-leave-report/<str:pk>/", views.EmployeeLeaveReportDetailView.as_view(), name="employee_leave_report_detail"),
 ]

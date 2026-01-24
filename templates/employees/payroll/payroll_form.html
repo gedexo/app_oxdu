@@ -69,47 +69,80 @@
 
 {% endblock content %}
 
-
 {% block javascript %}
-{{form.media}}
+{{ form.media }}
 
 <script>
-$(document).ready(function(){
-    $("#id_employee").change(function(){
-        let employeeId = $(this).val();
-        if(employeeId){
+$(document).ready(function() {
+    // Function to calculate totals in the UI
+    function calculateFinalSalaries() {
+        const basic = parseFloat($("#id_basic_salary").val()) || 0;
+        const allowances = parseFloat($("#id_allowances").val()) || 0;
+        const overtime = parseFloat($("#id_overtime").val()) || 0;
+        const deductions = parseFloat($("#id_deductions").val()) || 0;
+        const absences = parseFloat($("#id_absences").val()) || 0; // Unpaid days count
+
+        // Calculate deduction for absences (Basic / 30 days)
+        const perDaySalary = basic / 30;
+        const absenceDeductionAmount = absences * perDaySalary;
+
+        const grossSalary = basic + allowances + overtime;
+        const netSalary = grossSalary - deductions - absenceDeductionAmount;
+
+        $("#id_gross_salary").val(grossSalary.toFixed(2));
+        $("#id_net_salary").val(netSalary.toFixed(2));
+    }
+
+    // Function to fetch data via AJAX
+    function fetchPayrollData() {
+        let employeeId = $("#id_employee").val();
+        let year = $("#id_payroll_year").val();
+        let month = $("#id_payroll_month").val();
+
+        if (employeeId && year && month) {
             $.ajax({
-                url: "{% url 'employees:get_employee_salary' 0 %}".replace("0", employeeId),
+                url: "{% url 'employees:ajax_get_employee_payroll_data' %}",
+                data: {
+                    'employee_id': employeeId,
+                    'year': year,
+                    'month': month
+                },
                 type: "GET",
-                success: function(data){
-                    if(!data.error){
-                        $("#id_basic_salary").val(data.basic_salary);
-                        $("#id_allowances").val(
-                            (parseFloat(data.hra) + 
-                             parseFloat(data.other_allowance) + 
-                             parseFloat(data.transportation_allowance)).toFixed(2)
-                        );
-                    }
+                success: function(data) {
+                    // Update fields
+                    $("#id_basic_salary").val(data.basic_salary);
+                    $("#id_allowances").val(data.allowances.toFixed(2));
+                    $("#id_absences").val(data.unpaid_absences);
+                    
+                    // Show a helper text below absences
+                    $("#absences_hint").remove();
+                    $("#id_absences").after(
+                        `<small id="absences_hint" class="text-info">
+                            Total Approved Leaves: ${data.total_leaves} (1 Paid Leave applied)
+                        </small>`
+                    );
+
+                    calculateFinalSalaries();
                 }
             });
         }
-    });
-});
-</script>
+    }
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
+    // Event Listeners
+    $("#id_employee, #id_payroll_year, #id_payroll_month").change(fetchPayrollData);
+
+    // Recalculate if user manually edits any number field
+    $("#id_basic_salary, #id_allowances, #id_overtime, #id_deductions, #id_absences").on("input", function() {
+        calculateFinalSalaries();
+    });
+
+    // Handle Form Loading State
     const form = document.querySelector("form");
     const submitBtn = form.querySelector('button[type="submit"]');
-
     form.addEventListener("submit", function() {
-        // Disable the submit button
         submitBtn.disabled = true;
-
-        // Change button content to loading spinner
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Saving...';
     });
 });
 </script>
 {% endblock %}
-

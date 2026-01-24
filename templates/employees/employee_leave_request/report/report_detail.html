@@ -1,0 +1,355 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+
+{% block title %}Leave Report - {{ object.fullname }}{% endblock %}
+
+{% block content %}
+<!-- Add Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+<style>
+    .main-content { background-color: #f8f9fa; }
+    .custom-card { 
+        border: none; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+    .custom-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    
+    .avatar-xxl { width: 100px; height: 100px; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card .icon-bg {
+        position: absolute; right: -10px; bottom: -10px;
+        font-size: 5rem; opacity: 0.1; transform: rotate(-15deg);
+    }
+    
+    .progress-custom { height: 8px; border-radius: 10px; background-color: #e9ecef; }
+    .progress-label { font-size: 0.85rem; font-weight: 600; color: #495057; }
+    
+    .badge-soft-success { background: #d1f7ec; color: #0e9470; border: 1px solid #b2e8d9; }
+    .badge-soft-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .badge-soft-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .badge-soft-info { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+    .table thead th { 
+        background-color: #fcfcfd; 
+        text-transform: uppercase; 
+        font-size: 0.75rem; 
+        letter-spacing: 0.5px; 
+        font-weight: 700;
+        color: #8c90a6;
+        border-top: none;
+    }
+    .table tbody td { vertical-align: middle; padding: 1rem 0.75rem; }
+
+    /* Flatpickr Customization */
+    .flatpickr-input[readonly] { background-color: #fff; }
+
+    @media print {
+        .page-header, .btn-list, .sidebar, .header { display: none !important; }
+        .main-content { margin: 0 !important; padding: 0 !important; background: #fff; }
+        .custom-card { box-shadow: none; border: 1px solid #eee; }
+    }
+</style>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Header Section -->
+        <div class="page-header d-flex justify-content-between align-items-center mb-4 pt-3">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">{% trans "Leave Analytics" %}</h3>
+                <p class="text-muted mb-0">{% trans "Comprehensive attendance and leave tracking for" %} <strong>{{ object.fullname }}</strong></p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Panel -->
+            <div class="col-xl-4 col-lg-5">
+                <!-- Profile Card -->
+                <div class="card custom-card">
+                    <div class="card-body p-4">
+                        <div class="text-center mb-4">
+                            <img src="{{ object.get_image_url }}" class="avatar avatar-xxl avatar-rounded mb-3" alt="User">
+                            <h4 class="fw-bold text-dark mb-0">{{ object.fullname }}</h4>
+                            <span class="badge bg-light text-muted border px-3 mt-2">{{ object.employee_id }}</span>
+                        </div>
+                        
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2">
+                                <span class="text-muted"><i class="fe fe-briefcase me-2"></i>{% trans "Designation" %}</span>
+                                <span class="fw-semibold">{{ object.designation|default:"--" }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2">
+                                <span class="text-muted"><i class="fe fe-layers me-2"></i>{% trans "Department" %}</span>
+                                <span class="fw-semibold">{{ object.department|default:"--" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Entitlement Balance Card -->
+                <div class="card custom-card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="text-uppercase fw-bold text-muted mb-0" style="font-size: 0.7rem; letter-spacing: 1.2px;">
+                                {% trans "Leave Inventory" %}
+                            </h6>
+                            <i class="fe fe-briefcase text-muted opacity-50"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body p-4">
+                        <div class="row g-0">
+                            <!-- Paid Leave Pillar -->
+                            <div class="col-6 pe-3 border-end">
+                                <div class="d-flex flex-column h-100">
+                                    <div class="mb-1">
+                                        <span class="badge bg-primary-transparent text-primary small fw-semibold" style="font-size: 0.6rem;">
+                                            {% trans "PAID" %}
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-baseline">
+                                        <h2 class="fw-bold mb-0 text-dark">{{ object.total_balance_leaves|floatformat:1 }}</h2>
+                                        <span class="text-muted ms-1 small">{% trans "days" %}</span>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="text-muted">{% trans "Carry-over" %}</small>
+                                            <span class="fw-bold text-dark small">{{ object.actual_paid_carry_forward|floatformat:1 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">{% trans "Limit" %}</small>
+                                            <span class="text-muted small">{{ object.leave_balance_obj.MAX_PAID_LIMIT|floatformat:1 }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- WFH Pillar -->
+                            <div class="col-6 ps-3">
+                                <div class="d-flex flex-column h-100">
+                                    <div class="mb-1">
+                                        <span class="badge bg-success-transparent text-success small fw-semibold" style="font-size: 0.6rem;">
+                                            {% trans "WFH" %}
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-baseline">
+                                        <h2 class="fw-bold mb-0 text-dark">{{ object.total_balance_wfh|floatformat:1 }}</h2>
+                                        <span class="text-muted ms-1 small">{% trans "days" %}</span>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="text-muted">{% trans "Carry-over" %}</small>
+                                            <span class="fw-bold text-dark small">{{ object.actual_wfh_carry_forward|floatformat:1 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">{% trans "Limit" %}</small>
+                                            <span class="text-muted small">{{ object.leave_balance_obj.MAX_WFH_LIMIT|floatformat:1 }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thin Accent Bottom Bar -->
+                    <div class="px-4 pb-4">
+                        <div class="bg-light rounded-2 p-2 d-flex align-items-center justify-content-center">
+                            <span class="dot-label bg-warning me-2" style="width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
+                            <small class="text-muted" style="font-size: 0.65rem;">
+                                {% trans "Current Cycle:" %} <strong>{% now "F Y" %}</strong>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="col-xl-8 col-lg-7">
+                <!-- Quick Stats Row -->
+                <div class="row mb-2">
+                    <div class="col-md-4">
+                        <div class="card custom-card stat-card bg-primary-transparent">
+                            <div class="card-body">
+                                <p class="text-primary fw-bold mb-1">{% trans "Applied" %}</p>
+                                <h2 class="fw-bold mb-0 text-dark">{{ object.leave_requests_count }}</h2>
+                                <i class="fe fe-send icon-bg"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card custom-card stat-card bg-success-transparent">
+                            <div class="card-body">
+                                <p class="text-success fw-bold mb-1">{% trans "Approved" %}</p>
+                                <h2 class="fw-bold mb-0 text-dark">{{ object.approved_count|default:"0" }}</h2>
+                                <i class="fe fe-check-circle icon-bg"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card custom-card stat-card bg-warning-transparent">
+                            <div class="card-body">
+                                <p class="text-warning fw-bold mb-1">{% trans "Pending" %}</p>
+                                <h2 class="fw-bold mb-0 text-dark">{{ object.pending_count|default:"0" }}</h2>
+                                <i class="fe fe-clock icon-bg"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Card -->
+                <div class="card custom-card">
+                    <div class="border-bottom p-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="fw-bold text-dark mb-0">{% trans "Leave History" %}</h5>
+                            </div>
+                            <div class="btn-list">
+                                {% if request.GET.leave_type or request.GET.status or request.GET.start_date or request.GET.end_date %}
+                                    <a href="{{ request.path }}" class="btn btn-sm btn-light border text-danger">
+                                        <i class="fe fe-x me-1"></i>{% trans "Clear Filters" %}
+                                    </a>
+                                {% endif %}
+                                <button class="btn btn-primary btn-sm shadow-sm px-3" type="button" data-bs-toggle="modal" data-bs-target="#filterModal">
+                                    <i class="fe fe-filter me-2"></i>{% trans "Filter Results" %}
+                                    {% if request.GET.leave_type or request.GET.status or request.GET.start_date or request.GET.end_date %}
+                                        <span class="badge bg-white text-primary ms-1">!</span>
+                                    {% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-4">{% trans "Leave Type" %}</th>
+                                        <th>{% trans "Dates" %}</th>
+                                        <th class="text-center">{% trans "Days" %}</th>
+                                        <th>{% trans "Status" %}</th>
+                                        <th class="text-end pe-4">{% trans "Action" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for leave in leave_history %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="fw-bold text-dark">{{ leave.get_leave_type_display }}</div>
+                                            {% if leave.leave_day_type == 'half_day' %}
+                                                <span class="badge bg-info-transparent rounded-pill" style="font-size: 0.7rem;">{{ leave.get_half_day_session_display }}</span>
+                                            {% else %}
+                                                <span class="text-muted small">{% trans "Full Duration" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="fw-medium text-dark"><i class="fe fe-calendar me-2 text-muted"></i>{{ leave.start_date|date:"M d, Y" }}</div>
+                                            {% if leave.start_date != leave.end_date %}
+                                            <div class="text-muted small ms-4"><i class="fe fe-arrow-right me-1 small"></i>{{ leave.end_date|date:"M d, Y" }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-bold text-dark bg-light px-2 py-1 rounded border">{{ leave.total_days }}</span>
+                                        </td>
+                                        <td>
+                                            {% if leave.status == 'approved' %}
+                                                <span class="badge badge-soft-success rounded-pill px-3">{% trans "Approved" %}</span>
+                                            {% elif leave.status == 'rejected' %}
+                                                <span class="badge badge-soft-danger rounded-pill px-3">{% trans "Rejected" %}</span>
+                                            {% else %}
+                                                <span class="badge badge-soft-warning rounded-pill px-3">{% trans "Pending" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <a href="{{ leave.get_absolute_url }}" class="btn btn-sm btn-icon btn-white border shadow-sm">
+                                                <i class="fe fe-eye text-primary"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5">
+                                            <i class="fe fe-folder-minus display-4 text-muted opacity-25"></i>
+                                            <h6 class="text-muted fw-normal mt-3">{% trans "No leave requests found." %}</h6>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal (Pop Card) -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="filterModalLabel"><i class="fe fe-filter me-2"></i>{% trans "Filter Leave History" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">{% trans "Leave Type" %}</label>
+                            <select name="leave_type" class="form-select">
+                                <option value="">{% trans "All Types" %}</option>
+                                {% for val, label in leave_types %}
+                                    <option value="{{ val }}" {% if request.GET.leave_type == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">{% trans "Status" %}</label>
+                            <select name="status" class="form-select">
+                                <option value="">{% trans "All Statuses" %}</option>
+                                {% for val, label in status_choices %}
+                                    <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">{% trans "From Date" %}</label>
+                            <input type="text" name="start_date" id="id_start_date" class="form-control flatpickr-date" value="{{ request.GET.start_date }}" placeholder="Select date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">{% trans "To Date" %}</label>
+                            <input type="text" name="end_date" id="id_end_date" class="form-control flatpickr-date" value="{{ request.GET.end_date }}" placeholder="Select date">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-white border" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="submit" class="btn btn-primary px-4">{% trans "Apply Filters" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Flatpickr
+        flatpickr(".flatpickr-date", {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "F j, Y",
+            allowInput: true
+        });
+    });
+</script>
+{% endblock content %}

@@ -294,7 +294,53 @@ class PartnerForm(BaseForm):
         return cleaned_data
     
 
-class EmployeeLeaveRequestForm(BaseForm):
+class EmployeeLeaveRequestForm(forms.ModelForm): 
     class Meta:
         model = EmployeeLeaveRequest
-        fields = "__all__"
+        fields = ["leave_type", "leave_day_type", "half_day_session", "subject", "start_date", "end_date", "reason", "attachment"]
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+            'reason': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['half_day_session'].widget.attrs.update({'class': 'half-day-control'})
+        self.fields['end_date'].widget.attrs.update({'class': 'end-date-control'})
+
+    def clean(self):
+        cleaned_data = super().clean()
+        leave_type = cleaned_data.get("leave_type")
+        leave_day_type = cleaned_data.get("leave_day_type")
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+        employee = getattr(self.instance, 'employee', None)
+
+        if not employee or not start_date or not end_date:
+            return cleaned_data
+
+        # 1. Sync dates for Half Day
+        if leave_day_type == 'half_day':
+            end_date = start_date
+            cleaned_data['end_date'] = start_date
+            requested_days = 0.5
+        else:
+            requested_days = (end_date - start_date).days + 1
+
+        # 2. Check Balance
+        balance, _ = EmployeeLeaveBalance.objects.get_or_create(employee=employee)
+        balance.check_and_accrue()
+
+        if leave_type == 'wfh':
+            # Role Check
+            user_groups = employee.user.groups.values_list('name', flat=True)
+            if any(group in user_groups for group in ["branch_staff", "admin_staff"]):
+                raise ValidationError("Work From Home is not available for Branch Admins or Staff.")
+            if requested_days > balance.wfh_earned:
+                raise ValidationError(f"Insufficient WFH balance. Available: {balance.wfh_earned}")
+        elif leave_type in ['sick', 'casual', 'emergency']:
+            if requested_days > balance.paid_leave_earned:
+                raise ValidationError(f"Insufficient Paid Leave balance. Available: {balance.paid_leave_earned}")
+
+        return cleaned_data

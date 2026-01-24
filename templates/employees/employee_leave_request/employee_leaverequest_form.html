@@ -1,0 +1,160 @@
+{% extends 'app/base.html' %}
+{% load static i18n crispy_forms_tags %}
+{% block title %}{{title}}: {{app_settings.site_title}}{% endblock %}
+
+{% block javascript %}
+{{form.media}}
+<script>
+/**
+ * Consolidated Leave Request Script
+ * Handles Full Day / Half Day toggling
+ */
+(function() {
+    function initLeaveForm() {
+        const dayTypeField = document.getElementById("id_leave_day_type");
+        const sessionField = document.getElementById("id_half_day_session");
+        const startDateField = document.getElementById("id_start_date");
+        const endDateField = document.getElementById("id_end_date");
+
+        if (!dayTypeField) return;
+
+        // Find Crispy Wrappers safely
+        const sessionWrapper = document.getElementById("div_id_half_day_session") || (sessionField ? sessionField.closest('.mb-3') : null);
+        const endDateWrapper = document.getElementById("div_id_end_date") || (endDateField ? endDateField.closest('.mb-3') : null);
+
+        function toggleFields() {
+            const isHalfDay = dayTypeField.value === 'half_day';
+            
+            if (sessionWrapper) {
+                sessionWrapper.style.setProperty('display', isHalfDay ? 'block' : 'none', 'important');
+            }
+            if (endDateWrapper) {
+                endDateWrapper.style.setProperty('display', isHalfDay ? 'none' : 'block', 'important');
+            }
+
+            // Sync dates if Half Day
+            if (isHalfDay && startDateField && endDateField && startDateField.value) {
+                endDateField.value = startDateField.value;
+            }
+        }
+
+        // Standard listener
+        dayTypeField.addEventListener("change", toggleFields);
+
+        // SELECT2 SUPPORT:
+        // Since your log shows 'select2-hidden-accessible', we must listen to jQuery change
+        if (typeof jQuery !== 'undefined') {
+            jQuery(dayTypeField).on('select2:select change', function() {
+                toggleFields();
+            });
+        }
+
+        // Sync end date when start date changes
+        if (startDateField) {
+            startDateField.addEventListener("change", function() {
+                if (dayTypeField.value === 'half_day' && endDateField) {
+                    endDateField.value = startDateField.value;
+                }
+            });
+        }
+
+        // Run once on load
+        toggleFields();
+    }
+
+    // Run on DOM load
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initLeaveForm);
+    } else {
+        initLeaveForm();
+    }
+
+    // Handle Form Submission (Spinner + Date Sync)
+    document.addEventListener("submit", function(e) {
+        const form = e.target;
+        if (form.tagName === 'FORM') {
+            const dayType = document.getElementById("id_leave_day_type");
+            const start = document.getElementById("id_start_date");
+            const end = document.getElementById("id_end_date");
+            const btn = form.querySelector('button[type="submit"]');
+
+            if (dayType && dayType.value === 'half_day' && start && end) {
+                end.value = start.value;
+            }
+
+            if (btn && !btn.disabled) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+            }
+        }
+    });
+})();
+</script>
+{% endblock javascript %}
+
+{% block content %}
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+
+        <!-- Page Header -->
+        <div class="page-header d-flex d-block justify-content-between">
+            <div class="page-leftheader">
+                <div class="page-title">{{ title|title }}</div>
+            </div>
+            <div class="page-rightheader">
+                
+            </div>
+        </div>
+        <!-- Page Header Close -->
+
+        <!-- Start::row-1 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between border-bottom-0">
+                        <div class="card-title">{{ sub_title|title }}</div>
+                        <div class="btn-list">
+                            {% if object %}
+                                <a href="{{ object.get_delete_url }}" class="btn btn-light3" data-bs-placement="top"
+                                data-bs-toggle="tooltip" title="Delete"> <i class="mdi mdi-delete"></i> </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <form class="form-horizontal" method="post" autocomplete="off" enctype="multipart/form-data" action=""
+                                enctype="multipart/form-data">
+                                {% csrf_token %}
+                                {{form|crispy}}
+
+                                {% if formset %}
+                                    {% include formset_html %}
+                                {% endif %}
+
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">
+                                            <button type="submit" class="btn btn-success"><i class="fe fe-save"></i> Save</button>
+                                            <button type="button" onclick="history.back()" class="btn btn-outline-info"> <i class="fa fa-cancel"></i> Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                            </form>
+                            </div>
+                        </div>
+                      
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        <!--End::row-1 -->
+
+    </div>
+</div>
+
+{% endblock content %}

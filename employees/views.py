@@ -1,5 +1,6 @@
 import io
 import calendar
+from django.template import context
 from django.utils import timezone
 from datetime import datetime
 from weasyprint import HTML, CSS
@@ -21,6 +22,7 @@ from core.utils import build_url
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from decimal import Decimal
+from django.views.decorators.http import require_POST
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -87,12 +89,85 @@ def ajax_get_employee_payrolls(request):
     return JsonResponse({"payrolls": payrolls})
 
 
+def get_employee_payroll_data(request):
+    employee_id = request.GET.get('employee_id')
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    if not all([employee_id, year, month]):
+        return JsonResponse({'error': 'Missing parameters'}, status=400)
+
+    try:
+        employee = Employee.objects.get(id=employee_id)
+        year = int(year)
+        month = int(month)
+
+        # 1. Determine month boundaries
+        month_start = datetime(year, month, 1).date()
+        last_day = calendar.monthrange(year, month)[1]
+        month_end = datetime(year, month, last_day).date()
+
+        # 2. Fetch approved leaves overlapping with this month
+        leaves = EmployeeLeaveRequest.objects.filter(
+            employee=employee,
+            status='approved',
+            start_date__lte=month_end,
+            end_date__gte=month_start
+        )
+
+        total_leave_days = 0
+        for leave in leaves:
+            # Only count days that fall inside the selected month
+            actual_start = max(leave.start_date, month_start)
+            actual_end = min(leave.end_date, month_end)
+            days = (actual_end - actual_start).days + 1
+            total_leave_days += days
+
+        # 3. Apply the "1 Paid Leave" rule
+        paid_leaves_allowed = 1
+        # Unpaid absences = total leaves minus 1 (but not less than 0)
+        unpaid_absences = max(0, total_leave_days - paid_leaves_allowed)
+
+        # 4. Calculate current allowances from employee profile
+        allowances = (employee.hra or 0) + (employee.other_allowance or 0) + (employee.transportation_allowance or 0)
+
+        return JsonResponse({
+            'basic_salary': float(employee.basic_salary or 0),
+            'allowances': float(allowances),
+            'total_leaves': total_leave_days,
+            'paid_leaves': min(total_leave_days, paid_leaves_allowed),
+            'unpaid_absences': unpaid_absences,
+        })
+    except (Employee.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Invalid data'}, status=400)
+
+
+@login_required
+@require_POST
+def update_leave_status(request, pk):
+    leave = get_object_or_404(EmployeeLeaveRequest, pk=pk)
+    
+    # Permission Check
+    if not (request.user.is_superuser or request.user.is_staff or request.user.groups.filter(name='hr').exists()):
+        return JsonResponse({"success": False, "error": "Unauthorized"}, status=403)
+
+    status = request.POST.get('status')
+    if status in ['approved', 'rejected']:
+        leave.status = status
+        if status == 'approved':
+            leave.approved_by = getattr(request.user, 'employee', None)
+            leave.approved_date = timezone.now()
+        leave.save()
+        return JsonResponse({"success": True})
+    
+    return JsonResponse({"success": False, "error": "Invalid Status"})
+
+
 def employee_appointment(request, pk):
     instance = get_object_or_404(Employee, pk=pk)
     
     cache_key = f'employee_appointment_pdf_{pk}'
     
-    # Try to get from cache
     pdf_file = cache.get(cache_key)
     
     if not pdf_file:
@@ -1553,15 +1628,40 @@ class PartnerDeleteView(mixins.HybridDeleteView):
 class EmployeeLeaveRequestListView(mixins.HybridListView):
     model = EmployeeLeaveRequest
     table_class = tables.EmployeeLeaveRequestTable
+    template_name = "employees/employee_leave_request/employee_leaverequest_list.html"
     filterset_fields = {
         "employee__branch": ["exact"],
         "employee": ["exact"],
         "status": ["exact"],
     }
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher", "mentor", "sales_head", "tele_caller")
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        management_roles = ["admin_staff", "hr", "ceo", "cfo", "coo", "branch_staff"]
+        
+        if user.is_superuser or user.groups.filter(name__in=management_roles).exists():
+            return queryset
+            
+        if hasattr(user, 'employee') and user.employee:
+            return queryset.filter(employee=user.employee)
+            
+        return queryset.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        qs = self.get_queryset()
+
+        context["status_counts"] = {
+            "approved": qs.filter(status="approved").count(),
+            "rejected": qs.filter(status="rejected").count(),
+            "pending": qs.filter(status="pending").count(),
+            "all": qs.count(),
+        }
+        
         context["is_employee_leave_request"] = True
         context["can_add"] = True
         context["new_link"] = reverse_lazy("employees:employee_leave_request_create")
@@ -1570,7 +1670,7 @@ class EmployeeLeaveRequestListView(mixins.HybridListView):
 
 class EmployeeLeaveRequestDetailView(mixins.HybridDetailView):
     model = EmployeeLeaveRequest
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher", "mentor", "sales_head", "tele_caller")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1581,7 +1681,8 @@ class EmployeeLeaveRequestDetailView(mixins.HybridDetailView):
 class EmployeeLeaveRequestCreateView(mixins.HybridCreateView):
     model = EmployeeLeaveRequest
     form_class = forms.EmployeeLeaveRequestForm
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+    template_name = "employees/employee_leave_request/employee_leaverequest_form.html"
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher", "mentor", "sales_head", "tele_caller")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1589,11 +1690,26 @@ class EmployeeLeaveRequestCreateView(mixins.HybridCreateView):
         context["is_create"] = True
         return context
 
+    def dispatch(self, request, *args, **kwargs):
+        if not hasattr(request.user, 'employee') or request.user.employee is None:
+            messages.error(request, "You must be an employee to create a leave request.")
+            return redirect("employees:employee_leave_request_list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.instance.employee = self.request.user.employee
+        return form
+
+    def form_valid(self, form):
+        form.instance.employee = self.request.user.employee
+        return super().form_valid(form)
+
     
 class EmployeeLeaveRequestUpdateView(mixins.HybridUpdateView):
     model = EmployeeLeaveRequest
     form_class = forms.EmployeeLeaveRequestForm
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher", "mentor", "sales_head", "tele_caller")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1604,4 +1720,57 @@ class EmployeeLeaveRequestUpdateView(mixins.HybridUpdateView):
 
 class EmployeeLeaveRequestDeleteView(mixins.HybridDeleteView):
     model = EmployeeLeaveRequest
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher",)
+    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo", "teacher", "mentor", "sales_head", "tele_caller")
+
+
+class EmployeeLeaveReport(mixins.HybridListView):
+    model = Employee
+    table_class = tables.EmployeeLeaveReportTable 
+    filterset_fields = {
+        "branch": ['exact'], 
+        "department": ['exact'], 
+        "designation": ['exact']
+    }
+    permissions = ("admin_staff", "ceo", "cfo", "coo", "hr", "cmo",)
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'leave_balance', 'department', 'designation', 'branch'
+        ).prefetch_related('leave_requests')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Employee Leave Report"
+        context["is_employee_leave_report"] = True
+        return context
+
+
+class EmployeeLeaveReportDetailView(mixins.HybridDetailView):
+    model = Employee
+    permissions = ("admin_staff", "ceo", "cfo", "coo", "hr", "cmo",)
+    template_name = "employees/employee_leave_request/report/report_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employee = self.get_object()
+        
+        leave_history = employee.leave_requests.filter(is_active=True).order_by('-start_date')
+
+        leave_type = self.request.GET.get('leave_type')
+        status = self.request.GET.get('status')
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+
+        if leave_type:
+            leave_history = leave_history.filter(leave_type=leave_type)
+        if status:
+            leave_history = leave_history.filter(status=status)
+        if start_date:
+            leave_history = leave_history.filter(start_date__gte=start_date)
+        if end_date:
+            leave_history = leave_history.filter(end_date__lte=end_date)
+
+        context["leave_history"] = leave_history
+        context["leave_types"] = EmployeeLeaveRequest.LEAVE_TYPE_CHOICES
+        context["status_choices"] = EmployeeLeaveRequest.LEAVE_STATUS_CHOICES
+        return context

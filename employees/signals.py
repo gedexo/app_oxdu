@@ -64,3 +64,33 @@ def update_advance_accounting(sender, instance, created, **kwargs):
     # Debit: Employee Account (Advance Asset)
     # Credit: Bank/Cash
     instance.create_accounting_entry()
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from employees.models import EmployeeLeaveRequest
+
+@receiver(post_save, sender=EmployeeLeaveRequest)
+def update_employee_balance(sender, instance, created, **kwargs):
+    """
+    Deduct leave only ONCE when status becomes approved
+    """
+
+    if instance.status != 'approved':
+        return
+
+    if instance.is_balance_deducted:
+        return
+
+    balance, _ = EmployeeLeaveBalance.objects.get_or_create(employee=instance.employee)
+
+    days = instance.total_days or 0
+
+    if instance.leave_type == 'wfh':
+        balance.wfh_balance = max(balance.wfh_balance - days, 0)
+    else: 
+        balance.paid_leave_balance = max(balance.paid_leave_balance - days, 0)
+
+    balance.save()
+
+    instance.is_balance_deducted = True
+    instance.save(update_fields=["is_balance_deducted"])
