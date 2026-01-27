@@ -5,7 +5,7 @@ from django.db.models import Sum
 
 from .models import Department, Partner
 from .models import Designation
-from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
+from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance
 from masters.models import Course
 from django import forms
 
@@ -155,8 +155,17 @@ class EmployeeDocumentsForm(BaseForm):
 class PayrollForm(BaseForm):
     class Meta:
         model = Payroll
-        fields = ("payroll_year", "payroll_month", "employee", "basic_salary", "allowances", "allowances_description", "deductions", "deductions_description", "overtime", "absences")
-
+        fields = (
+            "payroll_year", "payroll_month", "employee", 
+            "basic_salary", "allowances", "allowances_description", 
+            "deductions", "deductions_description", "overtime", 
+            "absences", "gross_salary", "net_salary"
+        )
+        widgets = {
+            'absences': forms.NumberInput(attrs={'step': '0.5', 'readonly': 'readonly'}),
+            'gross_salary': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'bg-light'}),
+            'net_salary': forms.NumberInput(attrs={'readonly': 'readonly', 'class': 'bg-light fw-bold'}),
+        }
     
 
 class PayrollPaymentForm(forms.ModelForm):
@@ -315,32 +324,52 @@ class EmployeeLeaveRequestForm(forms.ModelForm):
         leave_day_type = cleaned_data.get("leave_day_type")
         start_date = cleaned_data.get("start_date")
         end_date = cleaned_data.get("end_date")
+        
+        # NOTE: Ensure your View sets 'form.instance.employee' in get_form()
+        # otherwise this will be None and validation will be skipped.
         employee = getattr(self.instance, 'employee', None)
 
+        # Basic validation checks
         if not employee or not start_date or not end_date:
             return cleaned_data
 
-        # 1. Sync dates for Half Day
+        # 1. NEW SAFETY CHECK: End Date vs Start Date
+        if end_date < start_date:
+            raise ValidationError("End date cannot be before the start date.")
+
+        # 2. Sync dates for Half Day
         if leave_day_type == 'half_day':
             end_date = start_date
-            cleaned_data['end_date'] = start_date
+            cleaned_data['end_date'] = start_date # Force update cleaned_data
             requested_days = 0.5
         else:
             requested_days = (end_date - start_date).days + 1
 
-        # 2. Check Balance
-        balance, _ = EmployeeLeaveBalance.objects.get_or_create(employee=employee)
-        balance.check_and_accrue()
+        # 3. Check Balance (With 'defaults' to fix the 0.0 error for new staff)
+        balance, created = EmployeeLeaveBalance.objects.get_or_create(
+            employee=employee,
+            defaults={
+                'paid_leave_balance': 1.0, 
+                'wfh_balance': 1.0
+            }
+        )
+        
+        # 4. Trigger Monthly Accrual Check
+        # Important: Adds new leaves if the month just changed
+        balance.accrue_monthly()
 
+        # 5. Validate Request against Balance
         if leave_type == 'wfh':
             # Role Check
             user_groups = employee.user.groups.values_list('name', flat=True)
             if any(group in user_groups for group in ["branch_staff", "admin_staff"]):
                 raise ValidationError("Work From Home is not available for Branch Admins or Staff.")
-            if requested_days > balance.wfh_earned:
-                raise ValidationError(f"Insufficient WFH balance. Available: {balance.wfh_earned}")
+            
+            if requested_days > balance.wfh_balance:
+                raise ValidationError(f"Insufficient WFH balance. Available: {balance.wfh_balance}")
+                
         elif leave_type in ['sick', 'casual', 'emergency']:
-            if requested_days > balance.paid_leave_earned:
-                raise ValidationError(f"Insufficient Paid Leave balance. Available: {balance.paid_leave_earned}")
+            if requested_days > balance.paid_leave_balance:
+                raise ValidationError(f"Insufficient Paid Leave balance. Available: {balance.paid_leave_balance}")
 
         return cleaned_data

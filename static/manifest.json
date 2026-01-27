@@ -1,11 +1,11 @@
 {
-  "name": "OXDU ERP",
-  "short_name": "OXDU",
+  "name": "OXDU APP",
+  "short_name": "OXDU APP",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#da532c",
-  "description": "OXDU ERP SYSTEM",
+  "description": "OXDU APP SYSTEM",
   "icons": [
     {
       "src": "/static/app/assets/images/logo/manifest-logo-192.png",

@@ -293,7 +293,7 @@ class EmployeeLeaveReportTable(BaseTable):
             <div class="text-center">
                 <a href="{% url 'employees:employee_leave_report_detail' record.pk %}" 
                    class="btn btn-sm" 
-                   style="background-color: #eef2ff; color: #ee4c24; border: none; font-weight: 500; padding: 0.4rem 0.8rem; border-radius: 8px; transition: all 0.3s ease;">
+                   style="background-color: #eef2ff; color: #ee4c24; border: 1px solid #ee4c24; font-weight: 500; padding: 0.4rem 0.8rem; border-radius: 8px; transition: all 0.3s ease;">
                     <i class="fas fa-external-link-alt me-1" style="font-size: 0.8rem;"></i> 
                     Details
                 </a>

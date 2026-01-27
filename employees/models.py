@@ -4,6 +4,7 @@ from django.utils import timezone
 import calendar
 import os
 import uuid
+from django.db import transaction
 from decimal import Decimal
 from django.db import transaction as db_transaction
 
@@ -246,47 +247,70 @@ class Employee(BaseModel):
     @property
     def leave_balance_obj(self):
         """Retrieves balance and handles month-to-month logic."""
-        # This triggers the accrual and ensures balance exists
         balance, created = EmployeeLeaveBalance.objects.get_or_create(employee=self)
+        # Ensure we check accrual every time we look at the balance
         balance.accrue_monthly()
         return balance
 
     @property
     def total_balance_leaves(self):
+        """The actual Total Available (Carry + Fresh)"""
         return self.leave_balance_obj.paid_leave_balance
 
     @property
     def total_balance_wfh(self):
+        """The actual Total Available WFH (Carry + Fresh)"""
         return self.leave_balance_obj.wfh_balance
 
-    # FIX: Add these two properties that the template is looking for
+    # --- REPORTING PROPERTIES ---
+
     @property
     def actual_paid_carry_forward(self):
-        """Returns the actual unused days from last month."""
+        """Returns the actual days brought over from last month."""
         return self.leave_balance_obj.paid_carry_forward
 
     @property
     def actual_wfh_carry_forward(self):
-        """Returns the actual unused days from last month."""
         return self.leave_balance_obj.wfh_carry_forward
 
-    # Percentage properties for the Progress Bars
+    @property
+    def current_month_paid_available(self):
+        """Used in Template: Total Days available right now"""
+        return self.total_balance_leaves
+    
+    @property
+    def current_month_wfh_available(self):
+        """Used in Template: Total WFH available right now"""
+        return self.total_balance_wfh
+    
+    @property
+    def current_month_fresh_paid(self):
+        """Constant: 1.0"""
+        return self.leave_balance_obj.MONTHLY_PAID
+    
+    @property
+    def current_month_fresh_wfh(self):
+        """Constant: 1.0"""
+        return self.leave_balance_obj.MONTHLY_WFH
+    
+    # --- PROGRESS BARS ---
+    
     @property
     def paid_cf_percent(self):
-        """Percentage of Carry Forward saved vs the Max allowed CF."""
+        """Percentage of Carry Limit used"""
         obj = self.leave_balance_obj
-        max_possible_cf = obj.MAX_PAID_LIMIT - obj.MONTHLY_PAID # e.g. 5.0
-        if max_possible_cf > 0:
-            return min((self.actual_paid_carry_forward / max_possible_cf) * 100, 100)
+        # We compare actual carry vs the CARRY_LIMIT
+        limit = obj.CARRY_LIMIT_PAID 
+        if limit > 0:
+            return min((self.actual_paid_carry_forward / limit) * 100, 100)
         return 0
 
     @property
     def wfh_cf_percent(self):
-        """Percentage of WFH Carry Forward saved vs the Max allowed CF."""
         obj = self.leave_balance_obj
-        max_possible_cf = obj.MAX_WFH_LIMIT - obj.MONTHLY_WFH # e.g. 2.0
-        if max_possible_cf > 0:
-            return min((self.actual_wfh_carry_forward / max_possible_cf) * 100, 100)
+        limit = obj.CARRY_LIMIT_WFH
+        if limit > 0:
+            return min((self.actual_wfh_carry_forward / limit) * 100, 100)
         return 0
 
     def save(self, *args, **kwargs):
@@ -313,12 +337,12 @@ class Employee(BaseModel):
 class Payroll(BaseModel):
     payroll_year = models.CharField(
         max_length=180,
-        choices=YEAR_CHOICES,
+        choices=YEAR_CHOICES, # Ensure these choices are defined in your constants
         default=current_year
     )
     payroll_month = models.CharField(
         max_length=180,
-        choices=MONTH_CHOICES,
+        choices=MONTH_CHOICES, # Ensure these choices are defined
         default=current_month
     )
     employee = models.ForeignKey(
@@ -335,16 +359,16 @@ class Payroll(BaseModel):
     # Leave and Absence Logic
     total_leaves = models.DecimalField(
         max_digits=5, decimal_places=1, default=0.0, 
-        help_text="Total approved leaves taken this month"
+        help_text="Total approved leaves taken this month (Paid + Unpaid)"
     )
     paid_leaves = models.DecimalField(
-        max_digits=5, decimal_places=1, default=1.0, 
-        help_text="Number of leaves allowed as paid (Default is 1)"
+        max_digits=5, decimal_places=1, default=0.0, 
+        help_text="Leaves covered by balance (Carry over + Current Month)"
     )
     absences = models.DecimalField(
-        max_digits=30, decimal_places=1, default=0.0,
+        max_digits=5, decimal_places=1, default=0.0,
         verbose_name="Unpaid Absences",
-        help_text="Total days to deduct from salary (Total Leaves - Paid Leaves)"
+        help_text="Excess leaves to deduct from salary"
     )
     
     # Other adjustments
@@ -365,21 +389,90 @@ class Payroll(BaseModel):
         related_name='payroll_record'
     )
 
+    class Meta:
+        ordering = ("-payroll_year", "-payroll_month")
+        verbose_name = "Payroll"
+        verbose_name_plural = "Payrolls"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "payroll_year", "payroll_month"],
+                name="unique_employee_payroll"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.employee.fullname()} - {self.payroll_year}/{self.get_payroll_month_display()}"
+
     def clean(self):
         """Ensure net salary doesn't go below zero before saving."""
         if self.net_salary < 0:
             self.net_salary = 0
 
+    def calculate_leaves_and_absences(self):
+        """
+        Calculates Total Leaves, Paid Leaves, and Unpaid Absences based on
+        EmployeeLeaveBalance logic (Carry Limit + 1).
+        """
+        # 1. Get Balance Info
+        balance, _ = EmployeeLeaveBalance.objects.get_or_create(employee=self.employee)
+        
+        # Calculate Limits for THIS month:
+        # Limit = min(CarryForward, 6) + 1 (Current Month)
+        max_paid_limit = min(balance.paid_carry_forward, balance.CARRY_LIMIT_PAID) + balance.MONTHLY_PAID
+        max_wfh_limit = min(balance.wfh_carry_forward, balance.CARRY_LIMIT_WFH) + balance.MONTHLY_WFH
+
+        # 2. Fetch Actual Taken Leaves for this Payroll Month
+        leaves_qs = EmployeeLeaveRequest.objects.filter(
+            employee=self.employee,
+            status='approved',
+            start_date__year=self.payroll_year,
+            start_date__month=self.payroll_month
+        )
+
+        taken_paid_leaves = 0.0
+        taken_wfh_leaves = 0.0
+
+        for leave in leaves_qs:
+            # Calculate days for this specific leave
+            days = leave.total_days
+            if leave.leave_type == 'wfh':
+                taken_wfh_leaves += days
+            else:
+                taken_paid_leaves += days
+
+        # 3. Calculate Unpaid Absences (Excess)
+        # Absences = Taken - Limit. (If Taken < Limit, Absences is 0)
+        unpaid_paid_type = max(0.0, taken_paid_leaves - max_paid_limit)
+        unpaid_wfh_type = max(0.0, taken_wfh_leaves - max_wfh_limit)
+
+        total_absences = unpaid_paid_type + unpaid_wfh_type
+        
+        # 4. Calculate Covered (Paid) Leaves
+        # Total Taken - Unpaid = Paid
+        total_taken = taken_paid_leaves + taken_wfh_leaves
+        total_paid_leaves = total_taken - total_absences
+
+        # 5. Set Values to Model
+        self.total_leaves = Decimal(str(total_taken))
+        self.paid_leaves = Decimal(str(total_paid_leaves))
+        
+        # Only overwrite absences if it's 0 (allows manual override by HR if needed)
+        # Or you can force overwrite: self.absences = Decimal(str(total_absences))
+        if self.absences == 0 and total_absences > 0:
+            self.absences = Decimal(str(total_absences))
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
 
-        # 1. Salary Calculation Logic
-        # We treat 'absences' as the count of days that are UNPAID.
+        # 1. Auto-Calculate Leaves if this is a new record or absences is 0
+        # This ensures we pull data from the Leave System
+        self.calculate_leaves_and_absences()
+
+        # 2. Salary Calculation Logic
         working_days = Decimal("30.0")
         per_day_salary = self.basic_salary / working_days
 
         # Absence Amount calculation
-        # If HR manually edited 'absences' in the form, that value is used here.
         absence_amount = Decimal(self.absences) * per_day_salary
 
         # Gross = Basic + Allowances + Overtime
@@ -394,7 +487,7 @@ class Payroll(BaseModel):
 
         super().save(*args, **kwargs)
 
-        # 2. CREATE ACCOUNTING ENTRY
+        # 3. CREATE ACCOUNTING ENTRY
         if is_new and not self.transaction:
             self.create_accounting_entry()
 
@@ -417,7 +510,6 @@ class Payroll(BaseModel):
                 expense_account = Account.objects.filter(under__code='STAFF_EXPENSES', branch=self.employee.branch).first()
 
             if not self.employee.account:
-                # We log this or skip, but it's better to ensure employee has an account
                 return 
 
             # Create Transaction Header
@@ -456,30 +548,16 @@ class Payroll(BaseModel):
 
     @property
     def total_paid(self):
-        # Implementation depends on your PayrollPayment model
         from employees.models import PayrollPayment 
         return PayrollPayment.objects.filter(payroll=self, is_active=True).aggregate(
-            total=models.Sum("amount_paid")
+            total=Sum("amount_paid")
         )["total"] or Decimal("0.00")
 
     @property
     def remaining_salary(self):
         return max(self.net_salary - self.total_paid, Decimal("0.00"))
 
-    class Meta:
-        ordering = ("-payroll_year", "-payroll_month")
-        verbose_name = "Payroll"
-        verbose_name_plural = "Payrolls"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["employee", "payroll_year", "payroll_month"],
-                name="unique_employee_payroll"
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.employee.fullname()} - {self.payroll_year}/{self.get_payroll_month_display()}"
-
+    # Standard URLs
     def get_absolute_url(self):
         return reverse_lazy("employees:payroll_detail", kwargs={"pk": self.pk})
 
@@ -925,6 +1003,9 @@ class EmployeeLeaveRequest(BaseModel):
     )
     approved_date = models.DateTimeField(null=True, blank=True)
     remarks = models.TextField(blank=True, null=True, help_text="Approval or Rejection remarks")
+    
+    # Flag to track if balance has been deducted to prevent double deduction
+    is_balance_deducted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created']
@@ -941,22 +1022,8 @@ class EmployeeLeaveRequest(BaseModel):
         return (self.end_date - self.start_date).days + 1
 
     def save(self, *args, **kwargs):
-        if self.pk:
-            old_status = EmployeeLeaveRequest.objects.get(pk=self.pk).status
-            # Logic: If status is changed TO approved, deduct balance
-            if old_status != 'approved' and self.status == 'approved':
-                self.process_balance_deduction()
+        # Let the signal handle balance deduction to avoid duplication
         super().save(*args, **kwargs)
-
-    def process_balance_deduction(self):
-        with transaction.atomic():
-            # Trigger accrual check before deduction
-            balance = self.employee.leave_balance_obj
-            if self.leave_type == 'wfh':
-                balance.wfh_balance = max(balance.wfh_balance - self.total_days, 0)
-            else:
-                balance.paid_leave_balance = max(balance.paid_leave_balance - self.total_days, 0)
-            balance.save()
 
     @staticmethod
     def get_list_url():
@@ -979,40 +1046,61 @@ class EmployeeLeaveBalance(BaseModel):
         related_name="leave_balance"
     )
 
-    # Current Live Balance
-    paid_leave_balance = models.FloatField(default=0.0)
-    wfh_balance = models.FloatField(default=0.0)
+    # 1. Defaults set to 1.0 (New employees start with 1 day immediately)
+    paid_leave_balance = models.FloatField(default=1.0)
+    wfh_balance = models.FloatField(default=1.0)
 
-    # Snapshot of what was brought over at the start of the month
+    # 2. History Snapshots (For the Report Page)
     paid_carry_forward = models.FloatField(default=0.0)
     wfh_carry_forward = models.FloatField(default=0.0)
 
-    last_accrual_month = models.DateField(auto_now_add=True)
+    last_accrual_month = models.DateField(default=date.today)
 
-    MAX_PAID_LIMIT = 6.0
-    MAX_WFH_LIMIT = 3.0
+    # --- CONSTANTS ---
+    # CARRY_LIMIT: The maximum days allowed to travel to the next month.
+    # MONTHLY: The fresh days added every month.
+    CARRY_LIMIT_PAID = 6.0 
+    CARRY_LIMIT_WFH = 6.0
+    
     MONTHLY_PAID = 1.0
     MONTHLY_WFH = 1.0
 
     def accrue_monthly(self):
+        """
+        Equation: NewBalance = min(OldBalance, CarryLimit) + MonthlyAccrual
+        Result: If Limit is 6 and Monthly is 1, max available becomes 7.
+        """
         today = date.today()
+        last_check = self.last_accrual_month
         
-        # Check if we transitioned to a new month
-        if (today.year, today.month) > (self.last_accrual_month.year, self.last_accrual_month.month):
+        # Calculate months passed
+        months_passed = (today.year - last_check.year) * 12 + (today.month - last_check.month)
+
+        if months_passed > 0:
+            # --- PAID LEAVE ---
+            # 1. Cap the old balance at the Carry Limit (e.g., max 6)
+            actual_carry_paid = min(self.paid_leave_balance, self.CARRY_LIMIT_PAID)
             
-            # 1. Capture what is left RIGHT NOW as Carry Forward
-            self.paid_carry_forward = self.paid_leave_balance
-            self.wfh_carry_forward = self.wfh_balance
+            # 2. Update the snapshot for the report
+            self.paid_carry_forward = actual_carry_paid
+            
+            # 3. Add fresh leaves on top of the capped carry over
+            self.paid_leave_balance = actual_carry_paid + (months_passed * self.MONTHLY_PAID)
 
-            # 2. Add the new month's credit (e.g. +1.0)
-            self.paid_leave_balance = min(
-                self.paid_leave_balance + self.MONTHLY_PAID,
-                self.MAX_PAID_LIMIT
-            )
-            self.wfh_balance = min(
-                self.wfh_balance + self.MONTHLY_WFH,
-                self.MAX_WFH_LIMIT
-            )
 
-            self.last_accrual_month = today
+            # --- WFH LEAVE ---
+            # 1. Cap old balance
+            actual_carry_wfh = min(self.wfh_balance, self.CARRY_LIMIT_WFH)
+            
+            # 2. Update snapshot
+            self.wfh_carry_forward = actual_carry_wfh
+            
+            # 3. Add fresh leaves
+            self.wfh_balance = actual_carry_wfh + (months_passed * self.MONTHLY_WFH)
+
+            # Update date to the 1st of current month
+            self.last_accrual_month = today.replace(day=1)
             self.save()
+
+    def __str__(self):
+        return f"{self.employee} - Paid: {self.paid_leave_balance}, WFH: {self.wfh_balance}"

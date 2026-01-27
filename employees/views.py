@@ -34,7 +34,7 @@ from core import choices
 from .functions import generate_employee_id
 from .models import Department, Partner
 from .models import Designation
-from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
+from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance
 from branches.models import Branch
 
 
@@ -161,6 +161,79 @@ def update_leave_status(request, pk):
         return JsonResponse({"success": True})
     
     return JsonResponse({"success": False, "error": "Invalid Status"})
+
+
+def ajax_get_employee_payroll_data(request):
+    employee_id = request.GET.get('employee_id')
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    if not (employee_id and year and month):
+        return JsonResponse({'error': 'Missing parameters'}, status=400)
+
+    try:
+        employee = Employee.objects.get(id=employee_id)
+        
+        # 1. Get Basic Salary & Allowances
+        basic_salary = employee.basic_salary or 0
+        allowances = (employee.hra or 0) + (employee.other_allowance or 0) + (employee.transportation_allowance or 0)
+
+        # 2. Get Leave Balance Info
+        balance, _ = EmployeeLeaveBalance.objects.get_or_create(employee=employee)
+        
+        # Logic: Limit = Min(CarryForward, 6) + 1 (Current Month)
+        limit_paid = min(balance.paid_carry_forward, balance.CARRY_LIMIT_PAID) + balance.MONTHLY_PAID
+        limit_wfh = min(balance.wfh_carry_forward, balance.CARRY_LIMIT_WFH) + balance.MONTHLY_WFH
+
+        # 3. Get Actual Leaves Taken in this specific Month/Year
+        leaves_qs = EmployeeLeaveRequest.objects.filter(
+            employee=employee,
+            status='approved',
+            start_date__year=year,
+            start_date__month=month
+        )
+
+        taken_paid = 0.0
+        taken_wfh = 0.0
+
+        for leave in leaves_qs:
+            if leave.leave_type == 'wfh':
+                taken_wfh += leave.total_days
+            else:
+                taken_paid += leave.total_days
+
+        # 4. Calculate Excess (Unpaid)
+        unpaid_paid = max(0.0, taken_paid - limit_paid)
+        unpaid_wfh = max(0.0, taken_wfh - limit_wfh)
+        total_unpaid = unpaid_paid + unpaid_wfh
+
+        # Prepare Data for Table
+        leave_data = {
+            'paid_leave': {
+                'carry': balance.paid_carry_forward,
+                'monthly': balance.MONTHLY_PAID,
+                'total_limit': limit_paid,
+                'taken': taken_paid,
+                'unpaid': unpaid_paid
+            },
+            'wfh': {
+                'carry': balance.wfh_carry_forward,
+                'monthly': balance.MONTHLY_WFH,
+                'total_limit': limit_wfh,
+                'taken': taken_wfh,
+                'unpaid': unpaid_wfh
+            }
+        }
+
+        return JsonResponse({
+            'basic_salary': float(basic_salary),
+            'allowances': float(allowances),
+            'total_unpaid_days': float(total_unpaid),
+            'leave_breakdown': leave_data
+        })
+
+    except Employee.DoesNotExist:
+        return JsonResponse({'error': 'Employee not found'}, status=404)
 
 
 def employee_appointment(request, pk):
@@ -590,7 +663,7 @@ class EmployeeListView(mixins.HybridListView):
     template_name = "employees/employee/employee_list.html"
     model = Employee
     table_class = tables.EmployeeTable
-    permissions = ("branch_staff", "partner", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     filterset_fields = {'branch': ['exact'] ,'department': ['exact'], 'designation': ['exact'], 'gender': ['exact'], 'employment_type': ['exact'], 'status':['exact']}
     search_fields = ("user__email", "employee_id", "first_name", "last_name", "marital_status", "mobile", "whatsapp")
     
@@ -650,7 +723,7 @@ class EmployeeListView(mixins.HybridListView):
 class NonActiveEmployeeListView(mixins.HybridListView):
     model = Employee
     table_class = tables.NonActiveEmployeeTable
-    permissions = ("branch_staff", "partner", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     filterset_fields = {
         'branch': ['exact'],
         'department': ['exact'],
@@ -722,7 +795,7 @@ class EmployeeDetailView(mixins.HybridDetailView):
 class EmployeeCreateView(mixins.HybridCreateView):
     model = Employee
     form_class = forms.EmployeePersonalDataForm
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     template_name = "employees/employee_form.html"
     exclude = None
 
@@ -781,7 +854,7 @@ class EmployeeCreateView(mixins.HybridCreateView):
 
 class EmployeeUpdateView(mixins.HybridUpdateView):
     model = Employee
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     template_name = "employees/employee_form.html"
 
     def get_initial(self):
@@ -883,7 +956,7 @@ class EmployeeUpdateView(mixins.HybridUpdateView):
 
 class EmployeeDeleteView(mixins.HybridDeleteView):
     model = Employee
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
 
 
 class PayrollListView(mixins.HybridListView):
@@ -903,7 +976,7 @@ class PayrollCreateView(mixins.HybridCreateView):
     model = Payroll
     form_class = forms.PayrollForm
     template_name = "employees/payroll/payroll_form.html"
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     exclude = None
 
 
@@ -914,13 +987,13 @@ class PayrollDetailView(mixins.HybridDetailView):
 class PayrollUpdateView(mixins.HybridUpdateView):
     model = Payroll
     form_class = forms.PayrollForm
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     exclude = None
 
 
 class PayrollDeleteView(mixins.HybridDeleteView):
     model = Payroll
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
 
 
 class PayrollPaymentListView(mixins.HybridListView):
@@ -939,7 +1012,7 @@ class PayrollPaymentCreateView(mixins.HybridCreateView):
     model = PayrollPayment
     template_name = "employees/payroll/payroll_payment_form.html"
     form_class = forms.PayrollPaymentForm
-    permissions = ("branch_staff", "admin_staff", "ceo","cfo","coo","hr","cmo")
+    permissions = ("admin_staff", "ceo","cfo","coo","hr","cmo")
     exclude = ("is_active",)
 
     def get_form(self, form_class=None):
@@ -1004,7 +1077,7 @@ class PayrollPaymentDetailView(mixins.HybridDetailView):
 class PayrollPaymentUpdateView(mixins.HybridUpdateView):
     model = PayrollPayment
     form_class = forms.PayrollPaymentForm
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
+    permissions = ("admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
     template_name = "employees/payroll/payroll_payment_form.html"
 
     def form_valid(self, form):
@@ -1059,7 +1132,7 @@ class AdvancePayrollPaymentCreateView(mixins.HybridCreateView):
     model = AdvancePayrollPayment
     template_name = "employees/payroll/advance_payroll_payment_form.html"
     form_class = forms.AdvancePayrollPaymentForm
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
+    permissions = ("admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
     exclude = ("is_active",)
 
     def get_form(self, form_class=None):
@@ -1142,7 +1215,7 @@ class AdvancePayrollPaymentDetailView(mixins.HybridDetailView):
 class AdvancePayrollPaymentUpdateView(mixins.HybridUpdateView):
     model = AdvancePayrollPayment
     form_class = forms.AdvancePayrollPaymentForm
-    permissions = ("branch_staff", "admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
+    permissions = ("admin_staff", "ceo", "cfo", "coo", "hr", "cmo")
     template_name = "employees/payroll/advance_payroll_payment_form.html"
 
     def form_valid(self, form):

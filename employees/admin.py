@@ -1,6 +1,6 @@
 from core.base import BaseAdmin
 
-from .models import Department, Designation, Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment
+from .models import Department, Designation, Employee, EmployeeLeaveRequest, EmployeeLeaveBalance, Partner, Payroll, PayrollPayment, AdvancePayrollPayment
 from django.contrib import admin
 
 
@@ -58,3 +58,13 @@ class PartnerAdmin(BaseAdmin):
     list_filter = ("is_active",)
     search_fields = ("full_name", "contact_number", "whatsapp_number", "email")
     ordering = ("-id",)
+
+
+@admin.register(EmployeeLeaveRequest)
+class EmployeeLeaveRequestAdmin(BaseAdmin):
+    pass
+
+
+@admin.register(EmployeeLeaveBalance)
+class EmployeeLeaveBalanceAdmin(BaseAdmin):
+    pass

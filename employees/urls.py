@@ -14,6 +14,8 @@ urlpatterns = [
     path('ajax/get-employee-payrolls/', views.ajax_get_employee_payrolls, name='ajax_get_employee_payrolls'),
     path('ajax/payroll-data/', views.get_employee_payroll_data, name='ajax_get_employee_payroll_data'),
     path('leave-request/<int:pk>/update-status/', views.update_leave_status, name='update_leave_status'),
+    path('ajax/get-payroll-data/', views.ajax_get_employee_payroll_data, name='ajax_get_employee_payroll_data'),
+
 
     #Appointment
     path("employee/appointment/<str:pk>/", views.employee_appointment, name="employee_appointment"),

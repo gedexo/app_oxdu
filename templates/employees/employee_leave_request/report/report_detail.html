@@ -113,18 +113,22 @@
                                         </span>
                                     </div>
                                     <div class="d-flex align-items-baseline">
-                                        <h2 class="fw-bold mb-0 text-dark">{{ object.total_balance_leaves|floatformat:1 }}</h2>
+                                        <h2 class="fw-bold mb-0 text-dark">{{ object.current_month_paid_available|floatformat:1 }}</h2>
                                         <span class="text-muted ms-1 small">{% trans "days" %}</span>
                                     </div>
                                     
                                     <div class="mt-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="text-muted">{% trans "Current Month" %}</small>
+                                            <span class="fw-bold text-dark small">{{ object.current_month_fresh_paid|floatformat:1 }}</span>
+                                        </div>
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <small class="text-muted">{% trans "Carry-over" %}</small>
                                             <span class="fw-bold text-dark small">{{ object.actual_paid_carry_forward|floatformat:1 }}</span>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center">
                                             <small class="text-muted">{% trans "Limit" %}</small>
-                                            <span class="text-muted small">{{ object.leave_balance_obj.MAX_PAID_LIMIT|floatformat:1 }}</span>
+                                            <span class="text-muted small">{{ object.leave_balance_obj.CARRY_LIMIT_PAID|floatformat:1 }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -139,18 +143,22 @@
                                         </span>
                                     </div>
                                     <div class="d-flex align-items-baseline">
-                                        <h2 class="fw-bold mb-0 text-dark">{{ object.total_balance_wfh|floatformat:1 }}</h2>
+                                        <h2 class="fw-bold mb-0 text-dark">{{ object.current_month_wfh_available|floatformat:1 }}</h2>
                                         <span class="text-muted ms-1 small">{% trans "days" %}</span>
                                     </div>
                                     
                                     <div class="mt-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="text-muted">{% trans "Current Month" %}</small>
+                                            <span class="fw-bold text-dark small">{{ object.current_month_fresh_wfh|floatformat:1 }}</span>
+                                        </div>
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <small class="text-muted">{% trans "Carry-over" %}</small>
                                             <span class="fw-bold text-dark small">{{ object.actual_wfh_carry_forward|floatformat:1 }}</span>
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center">
                                             <small class="text-muted">{% trans "Limit" %}</small>
-                                            <span class="text-muted small">{{ object.leave_balance_obj.MAX_WFH_LIMIT|floatformat:1 }}</span>
+                                            <span class="text-muted small">{{ object.leave_balance_obj.CARRY_LIMIT_WFH|floatformat:1 }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -163,7 +171,7 @@
                         <div class="bg-light rounded-2 p-2 d-flex align-items-center justify-content-center">
                             <span class="dot-label bg-warning me-2" style="width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
                             <small class="text-muted" style="font-size: 0.65rem;">
-                                {% trans "Current Cycle:" %} <strong>{% now "F Y" %}</strong>
+                                {% trans "Available for" %} <strong>{% now "F Y" %}</strong>
                             </small>
                         </div>
                     </div>
