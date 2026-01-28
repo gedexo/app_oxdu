@@ -1,0 +1,184 @@
+{% load tz %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <!-- Import Poppins from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            /* Apply Poppins font */
+            font-family: 'Poppins', sans-serif;
+            font-size: 12pt;
+            color: #333;
+        }
+
+        /* Essential for PDF page sizes */
+        section {
+            width: 210mm;
+            height: 297mm;
+            position: relative;
+            page-break-after: always;
+            background-size: 100% 100%;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+
+        /* Prevents a blank page at the very end of the PDF */
+        section:last-child {
+            page-break-after: avoid;
+        }
+
+        .page-content {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: 50px; 
+        }
+
+        h1, h2, h3 {
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+        .letter-content{
+            position: absolute;
+            font-weight: 600;
+            font-size: 12.5pt;
+        }
+
+        .employee-name {
+            top: 317px;
+            left: 125px;
+        }
+
+        .employee-position{
+            top: 363px;
+            left: 340px;
+        }
+
+        .employee-joining-date{
+            top: 382px;
+            left: 400px;
+        }
+
+        .position{
+            top: 532px;
+            left: 315px;
+        }
+        
+        .employee-basic-salary{
+            top: 725px;
+            left: 485px;
+        }
+
+        .employee-basic-salary2{
+            top: 746px;
+            left: 122px;
+        }
+
+        .employee-fullname-page3{
+            top: 164px;
+            left: 215px;
+            position: absolute;
+        }
+
+        .employee-signature{
+            position: absolute;
+            top: 192px;
+            left: 250px;
+        }
+        
+        .employee-signature img{
+            height: 50px;
+        }
+
+        .date{
+            top: 220px;
+            left: 120px;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+
+    {% for image_url in offer_images %}
+    <section style="background-image: url('{{ image_url }}');">
+        <div class="page-content">
+            {% if forloop.first %}
+                <div class="letter-content employee-name">
+                    {{ instance.fullname }}
+                </div>
+
+                <div class="letter-content employee-position">
+                    {{ instance.designation }}
+                </div>
+
+                <div class="letter-content employee-joining-date">
+                    {{ instance.date_of_joining }}
+                </div>
+
+                <div class="letter-content position">
+                    {{ instance.designation }}
+                </div>
+                {% if instance.basic_salary %}
+                {% load number_words %}
+
+                {% with salary_words=instance.basic_salary|in_words %}
+                    {% if salary_words|length <= 20 %}
+                        <div class="letter-content employee-basic-salary">
+                            {{ salary_words }} Only
+                        </div>
+                    {% else %}
+                        <div class="letter-content employee-basic-salary">
+                            {{ salary_words|slice:":22" }}
+                        </div>
+
+                        <div class="letter-content employee-basic-salary2">
+                            {{ salary_words|slice:"22:" }} Only
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                {% endif %}
+            {% endif %}
+
+            {% if forloop.counter == 2 %}
+            {% endif %}
+
+            {% if forloop.counter == 3 %}
+                <div class="letter-content employee-fullname-page3">
+                    {{ instance.fullname }}
+                </div>
+
+                <div class="employee-signature">
+                    {% if instance.signature %}
+                        <img src="{{ instance.signature.url }}"
+                            alt="{{ instance.fullname }}-signature">
+                    {% endif %}
+                </div>
+
+                <div class="date">
+                    {% now "d F Y" %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endfor %}
+    
+</body>
+</html>

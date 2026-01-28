@@ -836,6 +836,8 @@ class HomeView(mixins.HybridTemplateView):
             context["branch_infos"] = branch_infos
             context['total_my_leads'] = AdmissionEnquiry.objects.filter(tele_caller=self.request.user.employee).count()
             context['awaiting_leads'] = AdmissionEnquiry.objects.filter(tele_caller__isnull=True).count()
+            context['interested_leads'] = AdmissionEnquiry.objects.filter(tele_caller=self.request.user.employee, status="interested").count()
+            context['demo_leads'] = AdmissionEnquiry.objects.filter(tele_caller=self.request.user.employee, status="demo").count()
             context["student_count"] = students_in_branch.count()
             context["employee_count"] = Employee.objects.filter(branch=branch, is_active=True).count()
             context["today_enquiries"] = today_enquiries_qs

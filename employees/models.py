@@ -134,6 +134,12 @@ class Employee(BaseModel):
     # Job 
     aadhar = models.FileField(null=True, upload_to="employees/doc/aadhar/", blank=True)
     pancard = models.FileField(null=True, blank=True, upload_to="employees/doc/pancard/")
+    signature = models.ImageField(
+        upload_to="employees/doc/signature/",
+        null=True,
+        blank=True,
+        help_text="Upload a transparent signature image (PNG recommended)"
+    )   
     offer_letter = models.FileField(blank=True, null=True, upload_to="employees/doc/")
     joining_letter = models.FileField(blank=True, null=True, upload_to="employees/doc/")
     agreement_letter = models.FileField(blank=True, null=True, upload_to="employees/doc/")

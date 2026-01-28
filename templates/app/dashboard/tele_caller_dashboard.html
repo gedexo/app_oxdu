@@ -1,11 +1,12 @@
 {% load static humanize %}
 
- <!-- Start::row-1 -->
+<!-- Start::row-1 -->
 <div class="row">
-    <div class="col-xxl-9 col-md-12 col-lg-12">
+    <div class="col-xxl-12 col-md-12 col-lg-12">
         <div class="row">
           
-            <div class="col-xl-3 col-lg-43 col-md-12">
+            <!-- Total Employees -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
                 <div class="card custom-card">
                     <div class="card-body">
                         <div class="row">
@@ -15,13 +16,16 @@
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="icon1 bg-success my-auto float-end card-icon"> <i class="fe fe-users"></i> </div>
+                                <!-- Changed to Blue/Primary for Staff -->
+                                <div class="icon1 bg-primary my-auto float-end card-icon"> <i class="fe fe-users"></i> </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-lg-3 col-md-12">
+
+            <!-- Total Students -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
                 <div class="card custom-card">
                     <div class="card-body">
                         <div class="row">
@@ -31,134 +35,203 @@
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="icon1 bg-primary my-auto  float-end card-icon"> <i class="fas fa-graduation-cap"></i> </div>
+                                <!-- Changed to Indigo/Purple for Education -->
+                                <div class="icon1 bg-info my-auto float-end card-icon"> <i class="fas fa-graduation-cap"></i> </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-xl-3 col-lg-3 col-md-12">
+
+            <!-- My Leads -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
                 <div class="card custom-card">
                     <div class="card-body">
-                        <a href="{% url 'admission:my_lead_list' %}">
-                        <div class="row">
+                        <a href="{% url 'admission:my_lead_list' %}" class="text-decoration-none">
+                            <div class="row">
                                 <div class="col-8">
-                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">My Leads</span>
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium text-dark">My Leads</span>
                                     <h3 class="mb-0 mt-1 text-success mb-2">{{total_my_leads}}</h3> </div>
                                 </div>
                                 <div class="col-4">
-                                <div class="icon1 bg-secondary my-auto  float-end card-icon"> <i class="fe fe-dollar-sign"></i> </div>
+                                    <!-- Changed to Green for Ownership/Growth -->
+                                    <div class="icon1 bg-success my-auto float-end card-icon"> <i class="fe fe-user-check"></i> </div>
                                 </div>
-                        </div>
-                    </a>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <div class="col-xl-3 col-lg-3 col-md-12">
+            <!-- Leads in Queue -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
                 <div class="card custom-card">
                     <div class="card-body">
-                        <a href="{% url 'admission:public_lead_list' %}">
-                        <div class="row">
+                        <a href="{% url 'admission:public_lead_list' %}" class="text-decoration-none">
+                            <div class="row">
                                 <div class="col-8">
-                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium">Leads in Queue</span>
-                                    <h3 class="mb-0 mt-1 text-danger mb-2">{{awaiting_leads}}</h3> </div>
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium text-dark">Leads in Queue</span>
+                                    <h3 class="mb-0 mt-1 text-warning mb-2">{{awaiting_leads}}</h3> </div>
                                 </div>
                                 <div class="col-4">
-                                <div class="icon1 bg-danger my-auto  float-end card-icon"> <i class="fe fe-credit-card"></i> </div>
+                                    <!-- Changed to Warning/Orange for Waiting -->
+                                    <div class="icon1 bg-warning my-auto float-end card-icon"> <i class="fe fe-clock"></i> </div>
                                 </div>
-                        </div>
-                    </a>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interested Leads -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'admission:my_lead_list' %}?status=interested" class="text-decoration-none">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium text-dark">Interested</span>
+                                    <h3 class="mb-0 mt-1 text-secondary mb-2">{{interested_leads}}</h3> </div>
+                                </div>
+                                <div class="col-4">
+                                    <!-- Changed to Secondary/Purple for Interest -->
+                                    <div class="icon1 bg-secondary my-auto float-end card-icon"> <i class="fe fe-heart"></i> </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ready to Demo Leads -->
+            <div class="col-xl-2 col-lg-3 col-md-12">
+                <div class="card custom-card">
+                    <div class="card-body">
+                        <a href="{% url 'admission:my_lead_list' %}?status=demo" class="text-decoration-none">
+                            <div class="row">
+                                <div class="col-8">
+                                    <div class="mt-0 text-start"> <span class="fs-14 fw-medium text-dark">Ready to Demo</span>
+                                    <h3 class="mb-0 mt-1 text-danger mb-2">{{demo_leads}}</h3> </div>
+                                </div>
+                                <div class="col-4">
+                                    <!-- Changed to Danger/Red for "Action Needed" -->
+                                    <div class="icon1 bg-danger my-auto float-end card-icon"> <i class="fe fe-monitor"></i> </div>
+                                </div>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-   
 </div> 
 <!--End::row-1 -->
 
-<div class="row">
-    <div class="container my-4">
-        <div class="card custom-card border-0 rounded-4">
-            <div class="card-header bg-primary text-white py-3 rounded-top d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-uppercase">
-                    <i class="bi bi-calendar-check-fill me-2"></i> Today's Enquiry List
+
+<div class="container-fluid my-5">
+    <div class="card custom-card rounded-4">
+        <!-- Header -->
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-calendar-check-fill text-primary me-2"></i> Today's Enquiry List
                 </h5>
-                <span class="fw-semibold text-dark">
-                    <i class="bi bi-calendar3 me-2"></i> {{ today_date|date:"d M Y" }}
+                <small class="text-muted">Manage your daily student leads</small>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-light text-dark border py-2 px-3 rounded-3 fw-semibold">
+                    <i class="bi bi-calendar3 me-2 text-primary"></i> {{ today_date|date:"d M Y" }}
                 </span>
             </div>
-            <div class="card-body bg-white p-4 rounded-bottom">
-                <div class="table-responsive shadow-sm" style="border-radius: 0.5rem; overflow: hidden;">
-                    <table class="table table-hover align-middle text-center mb-0" style="border-radius: 0.5rem; font-size: 0.95rem;">
-                        <thead class="table-dark text-uppercase text-center" style="letter-spacing: 0.05em;">
-                            <tr>
-                                <th>Date</th>
-                                <th>Student</th>
-                                <th>Course</th>
-                                <th>Mob</th>
-                                <th>Email</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for record in table.data %}
-                            <tr>
-                                <td class="fw-semibold">{{ record.date|date:"d M Y" }}</td>
-                                <td class="fw-semibold text-capitalize">{{ record.full_name }}</td>
-                                <td>{{ record.course }}</td>
-                                <td>
-                                    <a href="tel:{{ record.contact_number }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                        <i class="bi bi-telephone me-1"></i> {{ record.contact_number }}
+        </div>
+
+        <!-- Table Body -->
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Student Details</th>
+                            <th>Course</th>
+                            <th>Contact Info</th>
+                            <th>Enquiry Type</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in table.data %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-3 bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <span class="fw-bold">{{ record.full_name|slice:":1" }}</span>
+                                    </div>
+                                    <div>
+                                        <div class="td-name text-capitalize">{{ record.full_name }}</div>
+                                        <div class="small text-muted">{{ record.date|date:"d M Y" }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="fw-medium text-dark">{{ record.course }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <a href="tel:{{ record.contact_number }}" class="contact-link small mb-1">
+                                        <i class="bi bi-telephone me-1 text-muted"></i> {{ record.contact_number }}
                                     </a>
-                                </td>
-                                <td>
-                                    <a href="mailto:{{ record.personal_email }}" class="text-decoration-none text-dark fw-semibold">
-                                        <i class="bi bi-envelope me-1"></i> {{ record.personal_email }}
+                                    <a href="mailto:{{ record.personal_email }}" class="contact-link small">
+                                        <i class="bi bi-envelope me-1 text-muted"></i> {{ record.personal_email }}
                                     </a>
-                                </td>
-                                <td class="text-capitalize">{{ record.get_enquiry_type_display }}</td>
-                                <td>
-                                    <span class="badge 
-                                        {% if record.status == 'new_enquiry' %} bg-primary
-                                        {% elif record.status == 'follow_up' %} bg-warning text-dark
-                                        {% elif record.status == 'demo' %} bg-info text-dark
-                                        {% elif record.status == 'interested' %} bg-success
-                                        {% elif record.status == 'admitted' %} bg-success
-                                        {% elif record.status == 'rejected' %} bg-danger
-                                        {% else %} bg-secondary
-                                        {% endif %}
-                                        rounded-pill px-3 py-2 fw-semibold"
-                                    >
-                                        {{ record.get_status_display }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{{ record.get_absolute_url }}" class="btn btn-sm btn-info me-1 rounded-circle" title="View">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="{{ record.get_update_url }}" class="btn btn-sm btn-warning rounded-circle" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="8" class="text-muted fst-italic">No enquiries found for today.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="text-muted small text-capitalize">
+                                    <i class="bi bi-tag-fill me-1"></i> {{ record.get_enquiry_type_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge 
+                                    {% if record.status == 'new_enquiry' %} badge-soft-primary
+                                    {% elif record.status == 'follow_up' %} badge-soft-warning
+                                    {% elif record.status == 'demo' %} badge-soft-info
+                                    {% elif record.status == 'interested' or record.status == 'admitted' %} badge-soft-success
+                                    {% elif record.status == 'rejected' %} badge-soft-danger
+                                    {% else %} badge-soft-secondary
+                                    {% endif %}
+                                    rounded-pill px-3 py-2"
+                                >
+                                    ● {{ record.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="text-center pe-4">
+                                <a href="{{ record.get_absolute_url }}" class="btn btn-light btn-action text-info me-1" title="View">
+                                    <i class="bi bi-eye-fill"></i>
+                                </a>
+                                <a href="{{ record.get_update_url }}" class="btn btn-light btn-action text-warning" title="Edit">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No enquiries found for today.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+        </div>
+        <!-- Footer / Pagination placeholder -->
+        <div class="card-footer bg-white border-top py-3 text-center">
+            <small class="text-muted">Showing {{ table.data|length }} entries</small>
         </div>
     </div>
 </div>
-
-
 
 <div class="row g-4">
     {% for branch_info in branch_infos %}
@@ -670,4 +743,62 @@
         font-size: 0.9rem !important;
     }
 }
+
+</style>
+
+<style>
+    .custom-card {
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+        border: none;
+    }
+    .table thead th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-top: none;
+        padding: 1.25rem 1rem;
+    }
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+    .table tbody tr:hover {
+        background-color: #fbfcfe !important;
+        transform: scale(1.002);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    }
+    .td-name {
+        color: #2c3e50;
+        font-weight: 700;
+    }
+    .td-info {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+    /* Modern Soft Badges */
+    .badge-soft-primary { background-color: #e0ebff; color: #0d6efd; }
+    .badge-soft-success { background-color: #d1f7e0; color: #198754; }
+    .badge-soft-warning { background-color: #fff3cd; color: #856404; }
+    .badge-soft-danger { background-color: #f8d7da; color: #842029; }
+    .badge-soft-info { background-color: #d1ecf1; color: #0c5460; }
+    .badge-soft-secondary { background-color: #e2e3e5; color: #41464b; }
+
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: 0.3s;
+    }
+    .contact-link {
+        text-decoration: none;
+        color: inherit;
+        transition: 0.2s;
+    }
+    .contact-link:hover {
+        color: #0d6efd;
+    }
 </style>

@@ -208,7 +208,7 @@ class AdmissionEnquiryTable(BaseTable):
 
     class Meta:
         model = AdmissionEnquiry
-        fields = ("date", "full_name", "course", "contact_number", "tele_caller", "enquiry_type", "status", "action")
+        fields = ("date", "full_name", "branch", "course", "contact_number", "tele_caller", "enquiry_type", "status", "next_enquiry_date", "action")
         attrs = {"class": "table star-student table-hover table-bordered"}
 
     

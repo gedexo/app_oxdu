@@ -23,6 +23,7 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from decimal import Decimal
 from django.views.decorators.http import require_POST
+from django.utils.text import slugify
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -36,6 +37,10 @@ from .models import Department, Partner
 from .models import Designation
 from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance
 from branches.models import Branch
+
+from django.views.decorators.http import require_POST
+import logging
+logger = logging.getLogger(__name__)
 
 
 def get_employee_salary(request, pk):
@@ -238,56 +243,91 @@ def ajax_get_employee_payroll_data(request):
 
 def employee_appointment(request, pk):
     instance = get_object_or_404(Employee, pk=pk)
-    
-    cache_key = f'employee_appointment_pdf_{pk}'
-    
+
+    # Safely detect user type
+    user_type = (
+        str(instance.user.usertype).lower()
+        if getattr(instance, "user", None) and instance.user.usertype
+        else ""
+    )
+
+    # -------------------------------
+    # Configuration by user type
+    # -------------------------------
+    if user_type in ["sales", "sales_head", "tele_caller"]:
+        folder = "offer_letter_sales"
+        page_range = [1, 2]
+        template_name = (
+            "employees/employee/appointment/offer_letter_sales.html"
+        )
+    else:
+        folder = "offer_letter_general"
+        page_range = [1, 2, 3]
+        template_name = (
+            "employees/employee/appointment/offer_letter_general.html"
+        )
+
+    # -------------------------------
+    # Cache key
+    # -------------------------------
+    cache_key = f"employee_appointment_pdf_{pk}_{folder}"
     pdf_file = cache.get(cache_key)
-    
+
     if not pdf_file:
-        base_url = request.build_absolute_uri('/')
-        
+        base_url = request.build_absolute_uri("/")
+
+        # Build image URLs
+        offer_images = [
+            request.build_absolute_uri(
+                static(
+                    f"app/assets/images/employee_appointment/"
+                    f"{folder}/offer_letter_{i}.png"
+                )
+            )
+            for i in page_range
+        ]
+
         context = {
             "instance": instance,
-            "page_1_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_1.png')),
-            "page_2_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_2.png')),
-            "page_3_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_3.png')),
-            "page_4_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_4.png')),
-            "page_5_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_5.png')),
-            "page_6_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_6.png')),
-            "page_7_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_7.png')),
-            "page_8_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_8.png')),
+            "offer_images": offer_images,
+            "user_type": user_type,
         }
 
-        html_string = render_to_string(
-            'employees/employee/appointment/employee_appointment.html',
-            context
-        )
-        
+        # Render dynamic template
+        html_string = render_to_string(template_name, context)
+
         html = HTML(string=html_string, base_url=base_url)
+        pdf_file = html.write_pdf(
+            stylesheets=[
+                CSS(
+                    string="""
+                        @page {
+                            size: A4;
+                            margin: 0mm;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                        }
+                    """
+                )
+            ]
+        )
 
-        pdf_file = html.write_pdf(stylesheets=[
-            CSS(string='''
-                @page {
-                    size: A4;
-                    margin: 0mm;
-                }
-                body {
-                    margin: 0;
-                    padding: 0;
-                }
-            ''')
-        ])
-        
-        # Cache for 1 hour (3600 seconds)
-        cache.set(cache_key, pdf_file, 3600)
+        # Enable caching if needed
+        # cache.set(cache_key, pdf_file, 3600)
 
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="employee_appointment_{instance.pk}.pdf"'
+    # -------------------------------
+    # Clean filename
+    # -------------------------------
+    employee_name = instance.fullname() or f"employee_{instance.pk}"
+    safe_name = slugify(employee_name)
+    filename = f"{safe_name}_offer_letter.pdf"
+
+    response = HttpResponse(pdf_file, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
-from django.views.decorators.http import require_POST
-import logging
-logger = logging.getLogger(__name__)
 
 @login_required
 @require_POST
@@ -318,14 +358,8 @@ def share_employee_appointment(request, pk):
             
             context = {
                 "instance": instance,
-                "page_1_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_1.png')),
-                "page_2_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_2.png')),
-                "page_3_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_3.png')),
-                "page_4_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_4.png')),
-                "page_5_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_5.png')),
-                "page_6_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_6.png')),
-                "page_7_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_7.png')),
-                "page_8_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/page_8.png')),
+                "page_1_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/offer_letter_sales/offer_letter_1.png')),
+                "page_2_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/offer_letter_sales/offer_letter_2.png')),
             }
 
             html_string = render_to_string(

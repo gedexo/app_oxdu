@@ -2286,40 +2286,61 @@ class LeadList(mixins.HybridListView):
     model = AdmissionEnquiry
     context_object_name = 'leads'
     table_class = tables.AdmissionEnquiryTable
-    branch_filter = None
+    template_name = "admission/leads/lead_list.html"
 
     def get_queryset(self):
         queryset = AdmissionEnquiry.objects.filter(is_active=True)
 
+        # 1. Capture Filter Parameters
         status = self.request.GET.get('status')
         branch = self.request.GET.get('branch')
-        course = self.request.GET.get('course')
-        enquiry_type = self.request.GET.get('enquiry_type')
+        
+        # New: Determine which field to filter on
+        date_field = self.request.GET.get('date_field', 'date') # Defaults to 'date'
+        date_filter = self.request.GET.get('date_filter') 
+        from_date = self.request.GET.get('from_date')
+        to_date = self.request.GET.get('to_date')
 
+        # 2. Apply Standard Filters
         if status:
-            queryset = AdmissionEnquiry.objects.filter(status=status)
-
+            queryset = queryset.filter(status=status)
         if branch:
-            queryset = AdmissionEnquiry.objects.filter(branch=branch)
+            queryset = queryset.filter(branch=branch)
 
-        if course:
-            queryset = AdmissionEnquiry.objects.filter(course=course)
+        # 3. Apply Date Logic Dynamically
+        today = timezone.now().date()
+        
+        # Map the user selection to actual model fields
+        filter_target = 'date' if date_field == 'date' else 'next_enquiry_date'
 
-        if enquiry_type:
-            queryset = AdmissionEnquiry.objects.filter(enquiry_type=enquiry_type)
+        if date_filter == 'today':
+            filter_kwargs = {filter_target: today}
+            queryset = queryset.filter(**filter_kwargs)
+        elif date_filter == 'tomorrow':
+            filter_kwargs = {filter_target: today + timedelta(days=1)}
+            queryset = queryset.filter(**filter_kwargs)
+        elif date_filter == 'custom' and from_date and to_date:
+            filter_kwargs = {f"{filter_target}__range": [from_date, to_date]}
+            queryset = queryset.filter(**filter_kwargs)
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context['title'] = "Leads"
+
+        # Pass current filter values to keep inputs filled
         context['filter_status'] = self.request.GET.get('status', '')
         context['filter_branch'] = self.request.GET.get('branch', '')
-        context['filter_course'] = self.request.GET.get('course', '')
-        context['filter_enquiry_type'] = self.request.GET.get('enquiry_type', '')
-        context['can_add'] = False
+        
+        # Pass the new field selection
+        context['filter_date_field'] = self.request.GET.get('date_field', 'date')
+        context['filter_date_type'] = self.request.GET.get('date_filter', '')
+        context['filter_from_date'] = self.request.GET.get('from_date', '')
+        context['filter_to_date'] = self.request.GET.get('to_date', '')
 
+        context['branches'] = Branch.objects.filter(is_active=True) 
+        context['can_add'] = False
         return context
 
 
@@ -2464,12 +2485,13 @@ class MyleadListView(mixins.HybridListView):
 class AdmissionEnquiryView(mixins.HybridListView):
     model = AdmissionEnquiry
     table_class = tables.AdmissionEnquiryTable
-    filterset_fields = {'course': ['exact'], 'branch': ['exact'],'status': ['exact'],'date': ['exact']}
+    filterset_fields = {'course': ['exact'], 'status': ['exact']}
     permissions = ("branch_staff", "partner", "admin_staff", "is_superuser", "tele_caller", "mentor", "sales_head", "ceo","cfo","coo","hr","cmo")
     branch_filter = False
+    template_name = "admission/leads/lead_list.html"
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().filter(is_active=True)
         user = self.request.user
 
         if user.usertype == "branch_staff":
@@ -2480,18 +2502,47 @@ class AdmissionEnquiryView(mixins.HybridListView):
             queryset = queryset.filter(tele_caller=user.employee)
         elif user.usertype in ["admin_staff", "ceo","cfo","coo","hr","cmo", "partner"] or user.is_superuser:
             queryset = queryset.filter(tele_caller__isnull=False)
+
+        date_field = self.request.GET.get('date_field', 'date')  # 'date' or 'next_date'
+        date_filter = self.request.GET.get('date_filter')       # 'today', 'tomorrow', 'custom'
+        from_date = self.request.GET.get('from_date')
+        to_date = self.request.GET.get('to_date')
+        branch_id = self.request.GET.get('branch')
+
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+
+        today = timezone.now().date()
+        
+        target_field = 'next_enquiry_date' if date_field == 'next_date' else 'date'
+
+        if date_filter == 'today':
+            queryset = queryset.filter(**{target_field: today})
+        elif date_filter == 'tomorrow':
+            queryset = queryset.filter(**{target_field: today + timedelta(days=1)})
+        elif date_filter == 'custom' and from_date and to_date:
+            queryset = queryset.filter(**{f"{target_field}__range": [from_date, to_date]})
+
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user_type = self.request.user.usertype
+        user = self.request.user
 
         context.update({
             "title": "Leads",
             "is_lead": True,
             "is_enquiry": True,
-            "can_add": user_type in ["tele_caller", "admin_staff", "branch_staff", "ceo","cfo","coo","hr","cmo"] or self.request.user.is_superuser,
+            "can_add": user.usertype in ["tele_caller", "admin_staff", "branch_staff", "ceo","cfo","coo","hr","cmo"] or user.is_superuser,
             "new_link": reverse_lazy("admission:admission_enquiry_create"),
+            
+            "filter_date_field": self.request.GET.get('date_field', 'date'),
+            "filter_date_type": self.request.GET.get('date_filter', ''),
+            "filter_from_date": self.request.GET.get('from_date', ''),
+            "filter_to_date": self.request.GET.get('to_date', ''),
+            "filter_branch": self.request.GET.get('branch', ''),
+            
+            "branches": Branch.objects.filter(is_active=True),
         })
 
         return context
@@ -2543,7 +2594,7 @@ class AdmissionEnquiryCreateView(mixins.HybridCreateView):
 
 class AdmissionEnquiryUpdateView(mixins.HybridUpdateView):
     model = AdmissionEnquiry
-    form_class = AdmissionEnquiryForm
+    form_class = forms.AdmissionEnquiryUpdateForm
     permissions = ("branch_staff", "tele_caller", "admin_staff", "is_superuser", "sales_head", "ceo", "cfo", "coo", "hr", "cmo", "mentor")
 
     def get_context_data(self, **kwargs):

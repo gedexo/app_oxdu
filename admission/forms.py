@@ -276,6 +276,12 @@ class AdmissionEnquiryForm(forms.ModelForm):
     class Meta:
         model = AdmissionEnquiry
         fields = '__all__'
+
+    
+class AdmissionEnquiryUpdateForm(forms.ModelForm):
+    class Meta:
+        model = AdmissionEnquiry
+        fields = ('full_name', 'city', 'branch', 'course', 'status', 'next_enquiry_date', 'remark', 'district', 'state',)
         
 
 class AttendanceRegisterForm(forms.ModelForm):

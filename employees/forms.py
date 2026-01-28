@@ -116,6 +116,7 @@ class EmployeeOfficialDataForm(BaseForm):
             "termination_reason",
             "aadhar",
             "pancard",
+            "signature",
             "offer_letter",
             "joining_letter",
             "agreement_letter",
@@ -139,7 +140,7 @@ class EmployeeFinancialDataForm(BaseForm):
 class EmployeeDocumentsForm(BaseForm):
     class Meta:
         model = Employee
-        fields = ["aadhar", "pancard"]
+        fields = ["aadhar", "pancard", "signature"]
 
         def save(self, commit=True):
             instance = super().save(commit=False)
@@ -147,6 +148,8 @@ class EmployeeDocumentsForm(BaseForm):
                 instance.aadhar = self.instance.aadhar
             if not self.cleaned_data.get('pancard'):
                 instance.pancard = self.instance.pancard
+            if not self.cleaned_data.get('signature'):
+                instance.signature = self.instance.signature
             if commit:
                 instance.save()
             return instance
