@@ -24,10 +24,11 @@ from django.shortcuts import redirect, get_object_or_404
 from decimal import Decimal
 from django.views.decorators.http import require_POST
 from django.utils.text import slugify
-
+from core.views import PDFView
+from django.contrib.staticfiles import finders
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
-
+from num2words import num2words
 
 from . import forms
 from . import tables
@@ -241,92 +242,79 @@ def ajax_get_employee_payroll_data(request):
         return JsonResponse({'error': 'Employee not found'}, status=404)
 
 
-def employee_appointment(request, pk):
-    instance = get_object_or_404(Employee, pk=pk)
+class EmployeeAppointmentPDFView(PDFView):
+    pdfkit_options = {
+        "page-size": "A4",
+        "encoding": "UTF-8",
+        "margin-top": "0in",
+        "margin-bottom": "0in",
+        "margin-left": "0in",
+        "margin-right": "0in",
+        "disable-smart-shrinking": None,  
+        "enable-local-file-access": None, 
+        "no-outline": None,
+        "zoom": "1.0",
+    }
 
-    # Safely detect user type
-    user_type = (
-        str(instance.user.usertype).lower()
-        if getattr(instance, "user", None) and instance.user.usertype
-        else ""
-    )
+    def dispatch(self, request, *args, **kwargs):
+        self.instance = get_object_or_404(Employee, pk=kwargs.get("pk"))
+        user_obj = getattr(self.instance, "user", None)
+        self.user_type = str(user_obj.usertype).lower() if user_obj and user_obj.usertype else ""
 
-    # -------------------------------
-    # Configuration by user type
-    # -------------------------------
-    if user_type in ["sales", "sales_head", "tele_caller"]:
-        folder = "offer_letter_sales"
-        page_range = [1, 2]
-        template_name = (
-            "employees/employee/appointment/offer_letter_sales.html"
-        )
-    else:
-        folder = "offer_letter_general"
-        page_range = [1, 2, 3]
-        template_name = (
-            "employees/employee/appointment/offer_letter_general.html"
-        )
+        if self.user_type in ["sales", "sales_head", "tele_caller"]:
+            self.template_name = "employees/employee/appointment/offer_letter_sales.html"
+            self.total_pages = 2
+        else:
+            self.template_name = "employees/employee/appointment/offer_letter_general.html"
+            self.total_pages = 3
 
-    # -------------------------------
-    # Cache key
-    # -------------------------------
-    cache_key = f"employee_appointment_pdf_{pk}_{folder}"
-    pdf_file = cache.get(cache_key)
+        return super().dispatch(request, *args, **kwargs)
 
-    if not pdf_file:
-        base_url = request.build_absolute_uri("/")
+    def get_template_names(self):
+        return [self.template_name]
 
-        # Build image URLs
-        offer_images = [
-            request.build_absolute_uri(
-                static(
-                    f"app/assets/images/employee_appointment/"
-                    f"{folder}/offer_letter_{i}.png"
-                )
-            )
-            for i in page_range
-        ]
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-        context = {
-            "instance": instance,
-            "offer_images": offer_images,
-            "user_type": user_type,
-        }
+        def get_abs_path(rel_path):
+            path = finders.find(rel_path)
+            if not path:
+                path = os.path.join(settings.STATIC_ROOT, rel_path)
+            return path
 
-        # Render dynamic template
-        html_string = render_to_string(template_name, context)
+        salary = self.instance.basic_salary or 0
+        salary_words = num2words(salary, lang='en_IN').title() + " Only"
 
-        html = HTML(string=html_string, base_url=base_url)
-        pdf_file = html.write_pdf(
-            stylesheets=[
-                CSS(
-                    string="""
-                        @page {
-                            size: A4;
-                            margin: 0mm;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                        }
-                    """
-                )
-            ]
-        )
+        employee_signature_path = self.instance.signature.path if self.instance.signature else ""
 
-        # Enable caching if needed
-        # cache.set(cache_key, pdf_file, 3600)
+        context.update({
+            "instance": self.instance,
+            "user_type": self.user_type,
+            "total_pages": self.total_pages,
+            "salary_words": salary_words,
+            "bg_img_1": get_abs_path("app/assets/images/employee_appointment/offer_letter/offer_letter_1.png"),
+            "bg_img_2": get_abs_path("app/assets/images/employee_appointment/offer_letter/offer_letter_2.png"),
+            "hr_signature_path": get_abs_path("app/assets/images/signature/fidha_signature.png"),
+            "employee_signature_path": employee_signature_path,
+        })
 
-    # -------------------------------
-    # Clean filename
-    # -------------------------------
-    employee_name = instance.fullname() or f"employee_{instance.pk}"
-    safe_name = slugify(employee_name)
-    filename = f"{safe_name}_offer_letter.pdf"
+        return context
 
-    response = HttpResponse(pdf_file, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
-    return response
+    def get_filename(self):
+        """Return PDF filename using employee fullname"""
+        name = self.instance.fullname if not callable(self.instance.fullname) else self.instance.fullname()
+        if not name:
+            name = f"employee_{self.instance.pk}"
+        return f"{slugify(name)}-offer-letter.pdf"
+
+    def get(self, request, *args, **kwargs):
+        """Override get() to force correct filename in response"""
+        content = self.render_pdf(*args, **kwargs)
+        response = HttpResponse(content, content_type="application/pdf")
+        filename = self.get_filename()
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        response["Content-Length"] = len(content)
+        return response
 
 
 @login_required
@@ -334,14 +322,13 @@ def employee_appointment(request, pk):
 def share_employee_appointment(request, pk):
     instance = get_object_or_404(Employee, pk=pk)
     
-    # Check if employee has an email
+    # 1. Validation Checks
     if not instance.personal_email:
         return JsonResponse({
             'success': False,
             'message': '❌ Employee email not found! Please add an email address first.'
         })
     
-    # Check if already sent
     if instance.is_appointment_letter_sent:
         return JsonResponse({
             'success': False,
@@ -349,50 +336,59 @@ def share_employee_appointment(request, pk):
         })
     
     try:
-        # Generate PDF (reuse from cache if available)
+        # 2. PDF Generation Logic (Consistent with OXDU DEMAND SCHOOL branding)
         cache_key = f'employee_appointment_pdf_{pk}'
         pdf_file = cache.get(cache_key)
         
         if not pdf_file:
-            base_url = request.build_absolute_uri('/')
+            # Determine User Type for template selection
+            user_obj = getattr(instance, "user", None)
+            user_type = str(user_obj.usertype).lower() if user_obj and user_obj.usertype else ""
+            
+            if user_type in ["sales", "sales_head", "tele_caller"]:
+                template_name = "employees/employee/appointment/offer_letter_sales.html"
+                total_pages = 2
+            else:
+                template_name = "employees/employee/appointment/offer_letter_general.html"
+                total_pages = 3
+
+            def get_abs_path(rel_path):
+                path = finders.find(rel_path)
+                if not path:
+                    path = os.path.join(settings.STATIC_ROOT, rel_path)
+                return path
+
+            salary = instance.basic_salary or 0
+            salary_words = num2words(salary, lang='en_IN').title() + " Only"
+            employee_signature_path = instance.signature.path if instance.signature else ""
             
             context = {
                 "instance": instance,
-                "page_1_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/offer_letter_sales/offer_letter_1.png')),
-                "page_2_image": request.build_absolute_uri(static('app/assets/images/employee_appointment/offer_letter_sales/offer_letter_2.png')),
+                "user_type": user_type,
+                "total_pages": total_pages,
+                "salary_words": salary_words,
+                "bg_img_1": get_abs_path("app/assets/images/employee_appointment/offer_letter/offer_letter_1.png"),
+                "bg_img_2": get_abs_path("app/assets/images/employee_appointment/offer_letter/offer_letter_2.png"),
+                "hr_signature_path": get_abs_path("app/assets/images/signature/fidha_signature.png"),
+                "employee_signature_path": employee_signature_path,
             }
 
-            html_string = render_to_string(
-                'employees/employee/appointment/employee_appointment.html',
-                context
-            )
-            
+            html_string = render_to_string(template_name, context)
+            base_url = request.build_absolute_uri('/')
             html = HTML(string=html_string, base_url=base_url)
 
             pdf_file = html.write_pdf(stylesheets=[
-                CSS(string='''
-                    @page {
-                        size: A4;
-                        margin: 0mm;
-                    }
-                    body {
-                        margin: 0;
-                        padding: 0;
-                    }
-                ''')
+                CSS(string='@page { size: A4; margin: 0mm; } body { margin: 0; padding: 0; }')
             ])
             
-            # Cache for 1 hour
+            # Cache for 1 hour to prevent redundant generation
             cache.set(cache_key, pdf_file, 3600)
         
-        # Get employee name
-        employee_name = instance.get_full_name() if hasattr(instance, 'get_full_name') else str(instance)
-        
-        # Company and date info
+        # 3. Prepare Email Content
+        employee_name = instance.fullname if not callable(instance.fullname) else instance.fullname()
         current_year = datetime.now().year
         current_date = datetime.now().strftime('%B %d, %Y')
         
-        # Email context for HTML template
         email_context = {
             'employee_name': employee_name,
             'employee': instance,
@@ -400,86 +396,46 @@ def share_employee_appointment(request, pk):
             'current_date': current_date,
         }
         
-        # Render HTML email
         html_content = render_to_string(
             'employees/employee/appointment/email/appointment_letter_email.html',
             email_context
         )
         
-        # Plain text version (simple and professional)
-        text_content = f"""OXDU Integrated Media School
-Human Resources Department
-
-{current_date}
-
-{employee_name}
-{instance.personal_email}
-
-Re: Letter of Appointment
-
-Dear {employee_name},
-
-We are pleased to confirm your appointment with OXDU Integrated Media School. We believe that your skills and experience will be a valuable asset to our organization.
-
-Please find attached your official Letter of Appointment, which outlines the terms and conditions of your employment, including:
-
-• Position title and job responsibilities
-• Compensation and benefits package
-• Employment terms and conditions
-• Start date and reporting structure
-
-We request you to carefully review the attached document. Should you have any questions or require any clarification regarding the terms of your appointment, please feel free to contact us.
-
-We look forward to welcoming you to the OXDU family and are confident that this will be the beginning of a mutually rewarding association.
-
-Warm regards,
-
-Human Resources Department
-OXDU Integrated Media School
-
----
-Note: This is an automatically generated email. Please do not reply to this message. For any queries, please contact our HR department directly.
-
-© {current_year} OXDU Integrated Media School. All rights reserved.
-"""
-        
-        # Email subject
-        subject = 'Letter of Appointment - OXDU Integrated Media School'
-        
-        # From email - OXDU HR Department
-        from_email = 'OXDU HR Department <{}>'.format(
-            getattr(settings, 'DEFAULT_FROM_EMAIL', settings.EMAIL_HOST_USER)
+        # Updated Company Name in Plain Text
+        text_content = (
+            f"Dear {employee_name},\n\n"
+            f"We are pleased to offer you an appointment at OXDU DEMAND SCHOOL. "
+            f"Please find your official Letter of Appointment attached.\n\n"
+            f"Regards,\n"
+            f"Human Resources Department\n"
+            f"OXDU DEMAND SCHOOL"
         )
         
-        # Create email with both HTML and plain text
+        # Updated Subject and From Email
+        subject = 'Letter of Appointment - OXDU DEMAND SCHOOL'
+        from_email = f'OXDU DEMAND SCHOOL HR <{settings.DEFAULT_FROM_EMAIL}>'
+        
+        # 4. Construct and Send Email
         email = EmailMultiAlternatives(
             subject=subject,
-            body=text_content.strip(),
+            body=text_content,
             from_email=from_email,
             to=[instance.personal_email],
             reply_to=[getattr(settings, 'HR_EMAIL', settings.EMAIL_HOST_USER)],
         )
         
-        # Attach HTML version
         email.attach_alternative(html_content, "text/html")
         
-        # Attach PDF
-        email.attach(
-            f'Appointment_Letter_{employee_name.replace(" ", "_")}.pdf',
-            pdf_file,
-            'application/pdf'
-        )
+        # Attach PDF with clean filename
+        filename = f"Appointment_Letter_{employee_name.replace(' ', '_')}.pdf"
+        email.attach(filename, pdf_file, 'application/pdf')
         
-        # Send email via Brevo SMTP
         email.send(fail_silently=False)
         
-        # Update the boolean field
+        # 5. Finalize Status
         instance.is_appointment_letter_sent = True
-        if hasattr(instance, 'appointment_letter_sent_at'):
-            instance.appointment_letter_sent_at = timezone.now()
-            instance.save(update_fields=['is_appointment_letter_sent', 'appointment_letter_sent_at'])
-        else:
-            instance.save(update_fields=['is_appointment_letter_sent'])
+        instance.appointment_letter_sent_at = timezone.now()
+        instance.save(update_fields=['is_appointment_letter_sent', 'appointment_letter_sent_at'])
         
         return JsonResponse({
             'success': True,
@@ -487,7 +443,6 @@ Note: This is an automatically generated email. Please do not reply to this mess
         })
         
     except Exception as e:
-        logger.error(f"Error sending appointment letter to {instance.personal_email}: {str(e)}", exc_info=True)
         return JsonResponse({
             'success': False,
             'message': f'❌ Error sending email: {str(e)}'

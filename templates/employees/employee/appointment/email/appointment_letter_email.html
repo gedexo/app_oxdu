@@ -5,105 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appointment Letter</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #ffffff;">
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f2f4f6; color: #333333; -webkit-font-smoothing: antialiased;">
     
-    <div style="max-width: 650px; margin: 0 auto; padding: 40px 20px;">
-        
-        <!-- Company Letterhead (Simple) -->
-        <div style="margin-bottom: 30px;">
-            <h2 style="margin: 0 0 5px 0; color: #1a1a1a; font-size: 18px; font-weight: bold;">
-                OXDU Integrated Media School
-            </h2>
-            <p style="margin: 0; color: #666666; font-size: 13px;">
-                Human Resources Department
+    <div>
+        <!-- Header -->
+        <div style="padding: 25px 40px 15px 40px;">
+            <h1 style="margin: 0; color: #1a1a1a; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                OXDU DEMAND SCHOOL
+            </h1>
+            <p style="margin: 2px 0 0 0; color: #999999; font-size: 13px;">{{ current_date }}</p>
+        </div>
+
+        <!-- Divider -->
+        <div style="padding: 0 40px;">
+            <div style="height: 1px; background-color: #eeeeee;"></div>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 25px 40px;">
+            
+            <p style="margin: 0 0 15px 0; font-size: 13px; color: #1a1a1a;">
+                Hi <strong>{{ employee_name }}</strong>,
+            </p>
+
+            <p style="margin: 0 0 15px 0; font-size: 13px; line-height: 1.5; color: #444444;">
+                We are pleased to confirm your appointment at <strong>OXDU DEMAND SCHOOL</strong>. Please find your official Letter of Appointment attached to this email.
+            </p>
+
+            <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #1a1a1a;">
+                Document details:
+            </p>
+
+            <!-- Short Vertical List -->
+            <div style="margin: 0 0 20px 0; padding-left: 5px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr><td style="padding: 3px 0; font-size: 13px; color: #666666;">• &nbsp; Role & Responsibilities</td></tr>
+                    <tr><td style="padding: 3px 0; font-size: 13px; color: #666666;">• &nbsp; Compensation & Benefits</td></tr>
+                    <tr><td style="padding: 3px 0; font-size: 13px; color: #666666;">• &nbsp; Employment Terms</td></tr>
+                </table>
+            </div>
+
+            <p style="margin: 0 0 25px 0; font-size: 13px; line-height: 1.5; color: #444444;">
+                Please review the document and contact the HR department if you have any questions. We look forward to having you on board!
+            </p>
+
+            <!-- Closing -->
+            <p style="margin: 0; font-size: 13px; font-weight: 600; color: #1a1a1a;">Warm regards,</p>
+            <p style="margin: 2px 0 0 0; font-size: 13px; color: #666666;">
+                Human Resources Department<br>
+                OXDU DEMAND SCHOOL
             </p>
         </div>
 
-        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
-
-        <!-- Date -->
-        <p style="margin: 0 0 25px 0; color: #666666; font-size: 14px;">
-            {{ current_date }}
-        </p>
-
-        <!-- Recipient -->
-        <p style="margin: 0 0 5px 0; color: #1a1a1a; font-size: 15px; font-weight: 600;">
-            {{ employee_name }}
-        </p>
-        <p style="margin: 0 0 30px 0; color: #666666; font-size: 14px;">
-            {{ employee.email }}
-        </p>
-
-        <!-- Subject Line -->
-        <p style="margin: 0 0 25px 0; color: #1a1a1a; font-size: 14px;">
-            <strong>Re: Letter of Appointment</strong>
-        </p>
-
-        <!-- Salutation -->
-        <p style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 15px; line-height: 1.6;">
-            Dear {{ employee_name }},
-        </p>
-
-        <!-- Main Body -->
-        <p style="margin: 0 0 18px 0; color: #333333; font-size: 15px; line-height: 1.7;">
-            We are pleased to confirm your appointment with <strong>OXDU Integrated Media School</strong>. We believe that your skills and experience will be a valuable asset to our organization.
-        </p>
-
-        <p style="margin: 0 0 18px 0; color: #333333; font-size: 15px; line-height: 1.7;">
-            Please find attached your official Letter of Appointment, which outlines the terms and conditions of your employment, including:
-        </p>
-
-        <!-- Details List -->
-        <div style="margin: 0 0 20px 0; padding-left: 20px;">
-            <p style="margin: 0 0 10px 0; color: #333333; font-size: 15px; line-height: 1.6;">
-                • Position title and job responsibilities
-            </p>
-            <p style="margin: 0 0 10px 0; color: #333333; font-size: 15px; line-height: 1.6;">
-                • Compensation and benefits package
-            </p>
-            <p style="margin: 0 0 10px 0; color: #333333; font-size: 15px; line-height: 1.6;">
-                • Employment terms and conditions
-            </p>
-            <p style="margin: 0 0 10px 0; color: #333333; font-size: 15px; line-height: 1.6;">
-                • Start date and reporting structure
+        <!-- Simple Footer -->
+        <div style="background-color: #fafafa; padding: 15px 40px; text-align: center; border-top: 1px solid #eeeeee;">
+            <p style="margin: 0; color: #bbbbbb; font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">
+                &copy; {{ current_year }} OXDU DEMAND SCHOOL
             </p>
         </div>
-
-        <p style="margin: 0 0 18px 0; color: #333333; font-size: 15px; line-height: 1.7;">
-            We request you to carefully review the attached document. Should you have any questions or require any clarification regarding the terms of your appointment, please feel free to contact us.
-        </p>
-
-        <p style="margin: 0 0 25px 0; color: #333333; font-size: 15px; line-height: 1.7;">
-            We look forward to welcoming you to the OXDU family and are confident that this will be the beginning of a mutually rewarding association.
-        </p>
-
-        <!-- Closing -->
-        <p style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 15px; line-height: 1.6;">
-            Warm regards,
-        </p>
-
-        <!-- Signature Block -->
-        <div style="margin: 25px 0 40px 0;">
-            <p style="margin: 0 0 3px 0; color: #1a1a1a; font-size: 15px; font-weight: 600;">
-                Human Resources Department
-            </p>
-            <p style="margin: 0 0 3px 0; color: #1a1a1a; font-size: 15px;">
-                OXDU Integrated Media School
-            </p>
-        </div>
-
-        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0 20px 0;">
-
-        <!-- Footer - Minimal -->
-        <div style="margin-top: 20px;">
-            <p style="margin: 0 0 8px 0; color: #999999; font-size: 12px; line-height: 1.5;">
-                <strong>Note:</strong> This is an automatically generated email. Please do not reply to this message. For any queries, please contact our HR department directly.
-            </p>
-            <p style="margin: 0; color: #cccccc; font-size: 11px;">
-                © {{ current_year }} OXDU Integrated Media School. All rights reserved.
-            </p>
-        </div>
-
     </div>
 
 </body>

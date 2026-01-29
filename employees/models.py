@@ -165,11 +165,13 @@ class Employee(BaseModel):
     # Emergency Info
     blood_group = models.CharField(max_length=128, choices=BLOOD_CHOICES, blank=True, null=True)
     basic_salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    commission_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Commission percentage (Per Admission)")
     hra = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     other_allowance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     transportation_allowance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     is_appointment_letter_sent = models.BooleanField(default=False)
+    appointment_letter_sent_at = models.DateTimeField(null=True, blank=True)
     account = models.OneToOneField('accounting.Account', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):

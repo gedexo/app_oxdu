@@ -39,7 +39,7 @@
               {% endif %}
             </div>
             <div class="pro-user mt-3">
-              <h5 class="pro-user-username text-dark mb-1 fs-16">{{ object.first_name }} {{ object.last_name }}</h5>
+              <h5 class="pro-user-username text-dark mb-1 fs-16">{{ object.fullname|title }}</h5>
               <h6 class="pro-user-desc text-muted fs-12 mb-1">{{ object.designation|default:"Employee" }}</h6>
             </div>
           </div>
@@ -125,6 +125,7 @@
                     </div>
                     {% endif %}
 
+                    {% if request.user.is_superuser or request.user.usertype == "hr" or request.user.usertype == "admin_staff" %}
                     <div class="col-12 mt-2">
                       <div class="d-flex gap-2">
                         <!-- Open & Download Button -->
@@ -157,6 +158,7 @@
                         {% endif %}
                       </div>
                     </div>
+                    {% endif %}
                   </div>
                 </div>
               </div>

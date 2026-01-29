@@ -134,7 +134,7 @@ class EmployeeOfficialDataForm(BaseForm):
 class EmployeeFinancialDataForm(BaseForm):
     class Meta:
         model = Employee
-        fields = ("is_active", "bank_name", "account_name", "bank_branch", "account_number", "ifsc_code", "pan_number", "basic_salary", "hra", "transportation_allowance", "other_allowance")
+        fields = ("is_active", "bank_name", "account_name", "bank_branch", "account_number", "ifsc_code", "pan_number", "basic_salary", "commission_percentage", "hra", "transportation_allowance", "other_allowance")
 
 
 class EmployeeDocumentsForm(BaseForm):

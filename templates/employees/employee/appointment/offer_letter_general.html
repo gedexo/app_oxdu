@@ -1,184 +1,239 @@
-{% load tz %}
-
+{% load static tz %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Import Poppins from Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Offer Letter - {{ instance.fullname|title }}</title>
+    <!-- Google Fonts: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
-        * {
+        /* 1. PDF Canvas & Page Setup */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 210mm;
+            background: white;
+            font-family: 'Poppins', sans-serif;
+            color: #333;
+            -webkit-print-color-adjust: exact;
+        }
+
+        section {
+            width: 210mm;
+            height: 297mm;
+            position: relative;
+            display: block;
+            overflow: hidden;
+            page-break-after: always;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: cover; 
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        body {
-            margin: 0;
-            padding: 0;
-            /* Apply Poppins font */
-            font-family: 'Poppins', sans-serif;
-            font-size: 12pt;
-            color: #333;
-        }
-
-        /* Essential for PDF page sizes */
-        section {
-            width: 210mm;
-            height: 297mm;
-            position: relative;
-            page-break-after: always;
-            background-size: 100% 100%;
-            background-position: center center;
-            background-repeat: no-repeat;
-        }
-
-        /* Prevents a blank page at the very end of the PDF */
         section:last-child {
             page-break-after: avoid;
         }
 
-        .page-content {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            padding: 50px; 
-        }
-
-        h1, h2, h3 {
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        p {
-            margin-bottom: 10px;
+        /* 2. Content Layout */
+        .content-wrapper {
+            padding: 65mm 20mm 20mm 20mm; /* Top padding to avoid logo/header */
             line-height: 1.6;
-            font-weight: 400;
+            font-size: 13.5px;
         }
-        .letter-content{
-            position: absolute;
+
+        .heading {
+            font-size: 15px;
             font-weight: 600;
-            font-size: 12.5pt;
+            margin-top: 20px;
+            margin-bottom: 5px;
+            color: #000;
         }
 
-        .employee-name {
-            top: 317px;
-            left: 125px;
+        .bold { font-weight: 600; }
+        p { margin-bottom: 10px; text-align: justify; }
+        ul { padding-left: 20px; margin-bottom: 15px; }
+        li { margin-bottom: 5px; }
+
+        /* 3. Signature & Form Styles (Page 3) */
+        .acceptance-container {
+            padding: 45mm 25mm;
         }
 
-        .employee-position{
-            top: 363px;
-            left: 340px;
+        .acceptance-text {
+            font-size: 15px;
+            margin-bottom: 40px;
+            color: #000;
         }
 
-        .employee-joining-date{
-            top: 382px;
-            left: 400px;
+        .field-row {
+            margin-bottom: 35px;
+            display: block;
+            width: 100%;
         }
 
-        .position{
-            top: 532px;
-            left: 315px;
-        }
-        
-        .employee-basic-salary{
-            top: 725px;
-            left: 485px;
+        .label {
+            font-weight: 500;
+            color: #000;
+            display: inline-block;
+            width: 180px;
+            vertical-align: middle;
         }
 
-        .employee-basic-salary2{
-            top: 746px;
-            left: 122px;
+        /* The underline where text/signature appears */
+        .employee-signature-wrapper {
+            display: inline-block;
+            min-width: 320px;
+            padding-left: 10px;
+            min-height: 24px;
+            vertical-align: middle;
+            position: relative;
+            top: 10px;
         }
 
-        .employee-fullname-page3{
-            top: 164px;
-            left: 215px;
-            position: absolute;
-        }
-
-        .employee-signature{
-            position: absolute;
-            top: 192px;
-            left: 250px;
-        }
-        
-        .employee-signature img{
+        /* Signatures */
+        .hr-signature-img {
+            display: block;
             height: 50px;
+            width: auto;
+            margin: 5px 0;
         }
 
-        .date{
-            top: 220px;
-            left: 120px;
+        .emp-sig-inline {
+            height: 55px; /* Signature height */
+            width: auto;
             position: absolute;
+            bottom: -2px; /* Sits on the line */
+            left: 10px;
+        }
+
+        .orange-divider {
+            border: 0;
+            border-top: 2px solid #f37021;
+            width: 100%;
+            margin-top: 50px;
+        }
+
+        .date-field{
+            position: relative !important:
+            right: 500px !important;
+            left: 0px !important;
         }
     </style>
 </head>
 <body>
 
-    {% for image_url in offer_images %}
-    <section style="background-image: url('{{ image_url }}');">
-        <div class="page-content">
-            {% if forloop.first %}
-                <div class="letter-content employee-name">
-                    {{ instance.fullname }}
-                </div>
+    <!-- PAGE 1: Intro, Position, Compensation, Probation -->
+    <section style="background-image: url('file:///{{ bg_img_1 }}');">
+        <div class="content-wrapper">
+            <p style="font-size: 17px; font-weight: 600;">Dear {{ instance.fullname|title }},</p>
+            
+            <p>We are delighted to offer you employment on a full-time basis with OxDu Demand School in the role of <span class="bold">{{ instance.designation }}</span>. Your employment will commence on <span class="bold">{{ instance.date_of_joining }}</span>.</p>
+            
+            <p>Please read this letter carefully and indicate your acceptance of the offer by signing and returning a copy of this letter.</p>
 
-                <div class="letter-content employee-position">
-                    {{ instance.designation }}
-                </div>
+            <div class="heading">1. Your Position</div>
+            <p>You will be employed as a <span class="bold">{{ instance.designation }}</span> on the terms and conditions outlined in this letter. Your responsibilities will include student admissions, lead follow-ups, counselling, conversion activities, and any other duties assigned by the management from time to time. The organization is committed to providing necessary training and support to help you perform effectively in your role.</p>
 
-                <div class="letter-content employee-joining-date">
-                    {{ instance.date_of_joining }}
-                </div>
+            <div class="heading">2. Compensation</div>
+            <p>Your compensation will be salary-based.</p>
+            <ul>
+                <li>You will be paid a fixed monthly salary of <span class="bold">₹{{ instance.basic_salary }} ({{ salary_words }})</span>.</li>
+                <li>The salary will be paid as per the organization's standard payroll cycle.</li>
+                <li>No commission or performance-based incentive is applicable unless separately communicated in writing by the management.</li>
+                <li>The management reserves the right to revise the compensation structure based on performance, role requirements, and business needs.</li>
+            </ul>
 
-                <div class="letter-content position">
-                    {{ instance.designation }}
-                </div>
-                {% if instance.basic_salary %}
-                {% load number_words %}
-
-                {% with salary_words=instance.basic_salary|in_words %}
-                    {% if salary_words|length <= 20 %}
-                        <div class="letter-content employee-basic-salary">
-                            {{ salary_words }} Only
-                        </div>
-                    {% else %}
-                        <div class="letter-content employee-basic-salary">
-                            {{ salary_words|slice:":22" }}
-                        </div>
-
-                        <div class="letter-content employee-basic-salary2">
-                            {{ salary_words|slice:"22:" }} Only
-                        </div>
-                    {% endif %}
-                {% endwith %}
-                {% endif %}
-            {% endif %}
-
-            {% if forloop.counter == 2 %}
-            {% endif %}
-
-            {% if forloop.counter == 3 %}
-                <div class="letter-content employee-fullname-page3">
-                    {{ instance.fullname }}
-                </div>
-
-                <div class="employee-signature">
-                    {% if instance.signature %}
-                        <img src="{{ instance.signature.url }}"
-                            alt="{{ instance.fullname }}-signature">
-                    {% endif %}
-                </div>
-
-                <div class="date">
-                    {% now "d F Y" %}
-                </div>
-            {% endif %}
+            <div class="heading">3. Probation Period</div>
+            <p>Your employment is subject to the satisfactory completion of a <span class="bold">one (1) month</span> probation period. During this period, if your performance, conduct, or attendance is found to be unsatisfactory, the organization reserves the right not to confirm your employment.</p>
         </div>
     </section>
-    {% endfor %}
-    
+
+    <!-- PAGE 2: Leaves, Notice Period, Acceptance, HR Footer -->
+    <section style="background-image: url('file:///{{ bg_img_2 }}');">
+        <div class="content-wrapper" style="padding-top: 15mm;">
+            <div class="heading">4. Leave Structure</div>
+            <p>As part of your employment with OxDu Demand School, you will be entitled to the following leave structure per month:</p>
+            <ul>
+                <li>1 Personal / Medical Leave</li>
+                {% if instance.user.usertype != "branch_staff" %}
+                <li>1 Work-from-Home (WFH) Day</li>
+                {% endif %}
+            </ul>
+            <p>All leaves must be informed in advance and approved by HR or management. Leave taken without prior approval may be treated as unpaid or unapproved in accordance with company policy.</p>
+
+            <div class="heading">5. Notice Period & Early Exit Policy</div>
+            <p>You are expected to complete a <span class="bold">six-month contractual term</span>. If you wish to resign before completing this period:</p>
+            <ul>
+                <li>You must provide <span class="bold">one (1) month prior written notice</span>, and</li>
+                <li>If you resign before completing the contract period, you will be liable to pay 50% of your last drawn average monthly commission as compensation to the organization.</li>
+            </ul>
+
+            <div class="heading">6. Acceptance</div>
+            <p>This offer letter contains the proposed terms and conditions of your employment and is subject to the preparation and execution of a formal employment contract, if required.</p>
+            
+            <p style="margin-top: 25px;">Additionally, please submit the following documents to HR:<br>
+            a. Copy of Aadhaar Card or PAN Card<br>
+            b. Bank Account Details<br>
+            c. Recent Photograph (soft copy)</p>
+
+            <p>We look forward to working together and wish you success in your role. Congratulations on your appointment, and welcome to OxDu Demand School.</p>
+
+            <div style="margin-top: 30px;">
+                <p>Yours sincerely,<br>
+                <span class="bold">Fidha Sabeer</span><br>
+                <!-- HR SIGNATURE IMAGE -->
+                <img src="file:///{{ hr_signature_path }}" class="hr-signature-img" alt="HR Signature">
+                <span style="font-size: 12px; color: #555;">HR Manager<br>OxDu Demand School</span></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PAGE 3: Acceptance & Employee Signature -->
+    {% if total_pages == 3 %}
+    <section style="background-image: url('file:///{{ bg_img_2 }}');">
+        <div class="content-wrapper" style="padding-top: 15mm;">
+            <p class="acceptance-text">
+                I hereby accept the above-mentioned position and the terms and conditions of employment as outlined in this offer letter.
+            </p>
+            
+            <!-- Employee Name -->
+            <div class="field-row">
+                <span class="label">Employee Name:</span>
+                {% comment %} <span>{{ instance.fullname|title }}</span> {% endcomment %}
+            </div>
+
+            <!-- Employee Signature -->
+            <div class="field-row">
+                <span class="label">Employee Signature:</span>
+                {% comment %} <span class="employee-signature-wrapper">
+                    {% if employee_signature_path %}
+                        <img src="file:///{{ employee_signature_path }}" 
+                             class="emp-sig-inline" 
+                             alt="Signature">
+                    {% endif %}
+                </span> {% endcomment %}
+            </div>
+
+            <!-- Date -->
+            <div class="field-row">
+                <span class="label">Date:</span>
+                {% comment %} <span class="date-field">{% now "d/m/Y" %}</span> {% endcomment %}
+            </div>
+
+            <!-- Branding Orange Divider -->
+            <hr class="orange-divider">
+        </div>
+    </section>
+    {% endif %}
+
 </body>
 </html>

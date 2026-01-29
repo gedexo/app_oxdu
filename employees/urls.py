@@ -18,7 +18,7 @@ urlpatterns = [
 
 
     #Appointment
-    path("employee/appointment/<str:pk>/", views.employee_appointment, name="employee_appointment"),
+    path("employee/appointment/<str:pk>/", views.EmployeeAppointmentPDFView.as_view(), name="employee_appointment"),
     path("share/appointment/<str:pk>/", views.share_employee_appointment, name="share_employee_appointment"),
 
     #Department 
