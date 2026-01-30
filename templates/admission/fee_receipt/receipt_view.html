@@ -329,10 +329,19 @@
                     <div class="addr-col text-end">
                         <div class="addr-label">From</div>
                         <div class="addr-body">
-                            <strong>Oxdu Integrated Media School</strong>
-                            {{object.student.branch.get_address|default:"Campus Address Here"}}<br>
-                            {{object.student.branch.email|default:"accounts@oxdu.com"}}<br>
-                            {{object.student.branch.contact_number|default:""}}
+                            <strong>Oxdu Demand School</strong>
+
+                            {% if object.student.branch.get_address %}
+                                {{ object.student.branch.get_address }}<br>
+                            {% endif %}
+
+                            {% if object.student.branch.email %}
+                                {{ object.student.branch.email }}<br>
+                            {% endif %}
+
+                            {% if object.student.branch.contact_number %}
+                                {{ object.student.branch.contact_number }}
+                            {% endif %}
                         </div>
                     </div>
                 </div>
