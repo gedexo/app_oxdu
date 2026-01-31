@@ -89,6 +89,14 @@
                             <a href="{% url 'employees:employee_leave_report' %}" class="side-menu__item {% if is_employee_leave_report %}active{% endif %}">Employee Leave Reports</a>
                         </li>
 
+                        <li class="slide">
+                            <a href="{% url 'employees:employee_attendance_list' %}" class="side-menu__item {% if is_employee_attendance %}active{% endif %}">Employee Attendance</a>
+                        </li>
+
+                        <li class="slide">
+                            <a href="{% url 'employees:employee_attendance_overview' %}" class="side-menu__item {% if is_employee_attendance_overview %}active{% endif %}">Employee Attendance Overview</a>
+                        </li>
+
                     </ul>
                 </li>
 

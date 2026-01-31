@@ -15,7 +15,8 @@ urlpatterns = [
     path('ajax/payroll-data/', views.get_employee_payroll_data, name='ajax_get_employee_payroll_data'),
     path('leave-request/<int:pk>/update-status/', views.update_leave_status, name='update_leave_status'),
     path('ajax/get-payroll-data/', views.ajax_get_employee_payroll_data, name='ajax_get_employee_payroll_data'),
-
+    path('ajax/active-employees/', views.get_active_employees_for_attendance, name='get_active_employees'),
+    path('ajax/save-attendance/', views.save_bulk_attendance, name='save_bulk_attendance'),
 
     #Appointment
     path("employee/appointment/<str:pk>/", views.EmployeeAppointmentPDFView.as_view(), name="employee_appointment"),
@@ -91,4 +92,13 @@ urlpatterns = [
     #employee leave request report
     path("employee-leave-report/", views.EmployeeLeaveReport.as_view(), name="employee_leave_report"),
     path("employee-leave-report/<str:pk>/", views.EmployeeLeaveReportDetailView.as_view(), name="employee_leave_report_detail"),
+
+    #employee attendance register
+    path("employee-attendance-overview/", views.EmployeeAttendanceOverview.as_view(), name="employee_attendance_overview"),
+    path('attendance/report/<int:pk>/', views.IndividualAttendanceReportView.as_view(), name='employee_individual_attendance'),
+    path("employee-attendance/", views.EmployeeAttendanceListView.as_view(), name="employee_attendance_list"),
+    path("employee-attendance/create/", views.EmployeeAttendanceCreateView.as_view(), name="employee_attendance_create"),
+    path("employee-attendance/<str:pk>/", views.EmployeeAttendanceDetailView.as_view(), name="employee_attendance_detail"),
+    path("employee-attendance/<str:pk>/update/", views.EmployeeAttendanceUpdateView.as_view(), name="employee_attendance_update"),
+    path("employee-attendance/<str:pk>/delete/", views.EmployeeAttendanceDeleteView.as_view(), name="employee_attendance_delete"),
 ]

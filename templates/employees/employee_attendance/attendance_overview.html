@@ -1,0 +1,391 @@
+{% extends 'app/base.html' %}
+{% load static extras attendance_tags %}
+
+{% block content %}
+<!-- Include Flatpickr & Google Fonts -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --brand-primary: #ee4c24;
+        --brand-gradient: linear-gradient(135deg, #ee4c24 0%, #ff6a45 100%);
+        --brand-light: rgba(238, 76, 36, 0.1);
+        --surface-card: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --bg-body: #f8fafc;
+        --border-light: #f1f5f9;
+        
+        --status-p: #10b981;
+        --status-a: #ef4444;
+        --status-l: #3b82f6;
+        --status-pending: #f59e0b; /* Orange/Amber for Pending */
+        --status-h: #94a3b8;
+    }
+
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-body); color: var(--text-main); }
+    .app-content { padding: 2rem 1.5rem; }
+
+    /* Glass Header */
+    .glass-header {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px -5px rgba(238, 76, 36, 0.1);
+    }
+
+    /* Matrix Card & Table Container */
+    .matrix-card {
+        background: var(--surface-card);
+        border-radius: 24px;
+        border: 1px solid var(--border-light);
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05);
+        overflow: hidden;
+    }
+
+    .table-responsive { 
+        max-height: 70vh; 
+        overflow: auto;
+        scrollbar-width: thin;
+    }
+
+    /* FIXING THE TABLE HEADERS */
+    .table thead th {
+        position: sticky;
+        top: 0;
+        background: #ffffff !important;
+        z-index: 20;
+        border-bottom: 2px solid var(--border-light);
+        box-shadow: inset 0 -1px 0 var(--border-light);
+    }
+
+    .sticky-emp-col {
+        position: sticky;
+        left: 0;
+        background: white !important;
+        z-index: 25; /* Higher than regular cells */
+        min-width: 260px;
+        border-right: 1px solid var(--border-light) !important;
+        padding-left: 1.5rem !important;
+    }
+
+    /* The top-left corner needs the highest z-index */
+    thead th.sticky-emp-col {
+        z-index: 30;
+    }
+
+    /* Attendance Cells */
+    .att-cell {
+        width: 34px; height: 34px; border-radius: 9px; display: flex;
+        align-items: center; justify-content: center; font-size: 0.75rem;
+        font-weight: 700; margin: 0 auto; transition: all 0.2s;
+        cursor: pointer;
+    }
+    .att-cell:hover { transform: scale(1.15); z-index: 5; }
+
+    .cell-p { background: #ecfdf5; color: var(--status-p); border: 1px solid #d1fae5; }
+    .cell-a { background: #fef2f2; color: var(--status-a); border: 1px solid #fee2e2; }
+    .cell-l { background: #eff6ff; color: var(--status-l); border: 1px solid #dbeafe; }
+    .cell-pending { background: #fffbeb; color: var(--status-pending); border: 1px solid #fef3c7; }
+    .cell-h { background: #f8fafc; color: var(--status-h); border: 1px solid #f1f5f9; }
+    .cell-empty { border: 1px dashed #e2e8f0; color: #cbd5e1; }
+
+    /* Buttons */
+    .btn-brand {
+        background: var(--brand-gradient); color: white; border: none;
+        padding: 0.6rem 1.5rem; border-radius: 12px; font-weight: 600;
+        transition: 0.3s;
+    }
+    .btn-brand:hover { box-shadow: 0 10px 15px -3px rgba(238, 76, 36, 0.3); color: white; transform: translateY(-1px); }
+    .text-primary { color: var(--brand-primary) !important; }
+
+    .modal-content { border-radius: 24px; border: none; }
+</style>
+
+<div class="app-content">
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="glass-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h2 class="fw-bold text-dark mb-1">Attendance <span class="text-primary">Console</span></h2>
+                <p class="text-muted small mb-0"><i class="far fa-calendar-check me-2 text-primary"></i>Viewing Records for {{ month_name }} {{ current_year }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light border px-3 rounded-3" onclick="generateWhatsAppReport()">
+                    <i class="fab fa-whatsapp me-2 text-success"></i>Share Report
+                </button>
+                <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#attendanceModal" onclick="loadAttendanceEmployees()">
+                    <i class="fas fa-fingerprint me-2"></i>Mark Attendance
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Matrix Table -->
+        <div class="matrix-card">
+            <div class="p-3 border-bottom bg-light/30">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-md-1">
+                        <label class="form-label small fw-bold">Month</label>
+                        <select name="month" class="form-select form-select-sm">
+                            {% for m in months %}<option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ m|month_name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small fw-bold">Year</label>
+                        <select name="year" class="form-select form-select-sm">
+                            {% for y in years %}<option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Branch</label>
+                        <select name="branch" class="form-select form-select-sm">
+                            <option value="">All Branches</option>
+                            {% for b in branches %}<option value="{{ b.id }}" {% if request.GET.branch|add:"0" == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Department</label>
+                        <select name="department" class="form-select form-select-sm">
+                            <option value="">All Departments</option>
+                            {% for d in departments %}<option value="{{ d.id }}" {% if request.GET.department|add:"0" == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 ms-auto">
+                        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control form-control-sm" placeholder="Search staff...">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-dark btn-sm px-4">Filter</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="sticky-emp-col">Employee Details</th>
+                            <th class="text-center" style="min-width: 90px;">Stats</th>
+                            {% for date in date_list %}
+                            {% define_holiday date as is_holiday %}
+                            <th class="text-center {% if is_holiday %}bg-light{% endif %}">
+                                <div class="small fw-bold">{{ date|date:"d" }}</div>
+                                <div class="text-muted" style="font-size: 0.6rem;">{{ date|date:"D" }}</div>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody id="main-attendance-body">
+                        {% for row in attendance_matrix %}
+                        <tr data-emp-name="{{ row.employee.fullname }}">
+                            <td class="sticky-emp-col">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold me-3 shadow-sm" 
+                                         style="width:38px;height:38px;background:var(--brand-primary);font-size:0.8rem;">
+                                        {{ row.employee.fullname|slice:":1" }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold small">{{ row.employee.fullname }}</div>
+                                        <div class="text-muted" style="font-size:0.7rem;">{{ row.employee.designation.name }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- Updated Stats Column: No Pending Leaves -->
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <span class="badge bg-success-subtle text-success" style="font-size: 0.65rem;">{{ row.stats.present }}P</span>
+                                    <span class="badge bg-danger-subtle text-danger" style="font-size: 0.65rem;">{{ row.stats.absent }}A</span>
+                                </div>
+                            </td>
+                            {% for day in row.days %}
+                            {% define_holiday day.date as is_day_holiday %}
+                            <td class="text-center p-1">
+                                <!-- Tooltip Title shows Date and Status on Hover -->
+                                <div class="att-cell day-cell 
+                                    {% if day.status == 'present' %}cell-p{% elif day.status == 'absent' %}cell-a{% elif day.status == 'leave' %}cell-l{% elif 'pending' in day.status %}cell-pending{% elif is_day_holiday %}cell-h{% else %}cell-empty{% endif %}"
+                                    data-date="{{ day.date|date:'Y-m-d' }}" 
+                                    data-status="{{ day.status }}"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                    title="{{ day.date|date:'d M' }}: {{ day.status|title }}">
+                                    
+                                    {% if day.status == 'present' %}P
+                                    {% elif day.status == 'absent' %}A
+                                    {% elif day.status == 'leave' %}L
+                                    {% elif 'pending' in day.status %}<i class="fas fa-hourglass-half" style="font-size: 0.6rem;"></i>
+                                    {% elif is_day_holiday %}H
+                                    {% else %}-{% endif %}
+                                </div>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Modal -->
+<div class="modal fade" id="attendanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h4 class="fw-bold">Daily Attendance Log</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-4 bg-light p-3 rounded-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="text" id="bulk_attendance_date" class="form-control border-0 shadow-sm">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Branch</label>
+                        <select id="modal_branch_filter" class="form-select border-0 shadow-sm" onchange="applyModalFilters()">
+                            <option value="">All Branches</option>
+                            {% for b in branches %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Department</label>
+                        <select id="modal_dept_filter" class="form-select border-0 shadow-sm" onchange="applyModalFilters()">
+                            <option value="">All Departments</option>
+                            {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <input type="text" id="modal_emp_search" class="form-control border-0 shadow-sm" placeholder="Search by staff name..." onkeyup="applyModalFilters()">
+                    </div>
+                </div>
+                <div class="list-group rounded-4 overflow-hidden border" id="modal_employee_list" style="max-height: 350px; overflow-y: auto;"></div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-brand px-4" id="btnSaveAttendance" onclick="submitBulkAttendance()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    let allEmployees = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        flatpickr("#bulk_attendance_date", {
+            dateFormat: "Y-m-d", defaultDate: "today", maxDate: "today",
+            altInput: true, altFormat: "F j, Y"
+        });
+    });
+
+    function loadAttendanceEmployees() {
+        const listContainer = document.getElementById('modal_employee_list');
+        listContainer.innerHTML = '<div class="p-5 text-center"><div class="spinner-border text-primary"></div></div>';
+        fetch("{% url 'employees:get_active_employees' %}")
+            .then(res => res.json())
+            .then(data => {
+                allEmployees = data.employees;
+                renderModalList(allEmployees);
+            });
+    }
+
+    function renderModalList(employees) {
+        const listContainer = document.getElementById('modal_employee_list');
+        listContainer.innerHTML = employees.length ? '' : '<div class="p-4 text-center text-muted">No records found.</div>';
+        employees.forEach(emp => {
+            const item = `
+                <div class="list-group-item d-flex align-items-center justify-content-between py-3 px-4">
+                    <div class="d-flex align-items-center">
+                        <div class="fw-bold rounded-circle d-flex align-items-center justify-content-center me-3" 
+                             style="width:36px;height:36px;background:var(--brand-light);color:var(--brand-primary);font-size:0.8rem;">
+                            ${emp.initial}
+                        </div>
+                        <div>
+                            <div class="fw-bold small text-dark">${emp.full_name}</div>
+                            <div class="text-muted" style="font-size:0.7rem">${emp.designation}</div>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm rounded-3 overflow-hidden shadow-sm">
+                        <input type="radio" class="btn-check" name="status_${emp.id}" id="p_${emp.id}" value="present" checked>
+                        <label class="btn btn-outline-success border-0 px-3" for="p_${emp.id}">P</label>
+                        <input type="radio" class="btn-check" name="status_${emp.id}" id="a_${emp.id}" value="absent">
+                        <label class="btn btn-outline-danger border-0 px-3" for="a_${emp.id}">A</label>
+                    </div>
+                </div>`;
+            listContainer.insertAdjacentHTML('beforeend', item);
+        });
+    }
+
+    function applyModalFilters() {
+        const search = document.getElementById('modal_emp_search').value.toLowerCase();
+        const branchId = document.getElementById('modal_branch_filter').value;
+        const deptId = document.getElementById('modal_dept_filter').value;
+        const filtered = allEmployees.filter(emp => {
+            const matchesSearch = emp.full_name.toLowerCase().includes(search);
+            const matchesBranch = branchId === "" || String(emp.branch_id) === branchId;
+            const matchesDept = deptId === "" || String(emp.dept_id) === deptId;
+            return matchesSearch && matchesBranch && matchesDept;
+        });
+        renderModalList(filtered);
+    }
+
+    function submitBulkAttendance() {
+        const date = document.getElementById('bulk_attendance_date').value;
+        const btn = document.getElementById('btnSaveAttendance');
+        const records = {};
+        document.querySelectorAll('#modal_employee_list input:checked').forEach(radio => {
+            records[radio.name.split('_')[1]] = radio.value;
+        });
+        btn.disabled = true;
+        fetch("{% url 'employees:save_bulk_attendance' %}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+            body: JSON.stringify({ date: date, records: records })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') location.reload();
+            else { alert(data.message); btn.disabled = false; }
+        });
+    }
+
+    function generateWhatsAppReport() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let present = [], absent = [];
+        
+        document.querySelectorAll('#main-attendance-body tr').forEach(row => {
+            const name = row.getAttribute('data-emp-name');
+            const todayCell = row.querySelector(`.day-cell[data-date="${todayStr}"]`);
+            if (todayCell) {
+                const status = todayCell.getAttribute('data-status');
+                if (status === 'present') present.push(name);
+                else if (status === 'absent') absent.push(name);
+            }
+        });
+
+        const d = new Date();
+        const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+        let msg = `*Daily Attendance Report* - ${formattedDate}%0A%0A`;
+        msg += `✅ *PRESENT (${present.length}):*%0A`;
+        msg += present.length > 0 ? present.map(name => `- ${name}`).join('%0A') : 'No records';
+        msg += `%0A%0A❌ *ABSENT (${absent.length}):*%0A`;
+        msg += absent.length > 0 ? absent.map(name => `- ${name}`).join('%0A') : 'No records';
+        msg += `%0A%0A_Report generated via Attendance Matrix_`;
+        
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
+    }
+</script>
+{% endblock %}

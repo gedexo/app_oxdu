@@ -109,3 +109,33 @@ def intcomma(value):
             return "{:,.2f}".format(float_val)
     except (ValueError, TypeError):
         return str(value)
+
+    
+@register.filter
+def replace(value, args):
+    """
+    Usage: {{ value|replace:"old,new" }}
+    Example: {{ "hello_world"|replace:"_, " }} -> "hello world"
+    """
+    if args and ',' in args:
+        old, new = args.split(',', 1)
+        return value.replace(old, new)
+    return value
+
+
+@register.filter
+def month_name(month_number):
+    """Converts a month number (1-12) to a name (January, February...)"""
+    try:
+        return calendar.month_name[int(month_number)]
+    except (ValueError, IndexError, TypeError):
+        return month_number
+
+@register.simple_tag
+def define_holiday(date):
+    """Checks if a date is a Sunday or 2nd Saturday"""
+    if date.weekday() == 6:  # Sunday
+        return True
+    if date.weekday() == 5 and 8 <= date.day <= 14:  # 2nd Saturday
+        return True
+    return False

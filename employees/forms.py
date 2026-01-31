@@ -5,7 +5,7 @@ from django.db.models import Sum
 
 from .models import Department, Partner
 from .models import Designation
-from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance
+from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance, EmployeeAttendanceRegister
 from masters.models import Course
 from django import forms
 
@@ -376,3 +376,9 @@ class EmployeeLeaveRequestForm(forms.ModelForm):
                 raise ValidationError(f"Insufficient Paid Leave balance. Available: {balance.paid_leave_balance}")
 
         return cleaned_data
+
+    
+class EmployeeAttendanceForm(forms.ModelForm):
+    class Meta:
+        model = EmployeeAttendanceRegister
+        fields = ["employee", "date", "status",]

@@ -1,6 +1,6 @@
 from core.base import BaseAdmin
 
-from .models import Department, Designation, Employee, EmployeeLeaveRequest, EmployeeLeaveBalance, Partner, Payroll, PayrollPayment, AdvancePayrollPayment
+from .models import Department, Designation, Employee, EmployeeLeaveRequest, EmployeeLeaveBalance, Partner, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeAttendanceRegister
 from django.contrib import admin
 
 
@@ -68,3 +68,11 @@ class EmployeeLeaveRequestAdmin(BaseAdmin):
 @admin.register(EmployeeLeaveBalance)
 class EmployeeLeaveBalanceAdmin(BaseAdmin):
     pass
+
+
+@admin.register(EmployeeAttendanceRegister)
+class EmployeeAttendanceRegisterAdmin(BaseAdmin):
+    list_display = ("employee", "date", "status")
+    list_filter = ("date", "status", "employee")
+    search_fields = ("employee__first_name", "employee__last_name")
+    ordering = ("-date",)

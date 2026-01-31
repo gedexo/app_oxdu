@@ -1,8 +1,9 @@
 import io
+import json
 import calendar
 from django.template import context
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from weasyprint import HTML, CSS
 from django.core.mail import EmailMultiAlternatives
 from django.contrib import messages
@@ -35,7 +36,7 @@ from . import tables
 from core import choices
 from .functions import generate_employee_id
 from .models import Department, Partner
-from .models import Designation
+from .models import Designation, EmployeeAttendanceRegister
 from .models import Employee, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeLeaveBalance
 from branches.models import Branch
 
@@ -240,6 +241,42 @@ def ajax_get_employee_payroll_data(request):
 
     except Employee.DoesNotExist:
         return JsonResponse({'error': 'Employee not found'}, status=404)
+
+
+def get_active_employees_for_attendance(request):
+    employees = Employee.objects.filter(is_active=True, status='Appointed').select_related('branch', 'department', 'designation')
+    
+    data = []
+    for emp in employees:
+        data.append({
+            'id': emp.id,
+            'full_name': emp.fullname(),
+            'designation': emp.designation.name if emp.designation else "Staff",
+            'branch_id': str(emp.branch.id) if emp.branch else "",
+            'dept_id': str(emp.department.id) if emp.department else "",
+            'photo': emp.photo.url if emp.photo else None,
+            'initial': emp.first_name[0]
+        })
+    return JsonResponse({'employees': data})
+
+
+@require_POST
+def save_bulk_attendance(request):
+    """Saves attendance for multiple employees sent via AJAX."""
+    try:
+        data = json.loads(request.body)
+        attendance_date = data.get('date')
+        records = data.get('records') 
+
+        for emp_id, status in records.items():
+            EmployeeAttendanceRegister.objects.update_or_create(
+                employee_id=emp_id,
+                date=attendance_date,
+                defaults={'status': status}
+            )
+        return JsonResponse({'status': 'success', 'message': 'Attendance saved successfully!'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
 
 class EmployeeAppointmentPDFView(PDFView):
@@ -1836,3 +1873,249 @@ class EmployeeLeaveReportDetailView(mixins.HybridDetailView):
         context["leave_types"] = EmployeeLeaveRequest.LEAVE_TYPE_CHOICES
         context["status_choices"] = EmployeeLeaveRequest.LEAVE_STATUS_CHOICES
         return context
+
+    
+class EmployeeAttendanceOverview(mixins.HybridTemplateView):
+    template_name = "employees/employee_attendance/attendance_overview.html"
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # 1. Date Handling (Current Month/Year or Filtered)
+        today = timezone.now().date()
+        year = int(self.request.GET.get('year', today.year))
+        month = int(self.request.GET.get('month', today.month))
+        
+        # Get number of days in selected month
+        _, num_days = calendar.monthrange(year, month)
+        start_date = date(year, month, 1)
+        end_date = date(year, month, num_days)
+        
+        # Generate list of dates for the table header
+        date_list = [start_date + timedelta(days=x) for x in range(num_days)]
+
+        employees = Employee.objects.filter(status='Appointed').select_related('branch', 'department', 'designation')
+        
+        # Apply Filters
+        branch_id = self.request.GET.get('branch')
+        dept_id = self.request.GET.get('department')
+        desig_id = self.request.GET.get('designation')
+        search_query = self.request.GET.get('q')
+
+        if branch_id:
+            employees = employees.filter(branch_id=branch_id)
+        if dept_id:
+            employees = employees.filter(department_id=dept_id)
+        if desig_id:
+            employees = employees.filter(designation_id=desig_id)
+        if search_query:
+            employees = employees.filter(
+                Q(first_name__icontains=search_query) | 
+                Q(last_name__icontains=search_query)
+            )
+
+        attendance_qs = EmployeeAttendanceRegister.objects.filter(
+            date__range=[start_date, end_date],
+            employee__in=employees
+        )
+        attendance_map = {
+            (att.employee_id, att.date): att.status 
+            for att in attendance_qs
+        }
+
+        leave_qs = EmployeeLeaveRequest.objects.filter(
+            employee__in=employees
+        ).filter(
+            Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
+        ).exclude(status='rejected') # Optional: Exclude rejected if you don't want to see them
+
+        # Map leaves to dates: {(employee_id, date_obj): 'approved'/'pending'}
+        leave_map = {}
+        for leave in leave_qs:
+            # Calculate range overlap with current month
+            s = max(leave.start_date, start_date)
+            e = min(leave.end_date, end_date)
+            delta = (e - s).days + 1
+            
+            for i in range(delta):
+                day = s + timedelta(days=i)
+                # Store status + type (e.g., "approved_wfh", "pending_sick")
+                leave_map[(leave.employee_id, day)] = {
+                    'status': leave.status,
+                    'type': leave.leave_type
+                }
+
+        # 5. Construct the Matrix
+        attendance_matrix = []
+        
+        for emp in employees:
+            row_data = []
+            present_count = 0
+            absent_count = 0
+            leave_count = 0
+
+            for single_date in date_list:
+                cell_data = {'date': single_date, 'day_name': single_date.strftime('%a')}
+                
+                # Check Attendance Register First (Priority)
+                att_status = attendance_map.get((emp.id, single_date))
+                
+                # Check Leave Request Second
+                leave_info = leave_map.get((emp.id, single_date))
+
+                if att_status == 'present':
+                    cell_data['status'] = 'present'
+                    cell_data['label'] = 'P'
+                    present_count += 1
+                elif att_status == 'absent':
+                    cell_data['status'] = 'absent'
+                    cell_data['label'] = 'A'
+                    absent_count += 1
+                elif leave_info:
+                    # Logic for Leaves
+                    l_status = leave_info['status'] # approved/pending
+                    l_type = leave_info['type']     # sick/wfh/etc
+                    
+                    if l_status == 'approved':
+                        cell_data['status'] = 'leave_approved'
+                        cell_data['label'] = 'L' if l_type != 'wfh' else 'WFH'
+                        leave_count += 1
+                    elif l_status == 'pending':
+                        cell_data['status'] = 'leave_pending'
+                        cell_data['label'] = '?'
+                    elif l_status == 'rejected':
+                        cell_data['status'] = 'leave_rejected'
+                        cell_data['label'] = 'X'
+                else:
+                    # No record found
+                    cell_data['status'] = 'empty'
+                    cell_data['label'] = '-'
+
+                row_data.append(cell_data)
+
+            attendance_matrix.append({
+                'employee': emp,
+                'days': row_data,
+                'stats': {
+                    'present': present_count,
+                    'absent': absent_count,
+                    'leaves': leave_count
+                }
+            })
+
+        # 6. Pass Context
+        context.update({
+            "title": "Employee Attendance Overview",
+            "attendance_matrix": attendance_matrix,
+            "date_list": date_list,
+            "current_year": year,
+            "current_month": month,
+            "years": range(2020, 2030),
+            "months": range(1, 13),
+            "month_name": calendar.month_name[month],
+            # Helper lists for Filters
+            "branches": Branch.objects.filter(is_active=True),
+            "departments": Department.objects.filter(is_active=True),
+            "designations": Designation.objects.filter(is_active=True),
+        })
+        return context
+
+
+class IndividualAttendanceReportView(mixins.HybridTemplateView):
+    template_name = "employees/employee_attendance/individual_attendance.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employee = get_object_or_404(Employee, pk=self.kwargs.get('pk'))
+        
+        # Date Filters
+        today = timezone.now().date()
+        year = int(self.request.GET.get('year', today.year))
+        month = int(self.request.GET.get('month', today.month))
+        
+        _, num_days = calendar.monthrange(year, month)
+        start_date = date(year, month, 1)
+        end_date = date(year, month, num_days)
+        
+        # Fetch Data
+        attendance_qs = EmployeeAttendanceRegister.objects.filter(
+            employee=employee, date__range=[start_date, end_date]
+        )
+        attendance_map = {att.date: att.status for att in attendance_qs}
+        
+        leaves = EmployeeLeaveRequest.objects.filter(
+            employee=employee,
+            status='approved'
+        ).filter(Q(start_date__lte=end_date) & Q(end_date__gte=start_date))
+
+        # Build Day List
+        day_list = []
+        p_count, a_count, l_count = 0, 0, 0
+        
+        for i in range(num_days):
+            current_date = start_date + timedelta(days=i)
+            status = attendance_map.get(current_date, 'empty')
+            
+            # Check for leaves if not marked present
+            is_on_leave = leaves.filter(start_date__lte=current_date, end_date__gte=current_date).exists()
+            if is_on_leave and status == 'empty':
+                status = 'leave_approved'
+                l_count += 1
+            elif status == 'present':
+                p_count += 1
+            elif status == 'absent':
+                a_count += 1
+            
+            day_list.append({
+                'date': current_date,
+                'status': status,
+            })
+
+        context.update({
+            "employee": employee,
+            "day_list": day_list,
+            "month_name": calendar.month_name[month],
+            "current_year": year,
+            "current_month": month,
+            "stats": {'p': p_count, 'a': a_count, 'l': l_count},
+            "years": range(2023, today.year + 2),
+            "months": range(1, 13),
+        })
+        return context
+
+        
+class EmployeeAttendanceListView(mixins.HybridListView):
+    model = EmployeeAttendanceRegister
+    table_class = tables.EmployeeAttendanceTable
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Employee Attendance"
+        context["is_employee_attendance"] = True
+        context["can_add"] = True
+        context["new_link"] = reverse_lazy("employees:employee_attendance_create")
+        return context
+
+
+class EmployeeAttendanceDetailView(mixins.HybridDetailView):
+    model = EmployeeAttendanceRegister
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)
+
+
+class EmployeeAttendanceCreateView(mixins.HybridCreateView):
+    model = EmployeeAttendanceRegister
+    form_class = forms.EmployeeAttendanceForm
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)
+
+
+class EmployeeAttendanceUpdateView(mixins.HybridUpdateView):
+    model = EmployeeAttendanceRegister
+    form_class = forms.EmployeeAttendanceForm
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)
+
+
+class EmployeeAttendanceDeleteView(mixins.HybridDeleteView):
+    model = EmployeeAttendanceRegister
+    permissions = ("admin_staff", "ceo", "coo", "hr", "cmo",)

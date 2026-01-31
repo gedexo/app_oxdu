@@ -2,12 +2,13 @@ from django_tables2 import columns
 import django_tables2 as tables
 from django.utils.html import format_html
 from django.urls import reverse_lazy
+from django.utils import timezone
 
 from core.base import BaseTable
 from core.choices import LEAVE_STATUS_CHOICES
 from .models import Department
 from .models import Designation
-from .models import Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest
+from .models import Employee, Partner, Payroll, PayrollPayment, AdvancePayrollPayment, EmployeeLeaveRequest, EmployeeAttendanceRegister
 
 
 class EmployeeTable(BaseTable):
@@ -15,10 +16,48 @@ class EmployeeTable(BaseTable):
     created = None
     fullname = columns.Column(verbose_name="Name", order_by="first_name")
     total_salary = columns.Column(verbose_name="Monthly Salary")
+    
+    # Define the action column
+    action = columns.Column(verbose_name="Action", orderable=False, empty_values=())
 
     class Meta(BaseTable.Meta):
         model = Employee
-        fields = ("employee_id", "branch", "fullname", "mobile", "department", "designation" , "employment_type", "total_salary", "is_active")
+        fields = (
+            "employee_id", "branch", "fullname", "mobile", 
+            "department", "designation", "employment_type", 
+            "total_salary", "is_active", "action"
+        )
+
+    def render_action(self, record):
+        view_url = record.get_absolute_url()
+        now = timezone.now()
+        attendance_url = reverse_lazy("employees:employee_individual_attendance", kwargs={"pk": record.pk})
+        attendance_query = f"?month={now.month}&year={now.year}"
+        
+        return format_html(
+            '''
+            <div class="d-flex align-items-center gap-2">
+                <!-- View: Soft Blue Square -->
+                <a href="{}" class="btn btn-sm border-0 rounded-2" 
+                   title="View Profile"
+                   style="background-color: #e2e8f0; color: #475569; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-eye"></i>
+                </a>
+
+                <!-- Attendance: Soft Orange Square -->
+                <a href="{}{}" target="_blank" class="btn btn-sm border-0 rounded-2" 
+                   title="Attendance Report"
+                   style="background-color: rgba(238, 76, 36, 0.15); color: #ee4c24; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-calendar-check"></i>
+                </a>
+            </div>
+            ''',
+            view_url, attendance_url, attendance_query
+        )
+
+    def render_total_salary(self, value):
+        """ Optional: Format salary with currency """
+        return format_html('<span class="fw-bold">₹{}</span>', value) if value else "-"
 
     
 class NonActiveEmployeeTable(BaseTable):
@@ -315,5 +354,16 @@ class EmployeeLeaveReportTable(BaseTable):
             "total_balance_leaves",
             "total_balance_wfh",
             "action",
+        )
+        attrs = {"class": "table table-bordered border-bottom table-hover"}
+
+    
+class EmployeeAttendanceTable(BaseTable):
+    class Meta:
+        model = EmployeeAttendanceRegister
+        fields = (
+            "employee",
+            "date",
+            "status",
         )
         attrs = {"class": "table table-bordered border-bottom table-hover"}

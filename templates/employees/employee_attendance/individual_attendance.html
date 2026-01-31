@@ -1,0 +1,324 @@
+{% extends 'app/base.html' %}
+{% load static attendance_tags extras %}
+
+{% block content %}
+<!-- Modern Plus Jakarta Sans Font -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --brand-color: #ee4c24;
+        --brand-gradient: linear-gradient(135deg, #ee4c24 0%, #ff7a59 100%);
+        --success-bg: #ecfdf5;
+        --success-text: #10b981;
+        --danger-bg: #fef2f2;
+        --danger-text: #ef4444;
+        --info-bg: #eff6ff;
+        --info-text: #3b82f6;
+        --bg-main: #f8fafc;
+    }
+
+    .main-content { 
+        background-color: var(--bg-main); 
+        min-height: 100vh; 
+        padding: 2rem;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    /* Top Navigation */
+    .top-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    /* KPI Bento Grid */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+
+    .kpi-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .kpi-data .val { font-size: 1.75rem; font-weight: 800; line-height: 1; color: #1e293b; }
+    .kpi-data .lab { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 4px; display: block; font-family: var(--font-main) !important; }
+
+    /* Main Content Layout */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 2rem;
+    }
+
+    .content-card {
+        background: white;
+        border-radius: 24px;
+        padding: 1.5rem;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Heatmap styling */
+    .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .hm-label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-align: center; margin-bottom: 8px; }
+    .hm-cell {
+        aspect-ratio: 1; border-radius: 10px; font-weight: 700; font-size: 0.85rem;
+        display: flex; align-items: center; justify-content: center;
+        background: #f8fafc; color: #cbd5e1; border: 1px solid transparent;
+    }
+    .hm-p { background: var(--success-bg) !important; color: var(--success-text) !important; border: 1px dashed var(--success-text) !important;}
+    .hm-a { background: var(--danger-bg) !important; color: var(--danger-text) !important; border: 1px dashed var(--danger-text) !important; }
+    .hm-l { background: var(--info-bg) !important; color: var(--info-text) !important; }
+    .hm-h { background: #f1f5f9; border: 1px dashed #cbd5e1; color: #94a3b8; }
+
+    /* Split Logs Logic */
+    .logs-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .log-column {
+        background: #f8fafc;
+        border-radius: 18px;
+        padding: 1.25rem;
+        height: 480px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .log-title {
+        font-size: 0.85rem; font-weight: 800; color: #64748b;
+        text-transform: uppercase; margin-bottom: 1rem;
+        display: flex; justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Added padding-x to prevent hover clipping */
+    .scroll-area { 
+        overflow-y: auto; 
+        flex-grow: 1; 
+        padding: 5px 10px 5px 5px; 
+    }
+    .scroll-area::-webkit-scrollbar { width: 4px; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+    /* Fixed Log Strip Style */
+    .log-strip {
+        background: white;
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #edf2f7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+
+    /* Hover effect for Present Column - No layout shift */
+    .log-column-present .log-strip:hover {
+        border-color: #10b981;
+        background-color: #f0fff4;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        z-index: 2;
+    }
+
+    /* Hover effect for Absent Column - No layout shift */
+    .log-column-absent .log-strip:hover {
+        border-color: #ef4444;
+        background-color: #fff5f5;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+        z-index: 2;
+    }
+
+    .log-date { font-weight: 700; font-size: 0.85rem; color: #1e293b; }
+    .log-day { font-size: 0.7rem; color: #94a3b8; }
+
+    /* Offset Logic */
+    {% with day_list|first as fday %}
+    .start-col-{{ fday.date|date:"w" }} { grid-column-start: {{ fday.date|date:"w"|add:"1" }}; }
+    {% endwith %}
+
+    @media (max-width: 1200px) {
+        .kpi-grid { grid-template-columns: 1fr 1fr; }
+        .dashboard-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+        .logs-container { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="main-content">
+    <div class="container-fluid">
+        
+        <!-- Navbar Toolbar -->
+        <div class="top-toolbar">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'employees:employee_attendance_overview' %}" class="btn btn-white shadow-sm border rounded-circle" style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; background:white;">
+                    <i class="fas fa-chevron-left text-dark"></i>
+                </a>
+                <div>
+                    <h4 class="fw-bold mb-0 text-dark">Employee Report</h4>
+                    <p class="text-muted small mb-0 fw-bold">{{ employee.fullname }} • ID: {{ employee.employee_id }}</p>
+                </div>
+            </div>
+            
+            <form class="d-flex gap-2 bg-white p-2 rounded-pill shadow-sm border">
+                <select name="month" class="form-select border-0 shadow-none bg-transparent fw-bold" style="width: 140px;">
+                    {% for m in months %}
+                    <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ m|month_name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="year" class="form-select border-0 shadow-none bg-transparent fw-bold" style="width: 100px;">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-dark rounded-pill px-4" style="background: #1e2937;">Filter</button>
+            </form>
+        </div>
+
+        <!-- KPI Cards Section -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: var(--brand-gradient); color: white;"><i class="fas fa-user-tie"></i></div>
+                <div class="kpi-data">
+                    <span class="lab">Status</span>
+                    <span class="val" style="font-size: 1.1rem; color: var(--brand-color);">{{ employee.status }}</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: var(--success-bg); color: var(--success-text);"><i class="fas fa-calendar-check"></i></div>
+                <div class="kpi-data">
+                    <span class="val">{{ stats.p }}</span>
+                    <span class="lab">Total Present</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: var(--danger-bg); color: var(--danger-text);"><i class="fas fa-calendar-times"></i></div>
+                <div class="kpi-data">
+                    <span class="val">{{ stats.a }}</span>
+                    <span class="lab">Total Absent</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: var(--info-bg); color: var(--info-text);"><i class="fas fa-clock"></i></div>
+                <div class="kpi-data">
+                    <span class="val">{{ stats.l }}</span>
+                    <span class="lab">Leaves</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Layout -->
+        <div class="dashboard-layout">
+            
+            <!-- Visual Heatmap -->
+            <div class="content-card">
+                <h6 class="fw-bold mb-4"><i class="fas fa-border-all me-2 text-primary"></i>Visual Pattern</h6>
+                <div class="heatmap-grid">
+                    <div class="hm-label">S</div><div class="hm-label">M</div><div class="hm-label">T</div>
+                    <div class="hm-label">W</div><div class="hm-label">T</div><div class="hm-label">F</div>
+                    <div class="hm-label">S</div>
+
+                    {% for day in day_list %}
+                        {% define_holiday day.date as is_holiday %}
+                        <div class="hm-cell 
+                            {% if forloop.first %}start-col-{{ day.date|date:'w' }}{% endif %}
+                            {% if day.status == 'present' %}hm-p
+                            {% elif day.status == 'absent' %}hm-a
+                            {% elif day.status == 'leave_approved' %}hm-l
+                            {% elif is_holiday %}hm-h{% endif %}"
+                            data-bs-toggle="tooltip" title="{{ day.date|date:'d M' }}: {{ day.status|title }}">
+                            {{ day.date|date:"j" }}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Separated Logs Section -->
+            <div class="content-card">
+                <h6 class="fw-bold mb-4"><i class="fas fa-list-ul me-2 text-primary"></i>Attendance History</h6>
+                
+                <div class="logs-container">
+                    <!-- Left Column: Present -->
+                    <div class="log-column log-column-present">
+                        <div class="log-title">
+                            <span>Present Days</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">{{ stats.p }}</span>
+                        </div>
+                        <div class="scroll-area">
+                            {% for day in day_list reversed %}
+                                {% if day.status == 'present' %}
+                                <div class="log-strip">
+                                    <div class="lh-1">
+                                        <div class="log-date">{{ day.date|date:"d M, Y" }}</div>
+                                        <span class="log-day">{{ day.date|date:"l" }}</span>
+                                    </div>
+                                    <i class="fas fa-check-circle text-success"></i>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Absent & Leaves -->
+                    <div class="log-column log-column-absent">
+                        <div class="log-title">
+                            <span>Absents / Leaves</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">{{ stats.a|add:stats.l }}</span>
+                        </div>
+                        <div class="scroll-area">
+                            {% for day in day_list reversed %}
+                                {% if day.status == 'absent' or day.status == 'leave_approved' %}
+                                <div class="log-strip">
+                                    <div class="lh-1">
+                                        <div class="log-date text-danger">{{ day.date|date:"d M, Y" }}</div>
+                                        <span class="log-day">{{ day.date|date:"l" }}</span>
+                                    </div>
+                                    <span class="badge {% if day.status == 'absent' %}bg-danger{% else %}bg-primary{% endif %} rounded-pill" style="font-size: 0.6rem;">
+                                        {{ day.status|slice:":1"|upper }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div> <!-- End logs-container -->
+            </div> <!-- End content-card -->
+
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
+    });
+</script>
+{% endblock %}

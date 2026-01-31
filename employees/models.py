@@ -1112,3 +1112,36 @@ class EmployeeLeaveBalance(BaseModel):
 
     def __str__(self):
         return f"{self.employee} - Paid: {self.paid_leave_balance}, WFH: {self.wfh_balance}"
+
+    
+class EmployeeAttendanceRegister(BaseModel):
+    employee = models.ForeignKey(
+        "employees.Employee", 
+        on_delete=models.CASCADE, 
+        related_name="attendance_register"
+    )
+    date = models.DateField()
+    status = models.CharField(max_length=20, choices=[('present', 'Present'), ('absent', 'Absent')], default='present')
+
+    def __str__(self):
+        return f"{self.employee} - {self.date} - {self.status}"
+
+    class Meta:
+        ordering = ['-created']
+        unique_together = ('employee', 'date')
+        verbose_name = 'Employee Attendance Register'
+        verbose_name_plural = 'Employee Attendance Registers'
+
+
+    @staticmethod
+    def get_list_url():
+        return reverse_lazy("employees:employee_attendance_list")
+    
+    def get_absolute_url(self):
+        return reverse_lazy("employees:employee_attendance_detail", kwargs={"pk": self.pk})
+
+    def get_update_url(self):
+        return reverse_lazy("employees:employee_attendance_update", kwargs={"pk": self.pk})
+    
+    def get_delete_url(self):
+        return reverse_lazy("employees:employee_attendance_delete", kwargs={"pk": self.pk})
